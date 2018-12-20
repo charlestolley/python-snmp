@@ -125,6 +125,18 @@ class OCTET_STRING(ASN1):
         self.encoding = value
         self.value = value
 
+class NULL(ASN1):
+    def __str__(self):
+        return ""
+
+    @property
+    def encoding(self):
+        return b''
+
+    @property
+    def value(self):
+        return None
+
 class OID(ASN1):
     @property
     def encoding(self):
