@@ -1,4 +1,6 @@
 from copy import copy
+import socket
+
 from .exceptions import EncodingError, ProtocolError
 
 def decode(obj):
@@ -40,33 +42,12 @@ def encode_length(l):
     return bytes(reversed(bytearr))
 
 class ASN1:
-    def __init__(self, contents=None, encoding=None):
+    def __init__(self, value=None, encoding=None):
         self._encoding = encoding
-        self._contents = contents
-
-    def __eq__(self, other):
-        return self.contents == other
-
-    def __ge__(self, other):
-        return self.contents >= other
-
-    def __gt__(self, other):
-        return self.contents > other
-
-    def __le__(self, other):
-        return self.contents <= other
-
-    def __lt__(self, other):
-        return self.contents < other
-
-    def __ne__(self, other):
-        return self.contents != other
+        self._value = value
 
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, self)
-
-    def __str__(self):
-        return repr(self.contents)
 
     @classmethod
     def copy(cls, obj):
@@ -93,6 +74,28 @@ class ASN1:
         l = len(self.encoding)
         return bytes([self.TYPE]) + encode_length(l) + self.encoding
 
+    # The following methods only apply to primitive (non-sequence) types
+    def __eq__(self, other):
+        return self.value == other
+
+    def __ge__(self, other):
+        return self.value >= other
+
+    def __gt__(self, other):
+        return self.value > other
+
+    def __le__(self, other):
+        return self.value <= other
+
+    def __lt__(self, other):
+        return self.value < other
+
+    def __ne__(self, other):
+        return self.value != other
+
+    def __str__(self):
+        return repr(self.value)
+
 ### Primitive types ###
 
 class INTEGER(ASN1):
@@ -102,7 +105,7 @@ class INTEGER(ASN1):
     def encoding(self):
         if self._encoding is None:
             encoding = bytearray()
-            x = self._contents
+            x = self._value
 
             # do - while
             while True:
@@ -115,8 +118,8 @@ class INTEGER(ASN1):
         return self._encoding
 
     @property
-    def contents(self):
-        if self._contents is None:
+    def value(self):
+        if self._value is None:
             negative = self.SIGNED and bool(self._encoding[0] & 0x80)
 
             x = 0
@@ -126,22 +129,22 @@ class INTEGER(ASN1):
 
             if negative:
                 bits = 8 * len(self._encoding)
-                self._contents = -(~x + (1 << bits) + 1)
+                self._value = -(~x + (1 << bits) + 1)
             else:
-                self._contents = x
+                self._value = x
 
-        return self._contents
+        return self._value
 
 class OCTET_STRING(ASN1):
-    def __init__(self, contents=None, encoding=None):
-        if contents is None:
-            contents = encoding
+    def __init__(self, value=None, encoding=None):
+        if value is None:
+            value = encoding
 
-        if isinstance(contents, str):
-            contents = contents.encode()
+        if isinstance(value, str):
+            value = value.encode()
 
-        self.encoding = contents
-        self.contents = contents
+        self.encoding = value
+        self.value = value
 
 class NULL(ASN1):
     def __str__(self):
@@ -152,14 +155,14 @@ class NULL(ASN1):
         return b''
 
     @property
-    def contents(self):
+    def value(self):
         return None
 
 class OID(ASN1):
     @property
     def encoding(self):
         if self._encoding is None:
-            segments = [int(segment) for segment in self._contents.split('.')]
+            segments = [int(segment) for segment in self._value.split('.')]
 
             if len(segments) > 1:
                 segments[1] += segments[0] * 40
@@ -184,8 +187,8 @@ class OID(ASN1):
         return self._encoding
 
     @property
-    def contents(self):
-        if self._contents is None:
+    def value(self):
+        if self._value is None:
             encoding = self._encoding
 
             first = encoding[0]
@@ -204,23 +207,41 @@ class OID(ASN1):
             if val:
                 raise EncodingError("OID ended in a byte with bit 7 set")
 
-            self._contents = '.'.join(oid)
+            self._value = '.'.join(oid)
 
-        return self._contents
+        return self._value
 
 class SEQUENCE(ASN1):
     EXPECTED = None
 
-    def __init__(self, *contents, encoding=None):
+    def __init__(self, *values, encoding=None):
         self.expected = copy(self.EXPECTED)
 
         self._encoding = encoding
-        self._contents = contents or None
+        self._values = values or None
+
+    def __eq__(self, other):
+        return self.values == other
+
+    def __ge__(self, other):
+        return self.values >= other
+
+    def __gt__(self, other):
+        return self.values > other
+
+    def __le__(self, other):
+        return self.values <= other
+
+    def __lt__(self, other):
+        return self.values < other
+
+    def __ne__(self, other):
+        return self.values != other
 
     def __repr__(self, depth=0):
         string = "{}{}:\n".format('\t'*depth, self.__class__.__name__)
         depth += 1
-        for entry in self.contents:
+        for entry in self.values:
             if isinstance(entry, SEQUENCE):
                 string += entry.__repr__(depth=depth)
             else:
@@ -235,17 +256,17 @@ class SEQUENCE(ASN1):
     @property
     def encoding(self):
         if self._encoding is None:
-            encodings = [None] * len(self.contents)
-            for i in range(len(self.contents)):
-                encodings[i] = self.contents[i].serialize()
+            encodings = [None] * len(self.values)
+            for i in range(len(self.values)):
+                encodings[i] = self.values[i].serialize()
 
             self._encoding = b''.join(encodings)
 
         return self._encoding
 
     @property
-    def contents(self):
-        if self._contents is None:
+    def values(self):
+        if self._values is None:
             definite = isinstance(self.expected, list)
 
             sequence = []
@@ -264,9 +285,9 @@ class SEQUENCE(ASN1):
                 obj, encoding = ASN1.deserialize(encoding, cls=cls)
                 sequence.append(obj)
 
-            self._contents = tuple(sequence)
+            self._values = tuple(sequence)
 
-        return self._contents
+        return self._values
 
 ### Composed types ###
 
@@ -288,6 +309,19 @@ class Integer32(INTEGER):
 class Counter64(UNSIGNED):
     pass
 
+class IpAddress(OCTET_STRING):
+    @property
+    def encoding(self):
+        if self._encoding is None:
+            self._encoding = socket.inet_aton(self._value)
+        return self._encoding
+
+    @property
+    def value(self):
+        if self._value is None:
+            self._value = socket.inet_ntoa(self._encoding)
+        return self._value
+
 class VarBind(SEQUENCE):
     EXPECTED = [
         OID,
@@ -296,20 +330,20 @@ class VarBind(SEQUENCE):
 
     @property
     def name(self):
-        return self.contents[0]
+        return self.values[0]
 
     @property
     def value(self):
-        return self.contents[1]
+        return self.values[1]
 
 class VarBindList(SEQUENCE):
     EXPECTED = VarBind
 
     def __getitem__(self, index):
-        return self.contents[index]
+        return self.values[index]
 
     def __iter__(self):
-        return iter(self.contents)
+        return iter(self.values)
 
 class PDU(SEQUENCE):
     EXPECTED = [
@@ -320,29 +354,29 @@ class PDU(SEQUENCE):
     ]
 
     def __init__(self, request_id=0, error_status=0, error_index=0, vars=None, encoding=None):
-        contents = (
+        values = (
             UNSIGNED(request_id),
             INTEGER(error_status),
             INTEGER(error_index),
             vars,
         ) if vars is not None else ()
-        super(PDU, self).__init__(*contents, encoding=encoding)
+        super(PDU, self).__init__(*values, encoding=encoding)
 
     @property
     def request_id(self):
-        return self.contents[0]
+        return self.values[0]
 
     @property
     def error_status(self):
-        return self.contents[1]
+        return self.values[1]
 
     @property
     def error_index(self):
-        return self.contents[2]
+        return self.values[2]
 
     @property
     def vars(self):
-        return self.contents[3]
+        return self.values[3]
 
 class GetRequestPDU(PDU):
     def __init__(self, *oids, request_id=None, encoding=None):
@@ -359,7 +393,10 @@ class GetRequestPDU(PDU):
             super(GetRequestPDU, self).__init__(encoding=encoding)
 
 class GetNextRequestPDU(GetRequestPDU):
-    # on our end, they appear the same (other than the TYPE)
+    # on our end, this class appears the same (other than the TYPE)
+    pass
+
+class GetResponsePDU(PDU):
     pass
 
 class Message(SEQUENCE):
@@ -370,24 +407,24 @@ class Message(SEQUENCE):
     ]
 
     def __init__(self, version=0, community="public", data=None, encoding=None):
-        contents = (
+        values = (
             INTEGER(version),
             OCTET_STRING(community),
             data,
         ) if data is not None else ()
-        super(Message, self).__init__(*contents, encoding=encoding)
+        super(Message, self).__init__(*values, encoding=encoding)
 
     @property
     def version(self):
-        return self.contents[0]
+        return self.values[0]
 
     @property
     def community(self):
-        return self.contents[1]
+        return self.values[1]
 
     @property
     def data(self):
-        return self.contents[2]
+        return self.values[2]
 
 types = {
     0x02: INTEGER,
@@ -395,6 +432,7 @@ types = {
     0x05: NULL,
     0x06: OID,
     0x30: SEQUENCE,
+    0x40: IpAddress,
     0x41: Counter32,
     0x42: Gauge32,
     0x43: TimeTicks,
@@ -402,6 +440,7 @@ types = {
     0x46: Counter64,
     0xa0: GetRequestPDU,
     0xa1: GetNextRequestPDU,
+    0xa2: GetResponsePDU,
 }
 
 for dtype, cls in types.items():
