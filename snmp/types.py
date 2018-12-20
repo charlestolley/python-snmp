@@ -54,7 +54,7 @@ class ASN1:
         return cls(encoding=obj.encoding)
 
     @staticmethod
-    def deserialize(obj, cls=None):
+    def deserialize(obj, cls=None, leftovers=False):
         dtype, encoding, tail = decode(obj)
         if cls is None:
             try:
@@ -68,7 +68,11 @@ class ASN1:
             message = message.format(cls.TYPE, dtype)
             raise ProtocolError(message)
 
-        return cls(encoding=encoding), tail
+        obj = cls(encoding=encoding)
+        if leftovers:
+            return obj, tail
+        else:
+            return obj
 
     def serialize(self):
         l = len(self.encoding)
@@ -238,6 +242,9 @@ class SEQUENCE(ASN1):
     def __ne__(self, other):
         return self.values != other
 
+    def __str__(self):
+        return repr(self)
+
     def __repr__(self, depth=0):
         string = "{}{}:\n".format('\t'*depth, self.__class__.__name__)
         depth += 1
@@ -282,7 +289,7 @@ class SEQUENCE(ASN1):
                 else:
                     cls = self.expected
 
-                obj, encoding = ASN1.deserialize(encoding, cls=cls)
+                obj, encoding = ASN1.deserialize(encoding, cls=cls, leftovers=True)
                 sequence.append(obj)
 
             self._values = tuple(sequence)
@@ -406,7 +413,7 @@ class Message(SEQUENCE):
         None,
     ]
 
-    def __init__(self, version=0, community="public", data=None, encoding=None):
+    def __init__(self, version=0, community=b'public', data=None, encoding=None):
         values = (
             INTEGER(version),
             OCTET_STRING(community),
