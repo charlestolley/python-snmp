@@ -273,6 +273,21 @@ class SEQUENCE(ASN1):
 class UNSIGNED(INTEGER):
     SIGNED = False
 
+class Counter32(UNSIGNED):
+    pass
+
+class Gauge32(UNSIGNED):
+    pass
+
+class TimeTicks(UNSIGNED):
+    pass
+
+class Integer32(INTEGER):
+    pass
+
+class Counter64(UNSIGNED):
+    pass
+
 class VarBind(SEQUENCE):
     EXPECTED = [
         OID,
@@ -330,15 +345,22 @@ class PDU(SEQUENCE):
         return self.contents[3]
 
 class GetRequestPDU(PDU):
-    def __init__(self, *oids, request_id=None):
-        if request_id is None:
-            raise TypeError("Missing requred 'request_id' keyword argument")
+    def __init__(self, *oids, request_id=None, encoding=None):
+        if encoding is None:
+            if request_id is None:
+                raise TypeError("Missing requred 'request_id' keyword argument")
 
-        vars = [VarBind(OID(oid), NULL()) for oid in oids]
-        super(GetRequestPDU, self).__init__(
-            request_id=request_id,
-            vars=VarBindList(*vars),
-        )
+            vars = [VarBind(OID(oid), NULL()) for oid in oids]
+            super(GetRequestPDU, self).__init__(
+                request_id=request_id,
+                vars=VarBindList(*vars),
+            )
+        else:
+            super(GetRequestPDU, self).__init__(encoding=encoding)
+
+class GetNextRequestPDU(GetRequestPDU):
+    # on our end, they appear the same (other than the TYPE)
+    pass
 
 class Message(SEQUENCE):
     EXPECTED = [
@@ -373,6 +395,13 @@ types = {
     0x05: NULL,
     0x06: OID,
     0x30: SEQUENCE,
+    0x41: Counter32,
+    0x42: Gauge32,
+    0x43: TimeTicks,
+    0x44: Integer32,
+    0x46: Counter64,
+    0xa0: GetRequestPDU,
+    0xa1: GetNextRequestPDU,
 }
 
 for dtype, cls in types.items():
