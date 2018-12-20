@@ -40,8 +40,15 @@ def encode_length(l):
     return bytes(reversed(bytearr))
 
 class ASN1:
+    def __init__(self, value=None, encoding=None):
+        self._encoding = encoding
+        self._value = value
+
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, self)
+
+    def __str__(self):
+        return repr(self.value)
 
     @classmethod
     def copy(cls, obj):
@@ -72,13 +79,6 @@ class ASN1:
 
 class INTEGER(ASN1):
     SIGNED = True
-
-    def __init__(self, value=None, encoding=None):
-        self._encoding = encoding
-        self._value = value
-
-    def __str__(self):
-        return str(self.value)
 
     @property
     def encoding(self):
@@ -125,8 +125,58 @@ class OCTET_STRING(ASN1):
         self.encoding = value
         self.value = value
 
-    def __str__(self):
-        return repr(self.value)
+class OID(ASN1):
+    @property
+    def encoding(self):
+        if self._encoding is None:
+            segments = [int(segment) for segment in self._value.split('.')]
+
+            if len(segments) > 1:
+                segments[1] += segments[0] * 40
+                segments = segments[1:]
+
+            encoding = bytearray()
+            for num in segments:
+                bytearr = bytearray()
+                while num > 0x7f:
+                    bytearr.append(num & 0x7f)
+                    num >>= 7
+                bytearr.append(num)
+
+                for i in range(1, len(bytearr)):
+                    bytearr[i] |= 0x80
+
+                bytearr.reverse()
+                encoding += bytearr
+
+            self._encoding = bytes(encoding)
+
+        return self._encoding
+
+    @property
+    def value(self):
+        if self._value is None:
+            encoding = self._encoding
+
+            first = encoding[0]
+            oid = [str(num) for num in divmod(first, 40)]
+
+            val = 0
+            for i in range(1, len(encoding)):
+                byte = encoding[i]
+                val |= byte & 0x7f
+                if byte & 0x80:
+                    val <<= 7
+                else:
+                    oid.append(str(val))
+                    val = 0
+
+            if val:
+                raise EncodingError("OID ended in a byte with bit 7 set")
+
+            self._value = '.'.join(oid)
+
+        return self._value
 
 class SEQUENCE(ASN1):
     EXPECTED = None
@@ -193,6 +243,48 @@ class SEQUENCE(ASN1):
 class UNSIGNED(INTEGER):
     SIGNED = False
 
+class VarBind(SEQUENCE):
+    EXPECTED = [
+        OID,
+        None,
+    ]
+
+class VarBindList(SEQUENCE):
+    EXPECTED = VarBind
+
+class PDU(SEQUENCE):
+    EXPECTED = [
+        INTEGER,
+        INTEGER,
+        INTEGER,
+        VarBindList,
+    ]
+
+    def __init__(self, request_id=0, error_status=0, error_index=0, vars=None, encoding=None):
+        value = (
+            INTEGER(request_id),
+            INTEGER(error_status),
+            INTEGER(error_index),
+            vars,
+        ) if vars is not None else ()
+        super(PDU, self).__init__(*value, encoding=encoding)
+
+    @property
+    def request_id(self):
+        return self.value[0]
+
+    @property
+    def error_status(self):
+        return self.value[1]
+
+    @property
+    def error_index(self):
+        return self.value[2]
+
+    @property
+    def vars(self):
+        return self.value[3]
+
 class Message(SEQUENCE):
     EXPECTED = [
         INTEGER,
@@ -223,6 +315,7 @@ class Message(SEQUENCE):
 types = {
     0x02: INTEGER,
     0x04: OCTET_STRING,
+    0x06: OID,
     0x30: SEQUENCE,
 }
 
