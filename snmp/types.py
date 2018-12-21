@@ -386,24 +386,15 @@ class PDU(SEQUENCE):
         return self.values[3]
 
 class GetRequestPDU(PDU):
-    def __init__(self, *oids, request_id=None, encoding=None):
-        if encoding is None:
-            if request_id is None:
-                raise TypeError("Missing requred 'request_id' keyword argument")
+    pass
 
-            vars = [VarBind(OID(oid), NULL()) for oid in oids]
-            super(GetRequestPDU, self).__init__(
-                request_id=request_id,
-                vars=VarBindList(*vars),
-            )
-        else:
-            super(GetRequestPDU, self).__init__(encoding=encoding)
-
-class GetNextRequestPDU(GetRequestPDU):
-    # on our end, this class appears the same (other than the TYPE)
+class GetNextRequestPDU(PDU):
     pass
 
 class GetResponsePDU(PDU):
+    pass
+
+class SetRequestPDU(PDU):
     pass
 
 class Message(SEQUENCE):
@@ -448,6 +439,7 @@ types = {
     0xa0: GetRequestPDU,
     0xa1: GetNextRequestPDU,
     0xa2: GetResponsePDU,
+    0xa3: SetRequestPDU,
 }
 
 for dtype, cls in types.items():
