@@ -79,6 +79,9 @@ class ASN1:
         return bytes([self.TYPE]) + encode_length(l) + self.encoding
 
     # The following methods only apply to primitive (non-sequence) types
+    def __bool__(self):
+        return bool(self.value)
+
     def __eq__(self, other):
         return self.value == other
 
@@ -223,6 +226,9 @@ class SEQUENCE(ASN1):
 
         self._encoding = encoding
         self._values = values or None
+
+    def __bool__(self):
+        return bool(self.values)
 
     def __eq__(self, other):
         return self.values == other
@@ -401,7 +407,7 @@ class Message(SEQUENCE):
     EXPECTED = [
         INTEGER,
         OCTET_STRING,
-        None,
+        GetResponsePDU,
     ]
 
     def __init__(self, version=0, community=b'public', data=None, encoding=None):

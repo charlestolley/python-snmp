@@ -1,25 +1,31 @@
 import random
+import socket
 
-from .authentication import Trivial
-from .communication import UDP
-from .exceptions import ProtocolError
+from .exceptions import ProtocolError, STATUS_ERRORS
 from .types import ASN1, GetRequestPDU, GetNextRequestPDU, Message, NULL, OCTET_STRING, OID, SetRequestPDU, VarBind, VarBindList
 
+PORT = 161
+RECV_SIZE = 65507
+MAX_REQUEST_ID = 0xffffffff
+
 class Manager:
-    # TODO: allow user to specify custom authenticator/communicator
     def __init__(self, community=None, rwcommunity=None):
-        self.authenticator = Trivial()
-        self.communicator = UDP()
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(('', 0))
 
         self.rocommunity = community
         self.rwcommunity = rwcommunity or community
 
-    def _request_id(self):
-        # TODO: track request id's to prevent repeats
-        return random.randint(0, 0xffffffff)
+        # counting by an odd number should hit every request id once before repeating
+        self._count_by = random.randint(0, MAX_REQUEST_ID//2) * 2 + 1
+        self._next_id = self._count_by
 
-    def _request_done(self, request_id):
-        pass
+    def _request_id(self):
+        request_id = self._next_id
+        self._next_id = (request_id + self._count_by) & MAX_REQUEST_ID
+
+        print(request_id)
+        return request_id
 
     def get(self, host, *oids, community=None):
         pdu = GetRequestPDU(
@@ -60,22 +66,25 @@ class Manager:
         if community is not None:
             kwargs['community'] = community
 
-        # effectively a no-op for now
-        secured = self.authenticator.secure(pdu)
-
-        message = Message(data=secured, **kwargs)
-        self.communicator.send(host, message.serialize())
+        message = Message(data=pdu, **kwargs)
+        self.socket.sendto(message.serialize(), (host, PORT))
 
         # TODO: create a better system to handle responses
         while True:
-            packet = self.communicator.recv()
+            packet, (host, port) = self.socket.recvfrom(RECV_SIZE)
+            if port != PORT:
+                continue
+
             response = ASN1.deserialize(packet, cls=Message)
-
             if response.version != 0:
-                raise ProtocolError("Version mismatch")
+                continue
 
-            if response.community != kwargs['community']:
-                raise ProtocolError("Bad community")
+            response_pdu = response.data
+            if response_pdu.error_status:
+                status = response_pdu.error_status.value
+                index = response_pdu.error_index.value - 1
+                oid = response_pdu.vars[index].name
 
-            self._request_done(response.data.request_id.value)
+                raise STATUS_ERRORS[status](oid.value)
+
             return response.data.vars
