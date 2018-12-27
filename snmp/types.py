@@ -3,7 +3,7 @@ import socket
 
 from .exceptions import EncodingError, ProtocolError
 
-def decode(obj):
+def unpack(obj):
     if len(obj) < 2:
         raise EncodingError("object encoding is too short")
 
@@ -27,7 +27,7 @@ def decode(obj):
 
     return dtype, obj[index:index+l], obj[index+l:]
 
-def encode_length(l):
+def length(l):
     if l < 0x80:
         return bytes([l])
 
@@ -55,13 +55,16 @@ class ASN1:
 
     @staticmethod
     def deserialize(obj, cls=None, leftovers=False):
-        dtype, encoding, tail = decode(obj)
+        dtype, encoding, tail = unpack(obj)
+        if tail and not leftovers:
+            raise EncodingError("Unexpected trailing bytes")
+
         if cls is None:
             try:
                 cls = types[dtype]
             except KeyError as e:
                 message = "Unknown type: '0x{:02x}'".format(dtype)
-                raise EncodingError(message) from e
+                raise ProtocolError(message) from e
 
         elif dtype != cls.TYPE:
             message = "Expected type '0x{:02x}'; got '0x{:02x}'"
@@ -69,16 +72,13 @@ class ASN1:
             raise ProtocolError(message)
 
         obj = cls(encoding=encoding)
-        if leftovers:
-            return obj, tail
-        else:
-            return obj
+
+        return (obj, tail) if leftovers else obj
 
     def serialize(self):
-        l = len(self.encoding)
-        return bytes([self.TYPE]) + encode_length(l) + self.encoding
+        return bytes([self.TYPE]) + length(len(self.encoding)) + self.encoding
 
-    # The following methods only apply to primitive (non-sequence) types
+    # The following methods must be overwritten for sequence types
     def __bool__(self):
         return bool(self.value)
 
@@ -103,6 +103,9 @@ class ASN1:
     def __str__(self):
         return repr(self.value)
 
+    def poke(self):
+        self.value
+
 ### Primitive types ###
 
 class INTEGER(ASN1):
@@ -118,7 +121,7 @@ class INTEGER(ASN1):
             while True:
                 encoding.append(x & 0xff)
                 x >>= 8
-                if (x == 0 or ~x == 0):
+                if x in (0, -1):
                     break
 
             self._encoding = bytes(reversed(encoding))
@@ -143,17 +146,25 @@ class INTEGER(ASN1):
         return self._value
 
 class OCTET_STRING(ASN1):
-    def __init__(self, value=None, encoding=None):
-        if value is None:
-            value = encoding
+    @property
+    def encoding(self):
+        if self._encoding is None:
+            self._encoding = self._value
+        return self._encoding
 
-        if isinstance(value, str):
-            value = value.encode()
-
-        self.encoding = value
-        self.value = value
+    @property
+    def value(self):
+        if self._value is None:
+            self._value = self._encoding
+        return self._value
 
 class NULL(ASN1):
+    def __init__(self, value=None, encoding=None):
+        if encoding:
+            raise EncodingError("Non-null encoding for NULL type")
+        elif value is not None:
+            raise ValueError("NULL cannot have non-null value")
+
     def __str__(self):
         return ""
 
@@ -169,6 +180,9 @@ class OID(ASN1):
     @property
     def encoding(self):
         if self._encoding is None:
+            if self._value[0] == '.':
+                self._value = self.value[1:]
+
             segments = [int(segment) for segment in self._value.split('.')]
 
             if len(segments) > 1:
@@ -202,8 +216,7 @@ class OID(ASN1):
             oid = [str(num) for num in divmod(first, 40)]
 
             val = 0
-            for i in range(1, len(encoding)):
-                byte = encoding[i]
+            for byte in encoding[1:]:
                 val |= byte & 0x7f
                 if byte & 0x80:
                     val <<= 7
@@ -266,6 +279,10 @@ class SEQUENCE(ASN1):
 
         return string
 
+    def poke(self):
+        for val in self.values:
+            val.poke()
+
     @property
     def encoding(self):
         if self._encoding is None:
@@ -297,6 +314,11 @@ class SEQUENCE(ASN1):
 
                 obj, encoding = ASN1.deserialize(encoding, cls=cls, leftovers=True)
                 sequence.append(obj)
+
+            if definite and len(sequence) < len(self.expected):
+                message = "{} has too few elements"
+                message = message.format(self.__class__.__name__)
+                raise ProtocolError(message)
 
             self._values = tuple(sequence)
 
@@ -332,7 +354,10 @@ class IpAddress(OCTET_STRING):
     @property
     def value(self):
         if self._value is None:
-            self._value = socket.inet_ntoa(self._encoding)
+            if len(self._encoding) == 4:
+                self._value = socket.inet_ntoa(self._encoding)
+            else:
+                raise ProtocolError("IP Address must be 4 bytes long")
         return self._value
 
 class VarBind(SEQUENCE):
@@ -372,7 +397,7 @@ class PDU(SEQUENCE):
             INTEGER(error_status),
             INTEGER(error_index),
             vars,
-        ) if vars is not None else ()
+        ) if encoding is None else ()
         super(PDU, self).__init__(*values, encoding=encoding)
 
     @property
@@ -415,7 +440,7 @@ class Message(SEQUENCE):
             INTEGER(version),
             OCTET_STRING(community),
             data,
-        ) if data is not None else ()
+        ) if encoding is None else ()
         super(Message, self).__init__(*values, encoding=encoding)
 
     @property
