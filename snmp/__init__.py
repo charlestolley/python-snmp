@@ -24,7 +24,6 @@ class Manager:
         request_id = self._next_id
         self._next_id = (request_id + self._count_by) & MAX_REQUEST_ID
 
-        print(request_id)
         return request_id
 
     def get(self, host, *oids, community=None):
