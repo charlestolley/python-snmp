@@ -122,12 +122,23 @@ class Manager:
 
                 if response is not None:
                     pdu = response.data
+
+                    # TODO: return an object that raises an error when you access the value
                     if pdu.error_status:
                         status = pdu.error_status.value
-                        index = pdu.error_index.value - 1
-                        oid = pdu.vars[index].name
+                        index = pdu.error_index.value
 
-                        raise STATUS_ERRORS[status](oid.value)
+                        try:
+                            oid = pdu.vars[index-1].name
+                        except IndexError:
+                            message = "Invalid error index: {}".format(index)
+                            raise ProtocolError(message)
+
+                        try:
+                            raise STATUS_ERRORS[status](oid.value)
+                        except IndexError:
+                            message = "Invalid error status: {}".format(status)
+                            raise ProtocolError(message)
 
                     return response.data.vars
 
