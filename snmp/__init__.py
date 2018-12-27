@@ -29,8 +29,9 @@ def _listener(sock, data, lock, signal):
 
         lock.acquire()
         data[message.data.request_id.value] = message
-        signal.set()
         lock.release()
+
+        signal.set()
 
 class Manager:
     def __init__(self, community=None, rwcommunity=None):
@@ -115,8 +116,9 @@ class Manager:
             self.socket.sendto(packet, (host, PORT))
             end_time += 1
             while self.received.wait(end_time - time.time()):
-                self.lock.acquire()
                 self.received.clear()
+
+                self.lock.acquire()
                 response = self.responses[request_id]
                 self.lock.release()
 
