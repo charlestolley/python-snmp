@@ -6,6 +6,9 @@ class EncodingError(Exception):
 class ProtocolError(Exception):
     pass
 
+class Timeout(Exception):
+    pass
+
 class StatusError(Exception):
     pass
 

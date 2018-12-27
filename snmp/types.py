@@ -385,7 +385,7 @@ class VarBindList(SEQUENCE):
 
 class PDU(SEQUENCE):
     EXPECTED = [
-        UNSIGNED,
+        INTEGER,
         INTEGER,
         INTEGER,
         VarBindList,
@@ -393,7 +393,7 @@ class PDU(SEQUENCE):
 
     def __init__(self, request_id=0, error_status=0, error_index=0, vars=None, encoding=None):
         values = (
-            UNSIGNED(request_id),
+            INTEGER.copy(UNSIGNED(request_id)),
             INTEGER(error_status),
             INTEGER(error_index),
             vars,
