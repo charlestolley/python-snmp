@@ -7,19 +7,19 @@ from snmp.types import length, unpack
 
 class LengthTest(TestCase):
     def test_zero(self):
-        self.assertEquals(length(0), b'\0')
+        self.assertEqual(length(0), b'\0')
 
     def test_short(self):
-        self.assertEquals(length(0x7f), b'\x7f')
+        self.assertEqual(length(0x7f), b'\x7f')
 
     def test_long(self):
-        self.assertEquals(length(0x80), b'\x81\x80')
+        self.assertEqual(length(0x80), b'\x81\x80')
 
     def test_longer(self):
-        self.assertEquals(length(0xffff), b'\x82\xff\xff')
+        self.assertEqual(length(0xffff), b'\x82\xff\xff')
 
     def test_longest(self):
-        self.assertEquals(length(1234567890), b'\x84\x49\x96\x02\xd2')
+        self.assertEqual(length(1234567890), b'\x84\x49\x96\x02\xd2')
 
 class UnpackTest(TestCase):
     def test_empty(self):
