@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 
+import threading
 from unittest import TestCase, main
 
+from snmp import Manager
 from snmp.exceptions import EncodingError
 from snmp.types import length, unpack
 
@@ -39,5 +41,11 @@ class UnpackTest(TestCase):
 
     def test_long(self):
         self.assertTupleEqual((4, b'\0' * 128, b''), unpack(b'\x04\x81\x80' + b'\0' * 128))
+
+class ManagerTest(TestCase):
+    def test_cleanup(self):
+        m = Manager()
+        del m
+        self.assertEqual(threading.active_count(), 1)
 
 main()

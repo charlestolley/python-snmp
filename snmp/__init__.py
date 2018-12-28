@@ -1,4 +1,6 @@
+import os
 import random
+import select
 import socket
 import threading
 import time
@@ -10,8 +12,12 @@ PORT = 161
 RECV_SIZE = 65507
 MAX_REQUEST_ID = 0xffffffff
 
-def _listener(sock, data, lock, signal):
+def _listener(sock, data, lock, signal, done):
     while True:
+        r, _, _ = select.select([sock, done], [], [])
+        if done in r:
+            return
+
         packet, (host, port) = sock.recvfrom(RECV_SIZE)
         if port != PORT:
             continue
@@ -35,8 +41,13 @@ def _listener(sock, data, lock, signal):
 
 class Manager:
     def __init__(self, community=None, rwcommunity=None):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('', 0))
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._sock.setblocking(False)
+        self._sock.bind(('', 0))
+
+        r, w = os.pipe()
+        self._read_pipe = os.fdopen(r)
+        self._write_pipe_fd = w
 
         self.rocommunity = community
         self.rwcommunity = rwcommunity or community
@@ -49,11 +60,19 @@ class Manager:
         self.lock = threading.Lock()
         self.received = threading.Event()
 
-        threading.Thread(
+        self._listener = threading.Thread(
             target=_listener,
-            args=(self.socket, self.responses, self.lock, self.received),
-            daemon=True
-        ).start()
+            args=(self._sock, self.responses, self.lock, self.received, self._read_pipe),
+        )
+        self._listener.start()
+
+    def __del__(self):
+        os.write(self._write_pipe_fd, b'\0')
+        self._listener.join()
+
+        self._read_pipe.close()
+        os.close(self._write_pipe_fd)
+        self._sock.close()
 
     def _request_id(self):
         request_id = self._next_id
@@ -113,7 +132,7 @@ class Manager:
 
         response = None
         for i in range(10):
-            self.socket.sendto(packet, (host, PORT))
+            self._sock.sendto(packet, (host, PORT))
             end_time += 1
             while self.received.wait(end_time - time.time()):
                 self.received.clear()
