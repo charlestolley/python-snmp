@@ -3,7 +3,7 @@ I began work on this project in late 2017 or early 2018 in hopes of making a lib
 
 This package is written specifically for Python 3. There is no guarantee of correct operation for Python 2.
 
-### Version 0.0.1
+### Version 0.0.3
 This version constitutes a minimum viable product in the truest sense. It is hard-coded to support only unauthenticated SNMPv1 on UDP port 161, but the structure of the software is hopefully flexible enough that it can be massaged into supporting more recent versions as well. All OID's must be provided as dot-separated numbers, as there is no support for parsing MIB files. As indicated in the `notes.txt` file, basic operation is seen as a priority. Fancier features will hopefully be available in future releases.
 
 Usage is meant to be quite simple. All requests are handled by an object of type `Manager`, and return an object of type `VarBindList`. This object contains entries of type `VarBind`, which may be accessed by numerical indices or by iteration. `VarBind` objects have two attributes: `name`, which is an `OID` object, and `value`, which may be any type. All of the aforementioned types (with the exception of the `Manager`) are defined in `snmp.types`, and inherit from a base class called `ASN1`. `INTEGER`, `OCTET_STRING`, `NULL`, and `OID` types, as well as any subclasses, are decoded into python primitives with the `.value` attribute. Note that `OCTET_STRING`s are always stored as `bytes`, and never as `str`, as this can cause `UnicodeDecodeError`s for non-ASCII data. The following example code retrieves IF-MIB::ifDescr.1 from localhost:
