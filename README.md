@@ -22,4 +22,4 @@ The output should look something like this:
 
     1.3.6.1.2.1.2.2.1.2.1: b'lo'
 
-Note that any Manager objects instantiated in the global scope must be explicitly deleted. Failure to do so will cause the program to hang rather than terminating properly.
+In version 0.0.4, any Manager objects instantiated in the global scope must be explicitly deleted. Failure to do so will cause the program to hang rather than terminating properly. As of Version 0.0.5, the `.close()` function may be used instead.

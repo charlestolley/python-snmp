@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import select
@@ -7,6 +8,8 @@ import time
 
 from .exceptions import ProtocolError, Timeout, STATUS_ERRORS
 from .types import ASN1, GetRequestPDU, GetNextRequestPDU, Message, NULL, OCTET_STRING, OID, SetRequestPDU, VarBind, VarBindList
+
+log = logging.getLogger(__name__)
 
 PORT = 161
 RECV_SIZE = 65507
@@ -33,9 +36,8 @@ def _listener(sock, data, lock, signal, done):
         except (EncodingError, ProtocolError) as e:
             continue
 
-        lock.acquire()
-        data[message.data.request_id.value] = message
-        lock.release()
+        with lock:
+            data[message.data.request_id.value] = message
 
         signal.set()
 
@@ -56,23 +58,31 @@ class Manager:
         self._count_by = random.randint(0, MAX_REQUEST_ID//2) * 2 + 1
         self._next_id = self._count_by
 
-        self.responses = {}
-        self.lock = threading.Lock()
-        self.received = threading.Event()
+        self._responses = {}
+        self._lock = threading.Lock()
+        self._received = threading.Event()
 
         self._listener = threading.Thread(
             target=_listener,
-            args=(self._sock, self.responses, self.lock, self.received, self._read_pipe),
+            args=(self._sock, self._responses, self._lock, self._received, self._read_pipe),
         )
         self._listener.start()
 
-    def __del__(self):
+    def close(self):
+        log.debug("Sending shutdown signal to listener thread")
         os.write(self._write_pipe_fd, b'\0')
+
+        log.debug("Joining self._listener")
         self._listener.join()
+        self._listener = None
 
         self._read_pipe.close()
         os.close(self._write_pipe_fd)
         self._sock.close()
+
+    def __del__(self):
+        if self._listener is not None:
+            self.close()
 
     def _request_id(self):
         request_id = self._next_id
@@ -124,9 +134,8 @@ class Manager:
         request_id = pdu.request_id.value
         message = Message(data=pdu, **kwargs)
 
-        self.lock.acquire()
-        self.responses[request_id] = None
-        self.lock.release()
+        with self._lock:
+            self._responses[request_id] = None
 
         packet = message.serialize()
 
@@ -134,12 +143,11 @@ class Manager:
         for i in range(10):
             self._sock.sendto(packet, (host, PORT))
             end_time += 1
-            while self.received.wait(end_time - time.time()):
-                self.received.clear()
+            while self._received.wait(end_time - time.time()):
+                self._received.clear()
 
-                self.lock.acquire()
-                response = self.responses[request_id]
-                self.lock.release()
+                with self._lock:
+                    response = self._responses[request_id]
 
                 if response is not None:
                     pdu = response.data
