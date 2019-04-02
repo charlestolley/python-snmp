@@ -7,7 +7,7 @@ import threading
 import time
 
 from .exceptions import ProtocolError, Timeout, STATUS_ERRORS
-from .types import ASN1, GetRequestPDU, GetNextRequestPDU, Message, NULL, OCTET_STRING, OID, SetRequestPDU, VarBind, VarBindList
+from .types import *
 
 log = logging.getLogger(__name__)
 
