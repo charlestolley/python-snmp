@@ -49,7 +49,7 @@ class Manager:
 
         r, w = os.pipe()
         self._read_pipe = os.fdopen(r)
-        self._write_pipe_fd = w
+        self._write_pipe = os.fdopen(w, 'w')
 
         self.rocommunity = community
         self.rwcommunity = rwcommunity or community
@@ -70,14 +70,15 @@ class Manager:
 
     def close(self):
         log.debug("Sending shutdown signal to listener thread")
-        os.write(self._write_pipe_fd, b'\0')
+        self._write_pipe.write('\0')
+        self._write_pipe.flush()
 
         log.debug("Joining self._listener")
         self._listener.join()
         self._listener = None
 
         self._read_pipe.close()
-        os.close(self._write_pipe_fd)
+        self._write_pipe.close()
         self._sock.close()
 
     def __del__(self):
