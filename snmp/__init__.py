@@ -7,6 +7,7 @@ import threading
 import time
 
 from .exceptions import ProtocolError, Timeout, STATUS_ERRORS
+from .mutex import RWLock
 from .types import *
 
 log = logging.getLogger(__name__)
@@ -59,12 +60,12 @@ class Manager:
         self._next_id = self._count_by
 
         self._responses = {}
-        self._lock = threading.Lock()
+        self._lock, wlock = RWLock()
         self._received = threading.Event()
 
         self._listener = threading.Thread(
             target=_listener,
-            args=(self._sock, self._responses, self._lock, self._received, self._read_pipe),
+            args=(self._sock, self._responses, wlock, self._received, self._read_pipe),
         )
         self._listener.start()
 
