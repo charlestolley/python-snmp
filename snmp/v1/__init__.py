@@ -26,6 +26,7 @@ class SNMPv1:
         self._sock.setblocking(False)
         self._sock.bind(('', 0))
 
+        # used to shut down background threads
         r, w = os.pipe()
         self._read_pipe = os.fdopen(r)
         self._write_pipe = os.fdopen(w, 'w')
@@ -35,40 +36,71 @@ class SNMPv1:
         self._count_by = random.randint(0, MAX_REQUEST_ID//2) * 2 + 1
         self._next_id = self._count_by
 
+        # TODO: expire out of pend table if response does not arrive
+        # table of pending requests (prevents re-sending packets unnecessarily)
+        # {
+        #   <host_ip>: {
+        #       <oid>: threading.Event,
+        #       ...
+        #   },
+        #   ...
+        # }
         self._pending = {}
-        self._prlock, self._pwlock = RWLock()
+        self._plock = threading.Lock()
 
+        # table of responses
+        # {
+        #   <host_ip>: {
+        #       <oid>: (VarBind, <timestamp: float>),
+        #       ...
+        #   },
+        #   ...
+        # }
         self._data = {}
         self._drlock, self._dwlock = RWLock()
-        self._received = threading.Event()
 
         self._listener = threading.Thread(target=self._listen_thread)
         self._listener.start()
 
+    # background thread to process responses
     def _listen_thread(self):
         while True:
+            # wait for data on self._sock or self._read_pipe
             r, _, _ = select.select([self._sock, self._read_pipe], [], [])
+
             if self._read_pipe in r:
+                # exit from this thread
+                # don't bother processing any more responses; the calling
+                #   application has all the data they need
                 break
 
+            # listen for UDP packets from the correct port
             packet, (host, port) = self._sock.recvfrom(RECV_SIZE)
             if port != self.port:
                 continue
 
             try:
+                # convert bytes to Message object
                 message = ASN1.deserialize(packet, cls=Message)
 
+                # ignore garbage packets
                 if message.version != self.VERSION:
                     continue
 
+                # force a full parse; invalid packet will raise EncodingError
                 message.poke()
 
             except (EncodingError, ProtocolError) as e:
                 log.exception(e)
                 continue
 
+            log.debug("Response from {}".format(host))
+
             # TODO: error handling
             with self._dwlock:
+                # collects threading.Event objects from pending table
+                events = set()
+
                 try:
                     host_data = self._data[host]
                 except KeyError:
@@ -76,25 +108,20 @@ class SNMPv1:
                     self._data[host] = host_data
 
                 now = time.time()
-                events = set()
                 for varbind in message.data.vars:
                     oid = varbind.name.value
                     value = varbind.value
 
-                    try:
-                        timestamp = host_data[oid][1]
-                    except KeyError:
-                        timestamp = 0
+                    with self._plock:
+                        # TODO: find out if the 'host' might be different
+                        #       from the IP to which the request was sent
+                        events.add(self._pending[host][oid])
 
-                    if now > timestamp:
-                        with self._prlock:
-                            # TODO: the trouble is that host might be different
-                            #       from the IP to which the request was sent
-                            events.add(self._pending[host][oid])
+                    # update data table
+                    host_data[oid] = (varbind, now)
 
-                        host_data[oid] = (varbind, now)
-
-                with self._pwlock:
+                # use the lock around this to avoid race condition with get()
+                with self._plock:
                     for event in events:
                         event.set()
 
@@ -122,18 +149,27 @@ class SNMPv1:
         return request_id
 
     def get(self, host, *oids, community=None, block=True, cached=1):
+        # used for blocking calls to wait for all responses
         events = set()
+
+        # we can use a single event for all entries in the pending table
+        # as long as we don't ever try to re-use it with clear() later
         main_event = threading.Event()
-        missing = []
-        send = []
-        really_send = set()
+
+        # set of oids for which we have no value (or value is expired)
+        missing = set()
+
+        # set of missing oids that are not in the pending table
+        send = set()
+
+        # values[i] corresponds to oids[i]
         values = [None] * len(oids)
 
         with self._drlock:
             try:
                 host_data = self._data[host]
             except KeyError:
-                missing = oids
+                missing = set(oids)
             else:
 
                 now = time.time()
@@ -145,72 +181,68 @@ class SNMPv1:
                         value, timestamp = (None, 0)
 
                     if timestamp + cached < now:
-                        missing.append(oid)
+                        # value not found or expired
+                        missing.add(oid)
                     else:
+                        # use cached value
                         values[i] = value
 
+            # don't release self._drlock yet because the listener might remove
+            # stuff from the pending table, which would cause us to send extra
+            # requests for no reason
+
             if missing:
-                with self._prlock:
-                    try:
-                        host_pending = self._pending[host]
-                    except KeyError:
-                        send = missing
-                    else:
-                        for oid in missing:
-                            try:
-                                event = host_pending[oid]
-                            except KeyError:
-                                pass
-                            else:
-                                if not event.is_set():
-                                    events.add(event)
-                                    continue
-
-                            send.append(oid)
-
-            if send:
-                with self._pwlock:
+                with self._plock:
                     try:
                         host_pending = self._pending[host]
                     except KeyError:
                         host_pending = {}
                         self._pending[host] = host_pending
 
-                    for oid in send:
+                    # check if requests already exist for the missing oids
+                    for oid in missing:
                         try:
                             event = host_pending[oid]
                         except KeyError:
                             pass
                         else:
+                            # an event that is set is presumed to be outdated
                             if not event.is_set():
                                 events.add(event)
                                 continue
 
                         # put all oids on one event so they will trigger at once
                         host_pending[oid] = main_event
-                        really_send.add(oid)
+                        send.add(oid)
 
-            if really_send:
-                events.add(main_event)
-                pdu = GetRequestPDU(
-                    request_id=self._request_id(),
-                    vars=VarBindList(
-                        *[VarBind(OID(oid), NULL()) for oid in really_send]
-                    ),
-                )
-                message = Message(
-                    version = self.VERSION,
-                    data = pdu,
-                    community = community or self.rocommunity,
-                )
-                self._sock.sendto(message.serialize(), (host, self.port))
+        # send any requests that are not found to be pending
+        if send:
+            events.add(main_event)
+            pdu = GetRequestPDU(
+                request_id=self._request_id(),
+                vars=VarBindList(
+                    *[VarBind(OID(oid), NULL()) for oid in send]
+                ),
+            )
+
+            message = Message(
+                version = self.VERSION,
+                data = pdu,
+                community = community or self.rocommunity,
+            )
+
+            self._sock.sendto(message.serialize(), (host, self.port))
+            log.debug("Sent request to {}".format(host))
 
         if not block:
             return values
 
+        # wait for all requested oids to receive a response
         for event in events:
+            # TODO: trigger the event in the case of a timeout
             event.wait()
 
+        # the data table should now be all up to date
         with self._drlock:
             values = []
             try:
@@ -220,6 +252,9 @@ class SNMPv1:
 
             for oid in oids:
                 try:
+                    # NOTE: if a value was available earlier when the timestamp
+                    #       was checked, it may have now passed that expiration
+                    #       timestamp, but I don't think it's worth re-checking
                     value = host_data[oid][0]
                 except KeyError:
                     # TODO: replace with something that throws a
