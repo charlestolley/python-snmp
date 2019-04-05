@@ -1,3 +1,5 @@
+from binascii import hexlify
+from collections import OrderedDict
 import logging
 import os
 import random
@@ -14,6 +16,13 @@ log = logging.getLogger(__name__)
 
 RECV_SIZE = 65507
 MAX_REQUEST_ID = 0xffffffff
+
+class PendTable:
+    def __init__(self):
+        self.lock = threading.Lock()
+
+        self.oids = {}
+        self.requests = OrderedDict()
 
 class SNMPv1:
     VERSION = 0
@@ -80,6 +89,16 @@ class SNMPv1:
                 continue
 
             try:
+                # not sure if it's necessary to acquire the lock, but whatever
+                with self._plock:
+                    host_pending = self._pending[host]
+            except KeyError:
+                # ignore unknown traffic
+                message = "Received unsolicited packet from {}: {}"
+                log.warning(message.format(host, hexlify(packet).decode()))
+                continue
+
+            try:
                 # convert bytes to Message object
                 message = ASN1.deserialize(packet, cls=Message)
 
@@ -87,20 +106,28 @@ class SNMPv1:
                 if message.version != self.VERSION:
                     continue
 
-                # force a full parse; invalid packet will raise EncodingError
+                # force a full parse; invalid packet will raise an error
                 message.poke()
 
             except (EncodingError, ProtocolError) as e:
-                log.exception(e)
+                # this should take care of filtering out invalid traffic
+                log.warning("{}: {}: {}".format(
+                    e.__class__.__name__, e, hexlify(packet).decode()
+                ))
                 continue
 
-            log.debug("Response from {}".format(host))
+            request_id = message.data.request_id.value
+            try:
+                with host_pending.lock:
+                    # TODO: check that request matches response 
+                    request, event = host_pending.requests.pop(request_id)
+            except KeyError:
+                # ignore responses for which there was no request
+                message = "Received unexpected response from {}: {}"
+                log.warning(message.format(host, hexlify(packet).decode()))
+                continue
 
-            # TODO: error handling
             with self._dwlock:
-                # collects threading.Event objects from pending table
-                events = set()
-
                 try:
                     host_data = self._data[host]
                 except KeyError:
@@ -108,21 +135,14 @@ class SNMPv1:
                     self._data[host] = host_data
 
                 for varbind in message.data.vars:
-                    oid = varbind.name.value
-                    value = varbind.value
-
-                    with self._plock:
-                        # TODO: find out if the 'host' might be different
-                        #       from the IP to which the request was sent
-                        events.add(self._pending[host][oid])
-
                     # update data table
-                    host_data[oid] = varbind
+                    host_data[varbind.name.value] = varbind
 
-                # use the lock around this to avoid race condition with get()
-                with self._plock:
-                    for event in events:
-                        event.set()
+            msg = "Done processing response from {} (ID={})"
+            log.debug(msg.format(host, request_id))
+
+            # alert the main thread that the data is ready
+            event.set()
 
     def close(self):
         log.debug("Sending shutdown signal to listener thread")
@@ -148,29 +168,31 @@ class SNMPv1:
         return request_id
 
     def get(self, host, *oids, community=None, block=True, refresh=False):
+        # this event will be stored in the pending table under this request ID
+        # the _listener_thread will signal when the data is ready
+        main_event = threading.Event()
+
         # used for blocking calls to wait for all responses
         events = set()
 
-        # we can use a single event for all entries in the pending table
-        # as long as we don't ever try to re-use it with clear() later
-        main_event = threading.Event()
-
-        # set of oids for which we have no value (or value is expired)
+        # set of oids for which there is currently no data
         missing = set()
 
-        # set of missing oids that are not in the pending table
+        # set of missing oids that are also not in the pending table
         send = set()
 
-        # values[i] corresponds to oids[i]
+        # return value (values[i] corresponds to oids[i])
         values = [None] * len(oids)
 
         with self._drlock:
             if refresh:
+                # ignore any value already in the data table
                 missing = set(oids)
             else:
                 try:
                     host_data = self._data[host]
                 except KeyError:
+                    # the data table does not have anything for this host
                     missing = set(oids)
                 else:
 
@@ -179,36 +201,34 @@ class SNMPv1:
                             # use cached value
                             values[i] = host_data[oid]
                         except KeyError:
-                            # value not found or expired
+                            # value not found
                             missing.add(oid)
 
-            # don't release self._drlock yet because the listener might remove
-            # stuff from the pending table, which would cause us to send extra
-            # requests for no reason
+        if missing:
+            with self._plock:
+                try:
+                    host_pending = self._pending[host]
+                except KeyError:
+                    host_pending = PendTable()
+                    self._pending[host] = host_pending
 
-            if missing:
-                with self._plock:
+            # check if requests already exist for the missing oids
+            for oid in missing:
+                with host_pending.lock:
                     try:
-                        host_pending = self._pending[host]
+                        event = host_pending.oids[oid]
                     except KeyError:
-                        host_pending = {}
-                        self._pending[host] = host_pending
+                        pass
+                    else:
+                        # do not re-request oids that are already pending
+                        if not event.is_set():
+                            # add to events set so we can wait on it later
+                            events.add(event)
+                            continue
 
-                    # check if requests already exist for the missing oids
-                    for oid in missing:
-                        try:
-                            event = host_pending[oid]
-                        except KeyError:
-                            pass
-                        else:
-                            # an event that is set is presumed to be outdated
-                            if not event.is_set():
-                                events.add(event)
-                                continue
-
-                        # put all oids on one event so they will trigger at once
-                        host_pending[oid] = main_event
-                        send.add(oid)
+                    # put all oids on one event so they will trigger at once
+                    host_pending.oids[oid] = main_event
+                    send.add(oid)
 
         # send any requests that are not found to be pending
         if send:
@@ -220,14 +240,23 @@ class SNMPv1:
                 ),
             )
 
+            # assign request_id variable this way rather than directly from
+            # self._request_id() because self._request_id() returns unsigned
+            # values, whereas this method returns signed values, and the key
+            # here has to match what is used in the _listener_thread()
+            request_id = pdu.request_id.value
+
             message = Message(
                 version = self.VERSION,
                 data = pdu,
                 community = community or self.rocommunity,
             )
 
+            with host_pending.lock:
+                host_pending.requests[request_id] = message, main_event
+
             self._sock.sendto(message.serialize(), (host, self.port))
-            log.debug("Sent request to {}".format(host))
+            log.debug("Sent request to {} (ID={})".format(host, request_id))
 
         if not block:
             return values
@@ -312,7 +341,8 @@ class SNMPv1:
                 if response is not None:
                     pdu = response.data
 
-                    # TODO: return an object that raises an error when you access the value
+                    # TODO: return an object that raises an error when you
+                    #       access the value
                     if pdu.error_status:
                         status = pdu.error_status.value
                         index = pdu.error_index.value
