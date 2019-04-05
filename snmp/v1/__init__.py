@@ -51,7 +51,7 @@ class SNMPv1:
         # table of responses
         # {
         #   <host_ip>: {
-        #       <oid>: (VarBind, <timestamp: float>),
+        #       <oid>: VarBind,
         #       ...
         #   },
         #   ...
@@ -107,7 +107,6 @@ class SNMPv1:
                     host_data = {}
                     self._data[host] = host_data
 
-                now = time.time()
                 for varbind in message.data.vars:
                     oid = varbind.name.value
                     value = varbind.value
@@ -118,7 +117,7 @@ class SNMPv1:
                         events.add(self._pending[host][oid])
 
                     # update data table
-                    host_data[oid] = (varbind, now)
+                    host_data[oid] = varbind
 
                 # use the lock around this to avoid race condition with get()
                 with self._plock:
@@ -148,7 +147,7 @@ class SNMPv1:
 
         return request_id
 
-    def get(self, host, *oids, community=None, block=True, cached=1):
+    def get(self, host, *oids, community=None, block=True, refresh=False):
         # used for blocking calls to wait for all responses
         events = set()
 
@@ -166,26 +165,22 @@ class SNMPv1:
         values = [None] * len(oids)
 
         with self._drlock:
-            try:
-                host_data = self._data[host]
-            except KeyError:
+            if refresh:
                 missing = set(oids)
             else:
+                try:
+                    host_data = self._data[host]
+                except KeyError:
+                    missing = set(oids)
+                else:
 
-                now = time.time()
-
-                for i, oid in enumerate(oids):
-                    try:
-                        value, timestamp = host_data[oid]
-                    except KeyError:
-                        value, timestamp = (None, 0)
-
-                    if timestamp + cached < now:
-                        # value not found or expired
-                        missing.add(oid)
-                    else:
-                        # use cached value
-                        values[i] = value
+                    for i, oid in enumerate(oids):
+                        try:
+                            # use cached value
+                            values[i] = host_data[oid]
+                        except KeyError:
+                            # value not found or expired
+                            missing.add(oid)
 
             # don't release self._drlock yet because the listener might remove
             # stuff from the pending table, which would cause us to send extra
@@ -252,10 +247,7 @@ class SNMPv1:
 
             for oid in oids:
                 try:
-                    # NOTE: if a value was available earlier when the timestamp
-                    #       was checked, it may have now passed that expiration
-                    #       timestamp, but I don't think it's worth re-checking
-                    value = host_data[oid][0]
+                    value = host_data[oid]
                 except KeyError:
                     # TODO: replace with something that throws a
                     #       a protocol error
