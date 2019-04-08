@@ -68,6 +68,8 @@ class SNMPv1:
         self._data = {}
         self._drlock, self._dwlock = RWLock()
 
+        self.start = time.time()
+
         self._listener = threading.Thread(target=self._listen_thread)
         self._listener.start()
 
@@ -123,10 +125,18 @@ class SNMPv1:
                     request, event = host_pending.requests.pop(request_id)
             except KeyError:
                 # ignore responses for which there was no request
-                message = "Received unexpected response from {}: {}"
-                log.warning(message.format(host, hexlify(packet).decode()))
+                msg = "Received unexpected response from {}: {}"
+                log.warning(msg.format(host, hexlify(packet).decode()))
                 continue
 
+            if len(message.data.vars) != len(request.data.vars):
+                msg = "VarBindList length mismatch:\n(Request) {}(Response) {}"
+                log.error(msg.format(request, message))
+                continue
+
+            next = isinstance(request.data, GetNextRequestPDU)
+
+            # TODO: handle responses with errors
             with self._dwlock:
                 try:
                     host_data = self._data[host]
@@ -134,12 +144,23 @@ class SNMPv1:
                     host_data = {}
                     self._data[host] = host_data
 
-                for varbind in message.data.vars:
+                for i, varbind in enumerate(message.data.vars):
+                    oid = varbind.name.value
                     # update data table
-                    host_data[varbind.name.value] = varbind
+                    try:
+                        host_data[oid][0] = varbind
+                    except KeyError:
+                        host_data[oid] = [varbind, None]
 
-            msg = "Done processing response from {} (ID={})"
-            log.debug(msg.format(host, request_id))
+                    if next:
+                        prev = request.data.vars[i].name.value
+                        try:
+                            host_data[prev][1] = oid
+                        except KeyError:
+                            host_data[prev] = [None, oid]
+
+            msg = "Done processing response from {} (ID={}) @ {}"
+            log.debug(msg.format(host, request_id, time.time()-self.start))
 
             # alert the main thread that the data is ready
             event.set()
@@ -167,7 +188,8 @@ class SNMPv1:
 
         return request_id
 
-    def get(self, host, *oids, community=None, block=True, refresh=False):
+    def get(self, host, *oids, community=None, block=True,
+                                refresh=False, next=False):
         # this event will be stored in the pending table under this request ID
         # the _listener_thread will signal when the data is ready
         main_event = threading.Event()
@@ -199,7 +221,11 @@ class SNMPv1:
                     for i, oid in enumerate(oids):
                         try:
                             # use cached value
-                            values[i] = host_data[oid]
+                            value, next_oid = host_data[oid]
+                            if next:
+                                value, _ = host_data[next_oid]
+
+                            values[i] = value
                         except KeyError:
                             # value not found
                             missing.add(oid)
@@ -233,7 +259,8 @@ class SNMPv1:
         # send any requests that are not found to be pending
         if send:
             events.add(main_event)
-            pdu = GetRequestPDU(
+            pdu_type = GetNextRequestPDU if next else GetRequestPDU
+            pdu = pdu_type(
                 request_id=self._request_id(),
                 vars=VarBindList(
                     *[VarBind(OID(oid), NULL()) for oid in send]
@@ -256,7 +283,8 @@ class SNMPv1:
                 host_pending.requests[request_id] = message, main_event
 
             self._sock.sendto(message.serialize(), (host, self.port))
-            log.debug("Sent request to {} (ID={})".format(host, request_id))
+            msg = "Sent request to {} (ID={}) @ {}"
+            log.debug(msg.format(host, request_id, time.time()-self.start))
 
         if not block:
             return values
@@ -276,7 +304,9 @@ class SNMPv1:
 
             for oid in oids:
                 try:
-                    value = host_data[oid]
+                    value, next_oid = host_data[oid]
+                    if next:
+                        value, _ = host_data[next_oid]
                 except KeyError:
                     # TODO: replace with something that throws a
                     #       a protocol error
@@ -286,12 +316,9 @@ class SNMPv1:
 
         return values
 
-    def get_next(self, host, *oids, community=None):
-        pdu = GetNextRequestPDU(
-            request_id=self._request_id(),
-            vars=VarBindList(*[VarBind(OID(oid), NULL()) for oid in oids]),
-        )
-        return self._request(host, pdu, community=community or self.rocommunity)
+    def get_next(self, *args, **kwargs):
+        kwargs['next'] = True
+        return self.get(*args, **kwargs)
 
     def set(self, host, *nvpairs, community=None):
         varlist = []

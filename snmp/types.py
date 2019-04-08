@@ -390,6 +390,9 @@ class VarBindList(SEQUENCE):
     def __iter__(self):
         return iter(self.values)
 
+    def __len__(self):
+        return len(self.values)
+
 class PDU(SEQUENCE):
     EXPECTED = [
         INTEGER,
