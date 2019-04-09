@@ -225,6 +225,9 @@ class SNMPv1:
                             if next:
                                 value, _ = host_data[next_oid]
 
+                            if value is None:
+                                raise KeyError()
+
                             values[i] = value
                         except KeyError:
                             # value not found
