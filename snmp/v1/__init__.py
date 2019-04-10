@@ -412,4 +412,4 @@ class SNMPv1:
             return
 
         # no need to duplicate code; just call self.get()
-        return self.get(host, oid, community=community, block=True)[0]
+        return self.get(host, oid, block=True)[0]
