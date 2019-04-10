@@ -14,6 +14,9 @@ from ..types import *
 
 log = logging.getLogger(__name__)
 
+DUMMY_EVENT = threading.Event()
+DUMMY_EVENT.set()
+
 RECV_SIZE = 65507
 MAX_REQUEST_ID = 0xffffffff
 
@@ -23,6 +26,7 @@ class PendTable:
 
         self.oids = {}
         self.requests = OrderedDict()
+        self.sets = {}
 
 class SNMPv1:
     VERSION = 0
@@ -330,72 +334,82 @@ class SNMPv1:
         kwargs['next'] = True
         return self.get(*args, **kwargs)
 
-    def set(self, host, *nvpairs, community=None):
-        varlist = []
-        for oid, value in nvpairs:
-            if isinstance(value, int):
-                value = INTEGER(value)
-            elif value == None:
-                value = NULL()
-            elif isinstance(value, ASN1):
-                pass
-            else:
-                value = OCTET_STRING(value)
+    def set(self, host, oid, value, community=None, block=True):
+        # wrap the value in an ASN1 type
+        if isinstance(value, int):
+            value = INTEGER(value)
+        elif value is None:
+            value = NULL()
+        elif isinstance(value, ASN1):
+            pass
+        else:
+            if isinstance(value, str):
+                value = value.encode()
+            value = OCTET_STRING(value)
 
-            varlist.append( VarBind(OID(oid), value) )
-
+        # create PDU
         pdu = SetRequestPDU(
             request_id=self._request_id(),
-            vars=VarBindList(*varlist),
+            vars=VarBindList(VarBind(OID(oid), value)),
         )
-        return self._request(host, pdu, community=community or self.rwcommunity)
-
-    def _request(self, host, pdu, community=None):
-        end_time = time.time()
-
-        kwargs = {}
-        if community is not None:
-            kwargs['community'] = community
 
         request_id = pdu.request_id.value
-        message = Message(version=self.VERSION, data=pdu, **kwargs)
+        message = Message(
+            version = self.VERSION,
+            data = pdu,
+            community = community or self.rwcommunity,
+        )
 
-        with self._drlock:
-            self._data[request_id] = None
+        # get PendTable for this host
+        with self._plock:
+            try:
+                host_pending = self._pending[host]
+            except KeyError:
+                host_pending = PendTable()
+                self._pending[host] = host_pending
 
-        packet = message.serialize()
+        # used to wait for the previous set request to complete
+        event = DUMMY_EVENT
 
-        response = None
-        for i in range(10):
-            self._sock.sendto(packet, (host, self.port))
-            end_time += 1
-            while self._received.wait(end_time - time.time()):
-                self._received.clear()
+        # signaled when _listen_thread processes the response
+        main_event = threading.Event()
 
-                with self._drlock:
-                    response = self._data[request_id]
+        # wait for any pending requests to complete before sending
+        pend_event = None
 
-                if response is not None:
-                    pdu = response.data
+        # only allow one outstanding set request at a time
+        while pend_event is None:
+            # loop until we can put main_event in host_pending.oids
+            event.wait()
+            with host_pending.lock:
+                try:
+                    event = host_pending.sets[oid]
+                except KeyError:
+                    event = DUMMY_EVENT
 
-                    # TODO: return an object that raises an error when you
-                    #       access the value
-                    if pdu.error_status:
-                        status = pdu.error_status.value
-                        index = pdu.error_index.value
+                # event will not be set if another thread's set request
+                # acquires the lock first and stores its main_event to .sets
+                if event.is_set():
+                    try:
+                        pend_event, next_oid = host_pending.oids[oid]
+                    except KeyError:
+                        pend_event, next_oid = DUMMY_EVENT, None
 
-                        try:
-                            oid = pdu.vars[index-1].name
-                        except IndexError:
-                            message = "Invalid error index: {}".format(index)
-                            raise ProtocolError(message)
+                    host_pending.oids[oid] = main_event, next_oid
+                    host_pending.sets[oid] = main_event
 
-                        try:
-                            raise STATUS_ERRORS[status](oid.value)
-                        except IndexError:
-                            message = "Invalid error status: {}".format(status)
-                            raise ProtocolError(message)
+        # wait for pending requests to be serviced
+        pend_event.wait()
 
-                    return response.data.vars
+        with host_pending.lock:
+            host_pending.requests[request_id] = message, main_event
 
-        raise Timeout()
+        self._sock.sendto(message.serialize(), (host, self.port))
+        msg = "Set request to {} (ID={}) @ {}\n:{}"
+        log.debug(msg.format(host, request_id, time.time()-self.start, pdu))
+
+        if not block:
+            return
+
+        # no need to duplicate code; just call self.get()
+        return self.get(host, oid, community=community, block=True)[0]
