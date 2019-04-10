@@ -223,6 +223,7 @@ class SNMPv1:
                             # use cached value
                             value, next_oid = host_data[oid]
                             if next:
+                                # this will raise KeyError if next_oid is None
                                 value, _ = host_data[next_oid]
 
                             if value is None:
@@ -245,18 +246,24 @@ class SNMPv1:
             for oid in missing:
                 with host_pending.lock:
                     try:
-                        event = host_pending.oids[oid]
+                        event = host_pending.oids[oid][int(next)]
                     except KeyError:
                         pass
                     else:
                         # do not re-request oids that are already pending
-                        if not event.is_set():
+                        if event and not event.is_set():
                             # add to events set so we can wait on it later
                             events.add(event)
                             continue
 
                     # put all oids on one event so they will trigger at once
-                    host_pending.oids[oid] = main_event
+                    try:
+                        host_pending.oids[oid][int(next)] = main_event
+                    except:
+                        host_pending.oids[oid] = (
+                            [None, main_event] if next else [main_event, None]
+                        )
+
                     send.add(oid)
 
         # send any requests that are not found to be pending
