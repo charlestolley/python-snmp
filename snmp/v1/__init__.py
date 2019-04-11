@@ -11,6 +11,7 @@ import time
 from ..exceptions import EncodingError, ProtocolError, Timeout, STATUS_ERRORS
 from ..mutex import RWLock
 from ..types import *
+from .exceptions import TooBig, NoSuchName, BadValue, ReadOnly, GenErr
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +30,13 @@ class PendTable:
         self.sets = {}
 
 class SNMPv1:
+    ERRORS = {
+        1: TooBig,
+        2: NoSuchName,
+        3: BadValue,
+        4: ReadOnly,
+        5: GenErr,
+    }
     VERSION = 0
     def __init__(self, community=None, rwcommunity=None, port=161):
         self.rocommunity = community
@@ -122,10 +130,28 @@ class SNMPv1:
                 ))
                 continue
 
+            error = None
+            error_status = message.data.error_status.value
+            if error_status != 0:
+                log.warning(message.data)
+                error_index = message.data.error_index.value
+                try:
+                    cls = self.ERRORS[error_status]
+                except KeyError:
+                    msg = "Invalid error status: {}"
+                    error = ProtocolError(msg.format(error_status))
+                else:
+                    try:
+                        varbind = message.data.vars[error_index-1]
+                    except IndexError:
+                        msg = "Invalid error index: {}"
+                        error = ProtocolError(msg.format(error_index))
+                    else:
+                        error = cls(varbind.name.value)
+
             request_id = message.data.request_id.value
             try:
                 with host_pending.lock:
-                    # TODO: check that request matches response 
                     request, event = host_pending.requests.pop(request_id)
             except KeyError:
                 # ignore responses for which there was no request
@@ -140,7 +166,6 @@ class SNMPv1:
 
             next = isinstance(request.data, GetNextRequestPDU)
 
-            # TODO: handle responses with errors
             with self._dwlock:
                 try:
                     host_data = self._data[host]
@@ -149,6 +174,9 @@ class SNMPv1:
                     self._data[host] = host_data
 
                 for i, varbind in enumerate(message.data.vars):
+                    # won't make a difference if error is None
+                    varbind.error = error
+
                     oid = varbind.name.value
                     # update data table
                     try:
@@ -232,6 +260,9 @@ class SNMPv1:
 
                             if value is None:
                                 raise KeyError()
+
+                            if value.error is not None:
+                                raise value.error
 
                             values[i] = value
                         except KeyError:
@@ -322,9 +353,13 @@ class SNMPv1:
                     if next:
                         value, _ = host_data[next_oid]
                 except KeyError:
-                    # TODO: replace with something that throws a
-                    #       a protocol error
                     value = None
+
+                if value is None:
+                    msg = "Variable missing from response: {}"
+                    raise ProtocolError(msg.format(oid))
+                elif value.error is not None:
+                    raise value.error
 
                 values.append(value)
 

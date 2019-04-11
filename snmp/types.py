@@ -373,6 +373,10 @@ class VarBind(SEQUENCE):
         None,
     ]
 
+    def __init__(self, *args, **kwargs):
+        super(VarBind, self).__init__(*args, **kwargs)
+        self.error = None
+
     @property
     def name(self):
         return self.values[0]
