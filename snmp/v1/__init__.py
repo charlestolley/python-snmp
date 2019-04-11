@@ -25,8 +25,28 @@ class PendTable:
     def __init__(self):
         self.lock = threading.Lock()
 
+        # The two events signal the arrival of the value for the oid itself,
+        # or the variable returned by a GetNext request (respectively)
+        # {
+        #   <oid>: [<Event>, <Event>],
+        #   ...
+        # }
         self.oids = {}
+
+        # This is an OrderedDict so the monitoring thread can iterate through
+        # them in order
+        # {
+        #   <request_id>: (<Message>, <Event>),
+        #   ...
+        # }
         self.requests = OrderedDict()
+
+        # Used by set() to make sure multiple set requests to the same OID
+        # do not overlap in time
+        # {
+        #   <oid>: <Event>,
+        #   ...
+        # }
         self.sets = {}
 
 class SNMPv1:
@@ -60,10 +80,7 @@ class SNMPv1:
         # TODO: expire out of pend table if response does not arrive
         # table of pending requests (prevents re-sending packets unnecessarily)
         # {
-        #   <host_ip>: {
-        #       <oid>: threading.Event,
-        #       ...
-        #   },
+        #   <host_ip>: <PendTable>,
         #   ...
         # }
         self._pending = {}
@@ -72,7 +89,10 @@ class SNMPv1:
         # table of responses
         # {
         #   <host_ip>: {
-        #       <oid>: VarBind,
+        #       <oid>: [
+        #           <VarBind>,
+        #           <next_oid>,
+        #       ],
         #       ...
         #   },
         #   ...
