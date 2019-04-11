@@ -33,14 +33,6 @@ class PendTable:
         # }
         self.oids = {}
 
-        # This is an OrderedDict so the monitoring thread can iterate through
-        # them in order
-        # {
-        #   <request_id>: (<Message>, <Event>),
-        #   ...
-        # }
-        self.requests = OrderedDict()
-
         # Used by set() to make sure multiple set requests to the same OID
         # do not overlap in time
         # {
@@ -76,6 +68,15 @@ class SNMPv1:
         # request id once before repeating
         self._count_by = random.randint(0, MAX_REQUEST_ID//2) * 2 + 1
         self._next_id = self._count_by
+
+        # This is an OrderedDict so the monitoring thread can iterate through
+        # them in order
+        # {
+        #   <request_id>: (<Message>, <Event>),
+        #   ...
+        # }
+        self._requests = OrderedDict()
+        self._rlock = threading.Lock()
 
         # TODO: expire out of pend table if response does not arrive
         # table of pending requests (prevents re-sending packets unnecessarily)
@@ -123,16 +124,6 @@ class SNMPv1:
                 continue
 
             try:
-                # not sure if it's necessary to acquire the lock, but whatever
-                with self._plock:
-                    host_pending = self._pending[host]
-            except KeyError:
-                # ignore unknown traffic
-                message = "Received unsolicited packet from {}: {}"
-                log.warning(message.format(host, hexlify(packet).decode()))
-                continue
-
-            try:
                 # convert bytes to Message object
                 message = ASN1.deserialize(packet, cls=Message)
 
@@ -149,6 +140,25 @@ class SNMPv1:
                     e.__class__.__name__, e, hexlify(packet).decode()
                 ))
                 continue
+
+            request_id = message.data.request_id.value
+            try:
+                with self._rlock:
+                    request, event = self._requests.pop(request_id)
+            except KeyError:
+                # ignore responses for which there was no request
+                msg = "Received unexpected response from {}: {}"
+                log.warning(msg.format(host, hexlify(packet).decode()))
+                continue
+
+            # while we don't explicitly check every possible protocol violation
+            # this one would cause IndexErrors below, which I'd rather avoid
+            if len(message.data.vars) != len(request.data.vars):
+                msg = "VarBindList length mismatch:\n(Request) {}(Response) {}"
+                log.error(msg.format(request, message))
+                continue
+
+            next = isinstance(request.data, GetNextRequestPDU)
 
             error = None
             error_status = message.data.error_status.value
@@ -168,23 +178,6 @@ class SNMPv1:
                         error = ProtocolError(msg.format(error_index))
                     else:
                         error = cls(varbind.name.value)
-
-            request_id = message.data.request_id.value
-            try:
-                with host_pending.lock:
-                    request, event = host_pending.requests.pop(request_id)
-            except KeyError:
-                # ignore responses for which there was no request
-                msg = "Received unexpected response from {}: {}"
-                log.warning(msg.format(host, hexlify(packet).decode()))
-                continue
-
-            if len(message.data.vars) != len(request.data.vars):
-                msg = "VarBindList length mismatch:\n(Request) {}(Response) {}"
-                log.error(msg.format(request, message))
-                continue
-
-            next = isinstance(request.data, GetNextRequestPDU)
 
             with self._dwlock:
                 try:
@@ -344,8 +337,8 @@ class SNMPv1:
                 community = community or self.rocommunity,
             )
 
-            with host_pending.lock:
-                host_pending.requests[request_id] = message, main_event
+            with self._rlock:
+                self._requests[request_id] = message, main_event
 
             self._sock.sendto(message.serialize(), (host, self.port))
             msg = "Sent request to {} (ID={}) @ {}"
@@ -456,8 +449,8 @@ class SNMPv1:
         # wait for pending requests to be serviced
         pend_event.wait()
 
-        with host_pending.lock:
-            host_pending.requests[request_id] = message, main_event
+        with self._rlock:
+            self._requests[request_id] = message, main_event
 
         self._sock.sendto(message.serialize(), (host, self.port))
         msg = "Set request to {} (ID={}) @ {}\n:{}"
