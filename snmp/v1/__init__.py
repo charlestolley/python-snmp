@@ -63,6 +63,7 @@ class SNMPv1:
         r, w = os.pipe()
         self._read_pipe = os.fdopen(r)
         self._write_pipe = os.fdopen(w, 'w')
+        self._closed = threading.Event()
 
         # counting by an odd number will hit every
         # request id once before repeating
@@ -105,6 +106,9 @@ class SNMPv1:
 
         self._listener = threading.Thread(target=self._listen_thread)
         self._listener.start()
+
+        self._monitor = threading.Thread(target=self._monitor_thread)
+        self._monitor.start()
 
     # background thread to process responses
     def _listen_thread(self):
@@ -210,21 +214,32 @@ class SNMPv1:
             # alert the main thread that the data is ready
             event.set()
 
+        log.debug("Listener thread exiting")
+
+    def _monitor_thread(self):
+        delay = 0
+        while not self._closed.wait(timeout=delay):
+            delay = 1
+
+        log.debug("Monitor thread exiting")
+
     def close(self):
-        log.debug("Sending shutdown signal to listener thread")
+
+        log.debug("Sending shutdown signal to helper threads")
+        self._closed.set()
         self._write_pipe.write('\0')
         self._write_pipe.flush()
 
-        log.debug("Joining self._listener")
         self._listener.join()
-        self._listener = None
+        self._monitor.join()
+        log.debug("All helper threads done")
 
         self._read_pipe.close()
         self._write_pipe.close()
         self._sock.close()
 
     def __del__(self):
-        if self._listener is not None:
+        if not self._closed.is_set():
             self.close()
 
     def _request_id(self):
