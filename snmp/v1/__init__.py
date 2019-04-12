@@ -148,7 +148,8 @@ class SNMPv1:
             request_id = message.data.request_id.value
             try:
                 with self._rlock:
-                    request, event = self._requests.pop(request_id)
+                    # TODO: don't pop until it's been fully validated
+                    request, event = self._requests.pop(request_id)[:2]
             except KeyError:
                 # ignore responses for which there was no request
                 msg = "Received unexpected response from {}: {}"
@@ -219,7 +220,54 @@ class SNMPv1:
     def _monitor_thread(self):
         delay = 0
         while not self._closed.wait(timeout=delay):
-            delay = 1
+            with self._rlock:
+                try:
+                    ID = next(iter(self._requests))
+                except StopIteration:
+                    log.debug("Request buffer is empty")
+                    delay = 1
+                else:
+                    now = time.time()
+                    timestamp = self._requests[ID][3]
+                    diff = now - timestamp
+
+                    if diff >= 1:
+                        delay = 0
+                        message, event, host, _, count = self._requests.pop(ID)
+                        count -= 1
+                        if count:
+                            self._requests[ID] = (
+                                message, event, host, timestamp+1, count
+                            )
+                    else:
+                        delay = 1-diff
+
+            if delay == 0:
+                if count:
+                    msg = "Resending to {} (ID={}) @ {}"
+                    request_id = message.data.request_id
+                    timestamp = time.time()-self.start
+                    log.debug(msg.format(host, request_id, timestamp))
+                    self._sock.sendto(message.serialize(), (host, self.port))
+                else:
+                    with self._dwlock:
+                        log.debug("Timed out")
+                        for varbind in message.data.vars:
+                            varbind.error = Timeout(varbind.name.value)
+                            oid = varbind.name.value
+                            try:
+                                host_data = self._data[host]
+                            except KeyError:
+                                host_data = {}
+                                self._data[host] = host_data
+
+                            try:
+                                _, next_oid = host_data[oid]
+                            except KeyError:
+                                next_oid = None
+                            host_data[oid] = [varbind, next_oid]
+
+                    event.set()
 
         log.debug("Monitor thread exiting")
 
@@ -248,8 +296,8 @@ class SNMPv1:
 
         return request_id
 
-    def get(self, host, *oids, community=None, block=True,
-                                refresh=False, next=False):
+    def get(self, host, *oids, community=None, block=True, timeout=10,
+                                            refresh=False, next=False):
         # this event will be stored in the pending table under this request ID
         # the _listener_thread will signal when the data is ready
         main_event = threading.Event()
@@ -353,7 +401,9 @@ class SNMPv1:
             )
 
             with self._rlock:
-                self._requests[request_id] = message, main_event
+                self._requests[request_id] = (
+                    message, main_event, host, time.time(), timeout
+                )
 
             self._sock.sendto(message.serialize(), (host, self.port))
             msg = "Sent request to {} (ID={}) @ {}"
@@ -397,7 +447,7 @@ class SNMPv1:
         kwargs['next'] = True
         return self.get(*args, **kwargs)
 
-    def set(self, host, oid, value, community=None, block=True):
+    def set(self, host, oid, value, community=None, block=True, timeout=10):
         # wrap the value in an ASN1 type
         if isinstance(value, int):
             value = INTEGER(value)
@@ -465,7 +515,9 @@ class SNMPv1:
         pend_event.wait()
 
         with self._rlock:
-            self._requests[request_id] = message, main_event
+            self._requests[request_id] = (
+                message, main_event, host, time.time(), timeout
+            )
 
         self._sock.sendto(message.serialize(), (host, self.port))
         msg = "Set request to {} (ID={}) @ {}\n:{}"
