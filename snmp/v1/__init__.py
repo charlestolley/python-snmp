@@ -195,19 +195,34 @@ class SNMPv1:
                     # won't make a difference if error is None
                     varbind.error = error
 
+                    requested = request.data.vars[i].name.value
                     oid = varbind.name.value
+
+                    if next:
+                        try:
+                            host_data[requested][1] = oid
+                        except KeyError:
+                            host_data[requested] = [None, oid]
+                    elif requested != oid:
+                        msg = "OID ({}) does not match requested ({})"
+                        log.warning(msg.format(oid, requested))
+
+                        # this will cause a ProtocolError to be raised in get()
+                        # However, if this data is never accessed, the error
+                        # will go unnoticed.
+                        # Assuming, however, that the agent is correctly
+                        # implemented and the channel is secure, this should
+                        # never happen
+                        try:
+                            host_data[requested][0] = None
+                        except KeyError:
+                            host_data[requested] = [None, None]
+
                     # update data table
                     try:
                         host_data[oid][0] = varbind
                     except KeyError:
                         host_data[oid] = [varbind, None]
-
-                    if next:
-                        prev = request.data.vars[i].name.value
-                        try:
-                            host_data[prev][1] = oid
-                        except KeyError:
-                            host_data[prev] = [None, oid]
 
             msg = "Done processing response from {} (ID={})"
             log.debug(msg.format(host, request_id))
