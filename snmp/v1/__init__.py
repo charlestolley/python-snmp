@@ -8,7 +8,7 @@ import socket
 import threading
 import time
 
-from ..exceptions import EncodingError, ProtocolError, Timeout, STATUS_ERRORS
+from ..exceptions import EncodingError, ProtocolError, Timeout
 from ..mutex import RWLock
 from ..types import *
 from .exceptions import TooBig, NoSuchName, BadValue, ReadOnly, GenErr

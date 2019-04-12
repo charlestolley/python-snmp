@@ -1,14 +1,17 @@
-class TooBig(Exception):
+class StatusError(Exception):
     pass
 
-class NoSuchName(Exception):
+class TooBig(StatusError):
     pass
 
-class BadValue(Exception):
+class NoSuchName(StatusError):
     pass
 
-class ReadOnly(Exception):
+class BadValue(StatusError):
     pass
 
-class GenErr(Exception):
+class ReadOnly(StatusError):
+    pass
+
+class GenErr(StatusError):
     pass

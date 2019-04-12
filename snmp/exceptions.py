@@ -8,29 +8,3 @@ class ProtocolError(Exception):
 
 class Timeout(Exception):
     pass
-
-class StatusError(Exception):
-    pass
-
-class TooBig(StatusError):
-    pass
-
-class NoSuchName(StatusError):
-    pass
-
-class BadValue(StatusError):
-    pass
-
-class ReadOnly(StatusError):
-    pass
-
-class GenErr(StatusError):
-    pass
-
-STATUS_ERRORS = {
-    1: TooBig,
-    2: NoSuchName,
-    3: BadValue,
-    4: ReadOnly,
-    5: GenErr,
-}
