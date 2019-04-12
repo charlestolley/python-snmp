@@ -73,8 +73,10 @@ class SNMPv1:
 
         # This is an OrderedDict so the monitoring thread can iterate through
         # them in order
+        # <timestamp> is the timestamp of the most recent transmission
+        # <count> is the number of remaining re-transmits before Timeout
         # {
-        #   <request_id>: (<Message>, <Event>),
+        #   <request_id>: (<Message>, <Event>, <host>, <timestamp>, <count>),
         #   ...
         # }
         self._requests = OrderedDict()
@@ -230,11 +232,10 @@ class SNMPv1:
                     if diff >= self.resend:
                         delay = 0
                         message, event, host, _, count = self._requests.pop(ID)
-                        count -= 1
                         if count:
                             timestamp += self.resend
                             self._requests[ID] = (
-                                message, event, host, timestamp, count
+                                message, event, host, timestamp, count-1
                             )
                     else:
                         delay = 1-diff
@@ -398,7 +399,7 @@ class SNMPv1:
 
             with self._rlock:
                 self._requests[request_id] = (
-                    message, main_event, host, time.time(), timeout
+                    message, main_event, host, time.time(), timeout-1
                 )
 
             self._sock.sendto(message.serialize(), (host, self.port))
@@ -510,7 +511,7 @@ class SNMPv1:
 
         with self._rlock:
             self._requests[request_id] = (
-                message, main_event, host, time.time(), timeout
+                message, main_event, host, time.time(), timeout-1
             )
 
         self._sock.sendto(message.serialize(), (host, self.port))
