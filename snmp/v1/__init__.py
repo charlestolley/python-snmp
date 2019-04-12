@@ -80,7 +80,6 @@ class SNMPv1:
         self._requests = OrderedDict()
         self._rlock = threading.Lock()
 
-        # TODO: expire out of pend table if response does not arrive
         # table of pending requests (prevents re-sending packets unnecessarily)
         # {
         #   <host_ip>: <PendTable>,
@@ -147,8 +146,7 @@ class SNMPv1:
             request_id = message.data.request_id.value
             try:
                 with self._rlock:
-                    # TODO: don't pop until it's been fully validated
-                    request, event = self._requests.pop(request_id)[:2]
+                    request, event = self._requests[request_id][:2]
             except KeyError:
                 # ignore responses for which there was no request
                 msg = "Received unexpected response from {}: {}"
@@ -162,6 +160,7 @@ class SNMPv1:
                 log.error(msg.format(request, message))
                 continue
 
+            self._requests.pop(request_id)
             next = isinstance(request.data, GetNextRequestPDU)
 
             error = None
@@ -410,7 +409,6 @@ class SNMPv1:
 
         # wait for all requested oids to receive a response
         for event in events:
-            # TODO: trigger the event in the case of a timeout
             event.wait()
 
         # the data table should now be all up to date
