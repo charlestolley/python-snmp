@@ -50,10 +50,11 @@ class SNMPv1:
         5: GenErr,
     }
     VERSION = 0
-    def __init__(self, community=None, rwcommunity=None, port=161):
+    def __init__(self, community=None, rwcommunity=None, port=161, resend=1):
         self.rocommunity = community
         self.rwcommunity = rwcommunity or community
         self.port = port
+        self.resend = resend
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.setblocking(False)
@@ -225,19 +226,19 @@ class SNMPv1:
                     ID = next(iter(self._requests))
                 except StopIteration:
                     log.debug("Request buffer is empty")
-                    delay = 1
+                    delay = self.resend
                 else:
-                    now = time.time()
                     timestamp = self._requests[ID][3]
-                    diff = now - timestamp
+                    diff = time.time() - timestamp
 
-                    if diff >= 1:
+                    if diff >= self.resend:
                         delay = 0
                         message, event, host, _, count = self._requests.pop(ID)
                         count -= 1
                         if count:
+                            timestamp += self.resend
                             self._requests[ID] = (
-                                message, event, host, timestamp+1, count
+                                message, event, host, timestamp, count
                             )
                     else:
                         delay = 1-diff
