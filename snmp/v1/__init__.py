@@ -299,80 +299,77 @@ class SNMPv1:
         # the _listener_thread will signal when the data is ready
         main_event = threading.Event()
 
+        # store the first error found on a cached VarBind and raise it only
+        # after the request has been sent for any other oids there may be
+        error = None
+
         # used for blocking calls to wait for all responses
         events = set()
 
-        # set of oids for which there is currently no data
-        missing = set()
-
-        # set of missing oids that are also not in the pending table
+        # set of oids that are neither in self._data nor self._pending
         send = set()
 
         # return value (values[i] corresponds to oids[i])
         values = [None] * len(oids)
 
+        with self._plock:
+            try:
+                host_pending = self._pending[host]
+            except KeyError:
+                host_pending = PendTable()
+                self._pending[host] = host_pending
+
         with self._drlock:
-            if refresh:
-                # ignore any value already in the data table
-                missing = set(oids)
-            else:
-                try:
-                    host_data = self._data[host]
-                except KeyError:
-                    # the data table does not have anything for this host
-                    missing = set(oids)
-                else:
+            try:
+                host_data = self._data[host]
+            except KeyError:
+                host_data = {}
 
-                    for i, oid in enumerate(oids):
-                        try:
-                            # use cached value
-                            value, next_oid = host_data[oid]
-                            if next:
-                                # this will raise KeyError if next_oid is None
-                                value, _ = host_data[next_oid]
-
-                            if value is None:
-                                raise KeyError()
-
-                            if value.error is not None:
-                                raise value.error
-
-                            values[i] = value
-                        except KeyError:
-                            # value not found
-                            missing.add(oid)
-
-        if missing:
-            with self._plock:
-                try:
-                    host_pending = self._pending[host]
-                except KeyError:
-                    host_pending = PendTable()
-                    self._pending[host] = host_pending
-
-            # check if requests already exist for the missing oids
-            for oid in missing:
-                with host_pending.lock:
+        # acquiring the lock all the way out here should minimize the number of
+        # packets sent, even if this object is being shared by multiple threads
+        with host_pending.lock:
+            for i, oid in enumerate(oids):
+                if not refresh:
                     try:
                         event = host_pending.oids[oid][int(next)]
                     except KeyError:
                         pass
                     else:
-                        # do not re-request oids that are already pending
+                        # request has been sent already and is pending
                         if event and not event.is_set():
-                            # add to events set so we can wait on it later
                             events.add(event)
+                            # don't fetch cached value, don't re-send request
                             continue
 
-                    # put all oids on one event so they will trigger at once
                     try:
-                        host_pending.oids[oid][int(next)] = main_event
-                    except:
-                        host_pending.oids[oid] = (
-                            [None, main_event] if next else [main_event, None]
-                        )
+                        # TODO: make a separate lock for each host's data
+                        with self._drlock:
+                            value, next_oid = host_data[oid]
+                            if next:
+                                value, _ = host_data[next_oid]
+                    except KeyError:
+                        pass
+                    else:
+                        # cached value found
+                        if value is not None:
+                            # raise any errors after the request is sent
+                            error = error or value.error
 
-                    send.add(oid)
+                            # set return value
+                            values[i] = value
+                            continue
+
+                # add this item to the pending table
+                try:
+                    host_pending.oids[oid][int(next)] = main_event
+                except KeyError:
+                    if next:
+                        host_pending.oids[oid] = [None, main_event]
+                    else:
+                        host_pending.oids[oid] = [main_event, None]
+
+                # make a note to include this OID in the request
+                send.add(oid)
 
         # send any requests that are not found to be pending
         if send:
@@ -405,6 +402,9 @@ class SNMPv1:
             self._sock.sendto(message.serialize(), (host, self.port))
             log.debug("Sent request to {} (ID={})".format(host, request_id))
 
+        if error is not None:
+            raise error
+
         if not block:
             return values
 
@@ -418,6 +418,7 @@ class SNMPv1:
             try:
                 host_data = self._data[host]
             except KeyError:
+                # shouldn't get here, ProtocolError will be triggered below
                 host_data = {}
 
             for oid in oids:
@@ -429,8 +430,7 @@ class SNMPv1:
                     value = None
 
                 if value is None:
-                    msg = "Variable missing from response: {}"
-                    raise ProtocolError(msg.format(oid))
+                    raise ProtocolError("Missing variable: {}".format(oid))
                 elif value.error is not None:
                     raise value.error
 
@@ -503,7 +503,7 @@ class SNMPv1:
                     except KeyError:
                         pend_event, next_oid = DUMMY_EVENT, None
 
-                    host_pending.oids[oid] = main_event, next_oid
+                    host_pending.oids[oid] = [main_event, next_oid]
                     host_pending.sets[oid] = main_event
 
         # wait for pending requests to be serviced
@@ -522,4 +522,4 @@ class SNMPv1:
             return
 
         # no need to duplicate code; just call self.get()
-        return self.get(host, oid, block=True)[0]
+        return self.get(host, oid, block=True)
