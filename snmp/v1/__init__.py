@@ -103,8 +103,6 @@ class SNMPv1:
         self._data = {}
         self._drlock, self._dwlock = RWLock()
 
-        self.start = time.time()
-
         self._listener = threading.Thread(target=self._listen_thread)
         self._listener.start()
 
@@ -210,8 +208,8 @@ class SNMPv1:
                         except KeyError:
                             host_data[prev] = [None, oid]
 
-            msg = "Done processing response from {} (ID={}) @ {}"
-            log.debug(msg.format(host, request_id, time.time()-self.start))
+            msg = "Done processing response from {} (ID={})"
+            log.debug(msg.format(host, request_id))
 
             # alert the main thread that the data is ready
             event.set()
@@ -225,7 +223,6 @@ class SNMPv1:
                 try:
                     ID = next(iter(self._requests))
                 except StopIteration:
-                    log.debug("Request buffer is empty")
                     delay = self.resend
                 else:
                     timestamp = self._requests[ID][3]
@@ -245,14 +242,13 @@ class SNMPv1:
 
             if delay == 0:
                 if count:
-                    msg = "Resending to {} (ID={}) @ {}"
-                    request_id = message.data.request_id
-                    timestamp = time.time()-self.start
-                    log.debug(msg.format(host, request_id, timestamp))
+                    msg = "Resending to {} (ID={})"
+                    log.debug(msg.format(host, message.data.request_id))
                     self._sock.sendto(message.serialize(), (host, self.port))
                 else:
                     with self._dwlock:
-                        log.debug("Timed out")
+                        msg = "Request to {} timed out (ID={})"
+                        log.debug(msg.format(host, message.data.request_id))
                         for varbind in message.data.vars:
                             varbind.error = Timeout(varbind.name.value)
                             oid = varbind.name.value
@@ -407,8 +403,7 @@ class SNMPv1:
                 )
 
             self._sock.sendto(message.serialize(), (host, self.port))
-            msg = "Sent request to {} (ID={}) @ {}"
-            log.debug(msg.format(host, request_id, time.time()-self.start))
+            log.debug("Sent request to {} (ID={})".format(host, request_id))
 
         if not block:
             return values
@@ -521,8 +516,8 @@ class SNMPv1:
             )
 
         self._sock.sendto(message.serialize(), (host, self.port))
-        msg = "Set request to {} (ID={}) @ {}\n:{}"
-        log.debug(msg.format(host, request_id, time.time()-self.start, pdu))
+        msg = "SET request sent to {} (ID={}):\n{}"
+        log.debug(msg.format(host, request_id, pdu))
 
         if not block:
             return
