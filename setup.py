@@ -7,7 +7,7 @@ with open(directory + os.path.sep + "README.md", "r") as fh:
 
 setuptools.setup(
     name="snmp",
-    version="0.1.0",
+    version="0.1.1",
     author="Charles Tolley",
     author_email="charlestolley@gmail.com",
     license="GPLv3+",
