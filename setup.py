@@ -7,7 +7,7 @@ with open(directory + os.path.sep + "README.md", "r") as fh:
 
 setuptools.setup(
     name="snmp",
-    version="0.1.1",
+    version="0.1.2",
     author="Charles Tolley",
     author_email="charlestolley@gmail.com",
     license="GPLv3+",
@@ -15,7 +15,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/charlestolley/python-snmp",
-    packages=["snmp"],
+    packages=setuptools.find_packages(),
     python_requires=">=3, <4",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
