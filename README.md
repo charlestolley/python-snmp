@@ -74,8 +74,8 @@ In order to ensure data integrity, the Manager enforces what is essentially a wr
     manager = Manager(b'public')
 
     try:
-        hosts = ["10.0.0.2", "10.0.0.3"]                # REPLACE these IPs with real IPs
-        oids = ["1.3.6.1.2.1.1.1", "1.3.6.1.2.1.1.2"]   # [SNMPv2-MIB::sysDescr, SNMPv2-MIB::sysObjectID]
+        hosts = ["10.0.0.2", "10.0.0.3"]                    # REPLACE these IPs with real IPs
+        oids = ["1.3.6.1.2.1.1.1.0", "1.3.6.1.2.1.1.5.0"]   # [SNMPv2-MIB::sysDescr.0, SNMPv2-MIB::sysName.0]
 
         start = time.time()
 
