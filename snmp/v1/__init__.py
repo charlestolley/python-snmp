@@ -277,6 +277,11 @@ class SNMPv1:
                                 _, next_oid = host_data[oid]
                             except KeyError:
                                 next_oid = None
+
+                            # causes GETNEXT requests to register the timeout
+                            if isinstance(message.data, GetNextRequestPDU):
+                                next_oid = oid
+
                             host_data[oid] = [varbind, next_oid]
 
                     event.set()
