@@ -50,7 +50,7 @@ class SNMPv1:
         5: GenErr,
     }
     VERSION = 0
-    def __init__(self, community=None, rwcommunity=None, port=161, resend=1):
+    def __init__(self, community, rwcommunity=None, port=161, resend=1):
         self.rocommunity = community
         self.rwcommunity = rwcommunity or community
         self.port = port
