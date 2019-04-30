@@ -59,6 +59,13 @@ The `block` parameter introduces some interesting considerations. By default, th
 
 In order to ensure data integrity, the Manager enforces what is essentially a writer preferred reader/writer policy between GET and SET requests. In other words, a SET request cannot be sent as long as there is an outstanding GET request that has not yet received a response. This means that even if `block` is given as `False`, the `set()` method may still block for a short time (up to the `timeout` for the outstanding GET request) before sending its request.
 
+##### Walk Operation
+As of version 0.1.4, a helper function is available to perform a simple walk. At the current time it only walks on a single variable at a time, but in the future it will be able to walk multiple variables in parallel. The function is implemented as a generator in order to improve responsiveness, but each step of the walk is performed as a blocking GETNEXT operation.
+
+The function prototype is as follows:
+
+    walk(self, host, oid, community=None, refresh=False, timeout=10)
+
 #### Example
 
     import logging
