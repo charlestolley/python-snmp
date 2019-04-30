@@ -81,7 +81,7 @@ def _listen_thread(sock, pipe, requests, rlock, data, dlock, port=PORT):
 
         except (EncodingError, ProtocolError) as e:
             # this should take care of filtering out invalid traffic
-            log.warning("{}: {}: {}".format(
+            log.debug("{}: {}: {}".format(
                 e.__class__.__name__, e, hexlify(packet).decode()
             ))
             continue
@@ -93,7 +93,7 @@ def _listen_thread(sock, pipe, requests, rlock, data, dlock, port=PORT):
         except KeyError:
             # ignore responses for which there was no request
             msg = "Received unexpected response from {}: {}"
-            log.warning(msg.format(host, hexlify(packet).decode()))
+            log.debug(msg.format(host, hexlify(packet).decode()))
             continue
 
         # while we don't explicitly check every possible protocol violation
@@ -109,7 +109,7 @@ def _listen_thread(sock, pipe, requests, rlock, data, dlock, port=PORT):
         error = None
         error_status = message.data.error_status.value
         if error_status != 0:
-            log.warning(message.data)
+            log.debug(message.data)
             error_index = message.data.error_index.value
             try:
                 cls = ERRORS[error_status]
