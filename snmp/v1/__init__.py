@@ -573,3 +573,18 @@ class SNMPv1:
 
         # no need to duplicate code; just call self.get()
         return self.get(host, oid, block=True)
+
+    def walk(self, host, oid, **kwargs):
+        start = oid
+        while True:
+
+            var, = self.get_next(host, oid, block=True, **kwargs)
+            oid = var.name.value
+
+            if not oid.startswith(start):
+                return
+
+            # send now to speed access on the next iteration
+            self.get_next(host, oid, block=False, **kwargs)
+
+            yield [var]
