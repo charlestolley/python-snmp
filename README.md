@@ -110,4 +110,4 @@ The function prototype is as follows:
     finally:
         manager.close()
 
-__IMPORTANT:__ Manager objects must be closed when then are no longer needed (by calling `.close()`). Failure to do so may cause a program to hang rather than terminating properly.
+__IMPORTANT:__ Manager objects must be closed when then are no longer needed (by calling `.close()`). Failure to do so may cause a program to hang rather than terminating properly. As of v0.1.5, `Manager`s may be used with context managers, in which case `.close()` will be called upon exiting the body of the context manager.
