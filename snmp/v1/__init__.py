@@ -333,7 +333,10 @@ class SNMPv1:
         self._write_pipe = None
         self._sock = None
 
-    def __del__(self):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
         if not self._closed.is_set():
             self.close()
 
