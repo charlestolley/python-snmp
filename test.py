@@ -44,7 +44,7 @@ class UnpackTest(TestCase):
 
 class ManagerTest(TestCase):
     def test_cleanup(self):
-        m = Manager()
+        m = Manager(b'')
         m.close()
         self.assertEqual(threading.active_count(), 1)
 
