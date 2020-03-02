@@ -65,7 +65,7 @@ def _listen_thread(sock, pipe, requests, rlock, data, dlock, port=PORT):
 
         # listen for UDP packets from the correct port
         packet, (host, p) = sock.recvfrom(RECV_SIZE)
-        if p != PORT:
+        if p != port:
             continue
 
         try:
@@ -200,7 +200,7 @@ def _monitor_thread(sock, done, requests, rlock, data, dlock, port=PORT, resend=
             if count:
                 msg = "Resending to {} (ID={})"
                 log.debug(msg.format(host, message.data.request_id))
-                sock.sendto(message.serialize(), (host, PORT))
+                sock.sendto(message.serialize(), (host, port))
             else:
                 with dlock:
                     msg = "Request to {} timed out (ID={})"
