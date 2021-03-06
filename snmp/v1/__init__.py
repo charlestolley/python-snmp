@@ -30,6 +30,30 @@ PORT = 161
 RECV_SIZE = 65507
 MAX_REQUEST_ID = 0xffffffff
 VERSION = 0
+WINDOWS = (os.name == "nt")
+
+if WINDOWS:
+    import ctypes
+    from ctypes.wintypes import HANDLE, DWORD, BOOL
+    import msvcrt
+
+    ERROR_NO_DATA = 232
+    LPDWORD = ctypes.POINTER(DWORD)
+    SELECT_TIMEOUT = 1
+
+    def errcheck (result, func, args):
+        if not result:
+            raise WinError (ctypes.get_last_error())
+
+    def setblocking (fd, blocking):
+        handle = msvcrt.get_osfhandle(fd)
+        mode = ctypes.byref(DWORD(0 if blocking else 1))
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.SetNamedPipeHandleState.argtypes = [HANDLE, LPDWORD, LPDWORD, LPDWORD]
+        kernel32.SetNamedPipeHandleState.restype = BOOL
+        kernel32.SetNamedPipeHandleState.errcheck = errcheck
+        return kernel32.SetNamedPipeHandleState(handle, mode, None, None)
 
 class PendTable:
     def __init__(self):
@@ -51,126 +75,164 @@ class PendTable:
         # }
         self.sets = {}
 
+if WINDOWS:
+    def _close (fd):
+        os.close(fd)
+
+    def _done (_, fd):
+        try:
+            os.read(fd, 1)
+        except WindowsError:
+            if ctypes.GetLastError() != ERROR_NO_DATA:
+                raise
+            else:
+                return False
+        else:
+            return True
+
+    def _select (sock, _):
+        return select.select([sock], [], [], SELECT_TIMEOUT)[0]
+
+    def _setup (fd):
+        setblocking(fd, False)
+        return fd
+else:
+    def _close (pipe):
+        pipe.close()
+
+    def _done (ready, pipe):
+        return pipe in ready
+
+    def _select (sock, pipe):
+        return select.select([sock, pipe], [], [])[0]
+
+    def _setup (fd):
+        return os.fdopen(fd)
+
 # background thread to process responses
 def _listen_thread(sock, pipe, requests, rlock, data, dlock, port=PORT):
+    pipe = _setup(pipe)
+
     while True:
         # wait for data on sock or pipe
-        r, _, _ = select.select([sock, pipe], [], [])
+        ready = _select(sock, pipe)
 
-        if pipe in r:
+        if _done(ready, pipe):
             # exit from this thread
             # don't bother processing any more responses; the calling
             #   application has all the data they need
             break
 
-        # listen for UDP packets from the correct port
-        packet, (host, p) = sock.recvfrom(RECV_SIZE)
-        if p != port:
-            continue
-
-        try:
-            # convert bytes to Message object
-            message = ASN1.deserialize(packet, cls=Message)
-
-            # ignore garbage packets
-            if message.version != VERSION:
+        for s in ready:
+            # listen for UDP packets from the correct port
+            packet, (host, p) = s.recvfrom(RECV_SIZE)
+            if p != port:
                 continue
 
-            # force a full parse; invalid packet will raise an error
-            message.poke()
-
-        except (EncodingError, ProtocolError) as e:
-            # this should take care of filtering out invalid traffic
-            log.debug("{}: {}: {}".format(
-                e.__class__.__name__, e, hexlify(packet).decode()
-            ))
-            continue
-
-        request_id = message.data.request_id.value
-        try:
-            with rlock:
-                request, event = requests[request_id][:2]
-        except KeyError:
-            # ignore responses for which there was no request
-            msg = "Received unexpected response from {}: {}"
-            log.debug(msg.format(host, hexlify(packet).decode()))
-            continue
-
-        # while we don't explicitly check every possible protocol violation
-        # this one would cause IndexErrors below, which I'd rather avoid
-        if len(message.data.vars) != len(request.data.vars):
-            msg = "VarBindList length mismatch:\n(Request) {}(Response) {}"
-            log.error(msg.format(request, message))
-            continue
-
-        requests.pop(request_id)
-        next = isinstance(request.data, GetNextRequestPDU)
-
-        error = None
-        error_status = message.data.error_status.value
-        if error_status != 0:
-            log.debug(message.data)
-            error_index = message.data.error_index.value
             try:
-                cls = ERRORS[error_status]
-            except KeyError:
-                msg = "Invalid error status: {}"
-                error = ProtocolError(msg.format(error_status))
-            else:
-                try:
-                    varbind = message.data.vars[error_index-1]
-                except IndexError:
-                    msg = "Invalid error index: {}"
-                    error = ProtocolError(msg.format(error_index))
-                else:
-                    error = cls(varbind.name.value)
+                # convert bytes to Message object
+                message = ASN1.deserialize(packet, cls=Message)
 
-        with dlock:
+                # ignore garbage packets
+                if message.version != VERSION:
+                    continue
+
+                # force a full parse; invalid packet will raise an error
+                message.poke()
+
+            except (EncodingError, ProtocolError) as e:
+                # this should take care of filtering out invalid traffic
+                log.debug("{}: {}: {}".format(
+                    e.__class__.__name__, e, hexlify(packet).decode()
+                ))
+                continue
+
+            request_id = message.data.request_id.value
             try:
-                host_data = data[host]
+                with rlock:
+                    request, event = requests[request_id][:2]
             except KeyError:
-                host_data = {}
-                data[host] = host_data
+                # ignore responses for which there was no request
+                msg = "Received unexpected response from {}: {}"
+                log.debug(msg.format(host, hexlify(packet).decode()))
+                continue
 
-            for i, varbind in enumerate(message.data.vars):
-                # won't make a difference if error is None
-                varbind.error = error
+            # while we don't explicitly check every possible protocol violation
+            # this one would cause IndexErrors below, which I'd rather avoid
+            if len(message.data.vars) != len(request.data.vars):
+                msg = "VarBindList length mismatch:\n(Request) {}(Response) {}"
+                log.error(msg.format(request, message))
+                continue
 
-                requested = request.data.vars[i].name.value
-                oid = varbind.name.value
+            requests.pop(request_id)
+            next = isinstance(request.data, GetNextRequestPDU)
 
-                if next:
-                    try:
-                        host_data[requested][1] = oid
-                    except KeyError:
-                        host_data[requested] = [None, oid]
-                elif requested != oid:
-                    msg = "OID ({}) does not match requested ({})"
-                    log.warning(msg.format(oid, requested))
-
-                    # this will cause a ProtocolError to be raised in get()
-                    # However, if this data is never accessed, the error
-                    # will go unnoticed.
-                    # Assuming, however, that the agent is correctly
-                    # implemented and the channel is secure, this should
-                    # never happen
-                    try:
-                        host_data[requested][0] = None
-                    except KeyError:
-                        host_data[requested] = [None, None]
-
-                # update data table
+            error = None
+            error_status = message.data.error_status.value
+            if error_status != 0:
+                log.debug(message.data)
+                error_index = message.data.error_index.value
                 try:
-                    host_data[oid][0] = varbind
+                    cls = ERRORS[error_status]
                 except KeyError:
-                    host_data[oid] = [varbind, None]
+                    msg = "Invalid error status: {}"
+                    error = ProtocolError(msg.format(error_status))
+                else:
+                    try:
+                        varbind = message.data.vars[error_index-1]
+                    except IndexError:
+                        msg = "Invalid error index: {}"
+                        error = ProtocolError(msg.format(error_index))
+                    else:
+                        error = cls(varbind.name.value)
 
-        msg = "Done processing response from {} (ID={})"
-        log.debug(msg.format(host, request_id))
+            with dlock:
+                try:
+                    host_data = data[host]
+                except KeyError:
+                    host_data = {}
+                    data[host] = host_data
 
-        # alert the main thread that the data is ready
-        event.set()
+                for i, varbind in enumerate(message.data.vars):
+                    # won't make a difference if error is None
+                    varbind.error = error
 
+                    requested = request.data.vars[i].name.value
+                    oid = varbind.name.value
+
+                    if next:
+                        try:
+                            host_data[requested][1] = oid
+                        except KeyError:
+                            host_data[requested] = [None, oid]
+                    elif requested != oid:
+                        msg = "OID ({}) does not match requested ({})"
+                        log.warning(msg.format(oid, requested))
+
+                        # this will cause a ProtocolError to be raised in get()
+                        # However, if this data is never accessed, the error
+                        # will go unnoticed.
+                        # Assuming, however, that the agent is correctly
+                        # implemented and the channel is secure, this should
+                        # never happen
+                        try:
+                            host_data[requested][0] = None
+                        except KeyError:
+                            host_data[requested] = [None, None]
+
+                    # update data table
+                    try:
+                        host_data[oid][0] = varbind
+                    except KeyError:
+                        host_data[oid] = [varbind, None]
+
+            msg = "Done processing response from {} (ID={})"
+            log.debug(msg.format(host, request_id))
+
+            # alert the main thread that the data is ready
+            event.set()
+
+    _close(pipe)
     log.debug("Listener thread exiting")
 
 def _monitor_thread(sock, done, requests, rlock, data, dlock, port=PORT, resend=1):
@@ -241,7 +303,6 @@ class SNMPv1:
 
         # used to shut down background threads
         r, w = os.pipe()
-        self._read_pipe = os.fdopen(r)
         self._write_pipe = os.fdopen(w, 'w')
         self._closed = threading.Event()
 
@@ -287,7 +348,7 @@ class SNMPv1:
             target=_listen_thread,
             args=(
                 self._sock,
-                self._read_pipe,
+                r,
                 self._requests,
                 self._rlock,
                 self._data,
@@ -325,11 +386,9 @@ class SNMPv1:
         self._monitor.join()
         log.debug("All helper threads done")
 
-        self._read_pipe.close()
         self._write_pipe.close()
         self._sock.close()
 
-        self._read_pipe = None
         self._write_pipe = None
         self._sock = None
 

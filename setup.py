@@ -20,6 +20,7 @@ setuptools.setup(
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
         "Development Status :: 2 - Pre-Alpha",
+        "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX :: Linux",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Intended Audience :: Information Technology",
