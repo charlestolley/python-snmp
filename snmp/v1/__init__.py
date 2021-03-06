@@ -580,12 +580,15 @@ class SNMPv1:
     def walk(self, host, oid, **kwargs):
         start = oid
         while True:
+            try:
+                var, = self.get_next(host, oid, block=True, **kwargs)
+            except NoSuchName:
+                break
 
-            var, = self.get_next(host, oid, block=True, **kwargs)
             oid = var.name.value
 
             if not oid.startswith(start):
-                return
+                break
 
             # send now to speed access on the next iteration
             self.get_next(host, oid, block=False, **kwargs)
