@@ -56,7 +56,7 @@ class Integer(Primitive):
         for i in range(len(data) - cls.SIZE):
             if data[i] != 0:
                 msg = "Encoding too large for {}".format(cls.__name__)
-                raise EncodingError(msg)
+                raise ParseError(msg)
 
         return int.from_bytes(data, "big", signed=cls.SIGNED)
 

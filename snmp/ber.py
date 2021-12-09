@@ -2,7 +2,7 @@ __all__ = [
     "CLASS_UNIVERSAL", "CLASS_APPLICATION",
     "CLASS_CONTEXT_SPECIFIC", "CLASS_PRIVATE",
     "STRUCTURE_PRIMITIVE", "STRUCTURE_CONSTRUCTED",
-    "EncodingError", "Identifier", "decode", "encode",
+    "Identifier", "ParseError", "decode", "encode",
 ]
 
 from collections import namedtuple
@@ -16,7 +16,7 @@ CLASS_PRIVATE           = 3
 STRUCTURE_PRIMITIVE     = 0
 STRUCTURE_CONSTRUCTED   = 1
 
-class EncodingError(ValueError):
+class ParseError(ValueError):
     pass
 
 Identifier = namedtuple("Identifier", ("cls", "structure", "tag"))
@@ -25,7 +25,7 @@ def decode_identifier(data):
     try:
         byte = data.consume()
     except IndexError as err:
-        raise EncodingError("Missing identifier")
+        raise ParseError("Missing identifier")
 
     cls         = (byte & 0xc0) >> 6
     structure   = (byte & 0x20) >> 5
@@ -38,7 +38,7 @@ def decode_identifier(data):
             try:
                 byte = data.consume()
             except IndexError as err:
-                raise EncodingError("Incomplete identifier")
+                raise ParseError("Incomplete identifier")
 
             tag <<= 7
             tag |= byte & 0x7f
@@ -71,7 +71,7 @@ def decode_length(data):
     try:
         length = data.consume()
     except IndexError as err:
-        raise EncodingError("Missing length")
+        raise ParseError("Missing length")
 
     if length & 0x80:
         n = length & 0x7f
@@ -81,7 +81,7 @@ def decode_length(data):
             try:
                 byte = data.consume()
             except IndexError as err:
-                raise EncodingError("Incomplete length")
+                raise ParseError("Incomplete length")
 
             length <<= 8
             length |= byte
@@ -111,20 +111,20 @@ def decode(data, expected=None, leftovers=False):
     if expected is None:
         result.append(identifier)
     elif identifier != expected:
-        raise EncodingError("Identifier does not match expected type")
+        raise ParseError("Identifier does not match expected type")
 
     length = decode_length(data)
     pruned = data.prune(length)
 
     if len(data) < length:
-        raise EncodingError("Incomplete value")
+        raise ParseError("Incomplete value")
 
     result.append(data)
 
     if leftovers:
         result.append(pruned)
     elif pruned:
-        raise EncodingError("Trailing bytes")
+        raise ParseError("Trailing bytes")
 
     if len(result) == 1:
         return result[0]
