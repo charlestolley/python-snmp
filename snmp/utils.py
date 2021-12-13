@@ -35,7 +35,7 @@ class subbytes:
                 if clamp:
                     return self.start
                 else:
-                    return len(data)
+                    return len(self.data)
             else:
                 return index
         else:
@@ -44,7 +44,7 @@ class subbytes:
                 if clamp:
                     return self.end
                 else:
-                    return len(data)
+                    return len(self.data)
             else:
                 return index
 
