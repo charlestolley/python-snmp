@@ -1,6 +1,6 @@
 __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
-    "Object", "Integer", "OctetString",
+    "Object", "Integer", "OctetString", "Null", "OID",
 ]
 
 from snmp.ber import *
@@ -39,17 +39,16 @@ class Object:
             "{} does not override serialize()".format(self.__class__.__name__)
         )
 
-class Primitive(Object):
+class Integer(Object):
+    SIGNED = True
+    SIZE = 4
+    TYPE = INTEGER
+
     def __init__(self, value):
         self.value = value
 
     def __repr__(self):
-        return "{}: {}".format(self.__class__.__name__, self.value)
-
-class Integer(Primitive):
-    SIGNED = True
-    SIZE = 4
-    TYPE = INTEGER
+        return "{}({})".format(self.__class__.__name__, self.value)
 
     @classmethod
     def deserialize(cls, data):
@@ -74,8 +73,14 @@ class Integer(Primitive):
 
         return encoding[index:]
 
-class OctetString(Primitive):
+class OctetString(Object):
     TYPE = OCTET_STRING
+
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "{}({})".format(self.__class__.__name__, self.value)
 
     @classmethod
     def deserialize(cls, data, copy=True):
@@ -86,3 +91,89 @@ class OctetString(Primitive):
 
     def serialize(self):
         return self.value
+
+class Null(Object):
+    TYPE = NULL
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+    @classmethod
+    def deserialize(cls, data):
+        return cls()
+
+    def serialize(self):
+        return b''
+
+class OID(Object):
+    TYPE = OBJECT_IDENTIFIER
+
+    def __init__(self, oid="0.0", raw=None):
+        self.oid = oid
+        self._raw = raw
+
+    def __repr__(self):
+        return "{}(\"{}\")".format(self.__class__.__name__, self.oid)
+
+    @property
+    def raw(self):
+        if self._raw is None:
+            words = self.oid.split(".")
+
+            if words[0] == '':
+                words.pop(0)
+
+            nums = [int(word) for word in words]
+
+            while(len(nums) < 2):
+                nums.append(0)
+
+            nums[0] *= 40
+            nums[1] += nums[0]
+            nums.pop(0)
+
+            raw = bytearray()
+            for num in nums:
+                if num < 0x80:
+                    raw.append(num)
+                else:
+                    scratch = bytearray()
+                    while num > 0x7f:
+                        scratch.append(num & 0x7f)
+                        num >>= 7
+
+                    scratch.append(num)
+                    for i in range(1, len(scratch)):
+                        scratch[i] |= 0x80
+
+                    scratch.reverse()
+                    raw.extend(scratch)
+
+            self._raw = bytes(raw)
+        return self._raw
+
+    @classmethod
+    def deserialize(cls, data):
+        raw = bytes(data)
+
+        try:
+            oid = list(divmod(data.consume(), 40))
+        except IndexError as err:
+            raise ParseError("Empty OID") from err
+
+        value = 0
+        for byte in data:
+            value |= byte & 0x7f
+            if byte & 0x80:
+                value <<= 7
+            else:
+                oid.append(value)
+                value = 0
+
+        if value:
+            raise ParseError("OID ended unexpectedly")
+
+        return cls(".".join([str(num) for num in oid]), raw=raw)
+
+    def serialize(self):
+        return self.raw
