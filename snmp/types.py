@@ -76,7 +76,7 @@ class Integer(Object):
 class OctetString(Object):
     TYPE = OCTET_STRING
 
-    def __init__(self, value):
+    def __init__(self, value=b''):
         self.value = value
 
     def __repr__(self):

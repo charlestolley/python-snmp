@@ -1,5 +1,5 @@
 from time import time
-from snmp.ber import decode
+from snmp.ber import decode, encode
 from snmp.types import *
 from snmp.security.levels import *
 
@@ -92,17 +92,83 @@ class EngineEntry:
         return withinTimeWindow
 
 class SecurityModule:
-    def __init__(self, *users):
+    def __init__(self):
         self.engineTable = {}
 
-        for user in users:
-            try:
-                entry = self.engineTable[user.engineID]
-            except KeyError:
-                entry = EngineEntry()
-                self.engineTable[user.engineID] = entry
+    def addUser(self, user):
+        try:
+            entry = self.engineTable[user.engineID]
+        except KeyError:
+            entry = EngineEntry()
+            self.engineTable[user.engineID] = entry
 
-            entry.addUser(user)
+        entry.addUser(user)
+
+    def generateRequestMsg(self, header, data, engineID,
+                            securityName, securityLevel):
+        if securityLevel.auth:
+            try:
+                engine = self.engineTable[engineID]
+            except KeyError as err:
+                raise UnknownEngineID(engineID) from err
+
+            try:
+                user = engine.getUser(securityName)
+            except KeyError as err:
+                raise UnknownSecurityName(securityName) from err
+
+            if not user.auth:
+                err = "Authentication is disabled for user {}".format(user.name)
+                raise UnsupportedSecurityLevel(err)
+
+            snmpEngineBoots = engine.snmpEngineBoots
+            snmpEngineTime = engine.snmpEngineTime
+            msgAuthenticationParameters = user.auth.msgAuthenticationParameters
+            msgPrivacyParameters = b''
+
+            if securityLevel.priv:
+                if not user.priv:
+                    err = "Privacy is disabled for user {}".format(user.name)
+                    raise UnsupportedSecurityLevel(err)
+
+                msgPrivacyParameters = user.priv.msgPrivacyParameters
+                data = OctetString(user.priv.encrypt(
+                    data,
+                    snmpEngineBoots,
+                    snmpEngineTime,
+                    msgPrivacyParameters
+                )).encode()
+
+        else:
+            snmpEngineBoots = 0
+            snmpEngineTime = 0
+            msgAuthenticationParameters = b''
+            msgPrivacyParameters = b''
+
+        encodedPrivacyParameters = OctetString(msgPrivacyParameters).encode()
+        securityParameters = encode(
+            SEQUENCE,
+            b''.join((
+                OctetString(engineID).encode(),
+                Integer(snmpEngineBoots).encode(),
+                Integer(snmpEngineTime).encode(),
+                OctetString(securityName).encode(),
+                OctetString(msgAuthenticationParameters).encode(),
+                encodedPrivacyParameters,
+            ))
+        )
+
+        msgSecurityParameters = OctetString(securityParameters).encode()
+        body = b''.join((header, msgSecurityParameters, data))
+        wholeMsg = encode(SEQUENCE, body)
+
+        if securityLevel.auth:
+            signature = user.auth.sign(wholeMsg)
+            endIndex = len(wholeMsg) - len(data) - len(encodedPrivacyParameters)
+            startIndex = endIndex - len(signature)
+            wholeMsg = wholeMsg[:startIndex] + signature + wholeMsg[endIndex:]
+
+        return wholeMsg
 
     def processIncomingMsg(self, msg, securityLevel, timestamp=None):
         if timestamp is None:
