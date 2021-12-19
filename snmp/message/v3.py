@@ -1,7 +1,7 @@
 from snmp.ber import ParseError
 from snmp.types import *
 
-class MessageFlags(Object):
+class MessageFlags(Asn1Encodable):
     TYPE = OCTET_STRING
     AUTH_FLAG       = (1 << 0)
     PRIV_FLAG       = (1 << 1)

@@ -1,6 +1,6 @@
 __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
-    "Object", "Integer", "OctetString", "Null", "OID",
+    "Asn1Encodable", "Integer", "OctetString", "Null", "OID",
 ]
 
 from snmp.ber import *
@@ -11,7 +11,7 @@ NULL                = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 5)
 OBJECT_IDENTIFIER   = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 6)
 SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
 
-class Object:
+class Asn1Encodable:
     @classmethod
     def decode(cls, data, leftovers=False, **kwargs):
         result = decode(
@@ -39,7 +39,7 @@ class Object:
             "{} does not override serialize()".format(self.__class__.__name__)
         )
 
-class Integer(Object):
+class Integer(Asn1Encodable):
     SIGNED = True
     SIZE = 4
     TYPE = INTEGER
@@ -73,7 +73,7 @@ class Integer(Object):
 
         return encoding[index:]
 
-class OctetString(Object):
+class OctetString(Asn1Encodable):
     TYPE = OCTET_STRING
 
     def __init__(self, value=b''):
@@ -92,7 +92,7 @@ class OctetString(Object):
     def serialize(self):
         return self.value
 
-class Null(Object):
+class Null(Asn1Encodable):
     TYPE = NULL
 
     def __repr__(self):
@@ -105,7 +105,7 @@ class Null(Object):
     def serialize(self):
         return b''
 
-class OID(Object):
+class OID(Asn1Encodable):
     TYPE = OBJECT_IDENTIFIER
 
     def __init__(self, oid="0.0", raw=None):
