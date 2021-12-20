@@ -176,7 +176,7 @@ class SecurityModule:
 
         msgSecurityParameters, msgData = \
             OctetString.decode(msg, leftovers=True, copy=False)
-        ptr = decode(msgSecurityParameters, expected=SEQUENCE)
+        ptr = decode(msgSecurityParameters, expected=SEQUENCE, copy=False)
         msgAuthoritativeEngineID, ptr = OctetString.decode(ptr, leftovers=True)
         msgAuthoritativeEngineBoots, ptr  = Integer.decode(ptr, leftovers=True)
         msgAuthoritativeEngineTime,  ptr  = Integer.decode(ptr, leftovers=True)

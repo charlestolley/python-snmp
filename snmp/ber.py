@@ -103,7 +103,7 @@ def encode_length(length):
     arr.append(0x80 | len(arr))
     return bytes(reversed(arr))
 
-def decode(data, expected=None, leftovers=False):
+def decode(data, expected=None, leftovers=False, copy=True):
     data = subbytes(data)
     identifier = decode_identifier(data)
 
@@ -119,7 +119,10 @@ def decode(data, expected=None, leftovers=False):
     if len(data) < length:
         raise ParseError("Incomplete value")
 
-    result.append(data)
+    if copy:
+        result.append(data[:])
+    else:
+        result.append(data)
 
     if leftovers:
         result.append(pruned)

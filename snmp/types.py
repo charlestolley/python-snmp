@@ -13,17 +13,15 @@ SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
 
 class Asn1Encodable:
     @classmethod
-    def decode(cls, data, leftovers=False, **kwargs):
-        result = decode(
-            data,
-            expected=cls.TYPE,
-            leftovers=leftovers)
+    def decode(cls, data, **kwargs):
+        kwargs["expected"] = cls.TYPE
+        result = decode(data, **kwargs)
 
-        if leftovers:
+        if kwargs.get("leftovers", False):
             encoding, leftovers = result
-            return cls.deserialize(encoding, **kwargs), leftovers
+            return cls.deserialize(encoding), leftovers
         else:
-            return cls.deserialize(result, **kwargs)
+            return cls.deserialize(result)
 
     def encode(self):
         return encode(self.TYPE, self.serialize())
@@ -83,11 +81,8 @@ class OctetString(Asn1Encodable):
         return "{}({})".format(self.__class__.__name__, self.value)
 
     @classmethod
-    def deserialize(cls, data, copy=True):
-        if copy:
-            return bytes(data)
-        else:
-            return data
+    def deserialize(cls, data):
+        return data
 
     def serialize(self):
         return self.value
@@ -155,10 +150,11 @@ class OID(Asn1Encodable):
     @classmethod
     def deserialize(cls, data):
         raw = bytes(data)
+        data = iter(data)
 
         try:
-            oid = list(divmod(data.consume(), 40))
-        except IndexError as err:
+            oid = list(divmod(next(data), 40))
+        except StopIteration as err:
             raise ParseError("Empty OID") from err
 
         value = 0
