@@ -74,6 +74,10 @@ class Integer(Asn1Encodable):
 class OctetString(Asn1Encodable):
     TYPE = OCTET_STRING
 
+    MIN_SIZE = 0
+    MAX_SIZE = 0xffff
+    INVALID_SIZES = ()
+
     def __init__(self, data=b''):
         self.data = data
 
@@ -82,6 +86,20 @@ class OctetString(Asn1Encodable):
 
     @classmethod
     def deserialize(cls, data):
+        if len(data) < cls.MIN_SIZE:
+            msg = "Encoded {} may not be less than {} bytes long"
+            raise ParseError(msg.format(cls.__name__, cls.MIN_SIZE))
+        elif len(data) > cls.MAX_SIZE:
+            msg = "Encoded {} may not be more than {} bytes long"
+            raise ParseError(msg.format(cls.__name__, cls.MAX_SIZE))
+        elif len(data) in cls.INVALID_SIZES:
+            msg = "Encoded {} not permitted to be {} bytes long"
+            raise ParseError(msg.format(cls.__name__, len(data)))
+
+        return cls.parse(data)
+
+    @classmethod
+    def parse(cls, data):
         return cls(data)
 
     def serialize(self):

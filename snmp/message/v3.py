@@ -1,8 +1,9 @@
 from snmp.ber import ParseError
 from snmp.types import *
 
-class MessageFlags(Asn1Encodable):
-    TYPE = OCTET_STRING
+class MessageFlags(OctetString):
+    MIN_SIZE = 1
+
     AUTH_FLAG       = (1 << 0)
     PRIV_FLAG       = (1 << 1)
     REPORTABLE_FLAG = (1 << 2)
@@ -12,14 +13,12 @@ class MessageFlags(Asn1Encodable):
         self.byte = byte & self.ALL_FLAGS
 
     @classmethod
-    def deserialize(cls, data):
-        try:
-            return cls(data[0])
-        except IndexError as err:
-            raise ParseError("Missing flags")
+    def parse(cls, data=b''):
+        return cls(byte=data[0])
 
-    def serialize(self):
-        return bytes([self.byte])
+    @property
+    def data(self):
+        return bytes((self.byte,))
 
     @property
     def authFlag(self):
