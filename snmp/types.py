@@ -1,6 +1,6 @@
 __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
-    "Asn1Encodable", "Integer", "OctetString", "Null", "OID",
+    "Asn1Encodable", "Integer", "OctetString", "Null", "OID", "Sequence",
 ]
 
 from snmp.ber import *
@@ -191,3 +191,15 @@ class OID(Asn1Encodable):
 
     def serialize(self):
         return self.raw
+
+class Sequence(Asn1Encodable):
+    TYPE = SEQUENCE
+
+    @property
+    def objects(self):
+        raise AttributeError(
+            "{} does not override .objects".format(self.__class__.__name__)
+        )
+
+    def serialize(self):
+        return b''.join([item.encode() for item in self.objects])

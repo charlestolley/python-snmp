@@ -52,3 +52,38 @@ class MessageFlags(OctetString):
             self.byte |= self.REPORTABLE_FLAG
         else:
             self.byte &= ~self.REPORTABLE_FLAG
+
+class HeaderData(Sequence):
+    def __init__(self, msgID, maxSize, flags, securityModel):
+        self.id = msgID
+        self.maxSize = maxSize
+        self.flags = flags
+        self.securityModel = securityModel
+
+    @property
+    def objects(self):
+        yield Integer(self.id)
+        yield Integer(self.maxSize)
+        yield self.flags
+        yield Integer(self.securityModel)
+
+    @classmethod
+    def deserialize(cls, data):
+        msgID,      data = Integer      .decode(data, leftovers=True)
+        msgMaxSize, data = Integer      .decode(data, leftovers=True)
+        msgFlags,   data = MessageFlags .decode(data, leftovers=True)
+        msgSecurityModel = Integer      .decode(data)
+
+        if msgID.value < 0:
+            raise ParseError("msgID may not be less than 0")
+        elif msgMaxSize.value < 484:
+            raise ParseError("msgMaxSize may not be less than 484")
+        elif msgSecurityModel.value < 1:
+            raise ParseError("msgSecurityModel may not be less than 1")
+
+        return cls(
+            msgID.value,
+            msgMaxSize.value,
+            msgFlags,
+            msgSecurityModel.value
+        )
