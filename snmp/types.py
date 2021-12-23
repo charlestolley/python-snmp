@@ -55,7 +55,7 @@ class Integer(Asn1Encodable):
                 msg = "Encoding too large for {}".format(cls.__name__)
                 raise ParseError(msg)
 
-        return int.from_bytes(data, "big", signed=cls.SIGNED)
+        return cls(int.from_bytes(data, "big", signed=cls.SIGNED))
 
     def serialize(self):
         encoding = self.value.to_bytes(self.SIZE, "big", signed=self.SIGNED)
@@ -74,18 +74,18 @@ class Integer(Asn1Encodable):
 class OctetString(Asn1Encodable):
     TYPE = OCTET_STRING
 
-    def __init__(self, value=b''):
-        self.value = value
+    def __init__(self, data=b''):
+        self.data = data
 
     def __repr__(self):
-        return "{}({})".format(self.__class__.__name__, self.value)
+        return "{}({})".format(self.__class__.__name__, self.data)
 
     @classmethod
     def deserialize(cls, data):
-        return data
+        return cls(data)
 
     def serialize(self):
-        return self.value
+        return self.data
 
 class Null(Asn1Encodable):
     TYPE = NULL

@@ -176,7 +176,7 @@ class SecurityModule:
 
         msgSecurityParameters, msgData = \
             OctetString.decode(msg, leftovers=True, copy=False)
-        ptr = decode(msgSecurityParameters, expected=SEQUENCE, copy=False)
+        ptr = decode(msgSecurityParameters.data, expected=SEQUENCE, copy=False)
         msgAuthoritativeEngineID, ptr = OctetString.decode(ptr, leftovers=True)
         msgAuthoritativeEngineBoots, ptr  = Integer.decode(ptr, leftovers=True)
         msgAuthoritativeEngineTime,  ptr  = Integer.decode(ptr, leftovers=True)
@@ -185,18 +185,18 @@ class SecurityModule:
         msgAuthenticationParameters, ptr = \
             OctetString.decode(ptr, leftovers=True)
         msgAuthenticationParametersIndex = \
-            ptr.start - len(msgAuthenticationParameters)
+            ptr.start - len(msgAuthenticationParameters.data)
         msgPrivacyParameters = OctetString.decode(ptr)
 
         try:
-            engine = self.engineTable[msgAuthoritativeEngineID]
+            engine = self.engineTable[msgAuthoritativeEngineID.data]
         except KeyError as err:
-            raise UnknownEngineID(msgAuthoritativeEngineID) from err
+            raise UnknownEngineID(msgAuthoritativeEngineID.data) from err
 
         try:
-            user = engine.getUser(msgUserName)
+            user = engine.getUser(msgUserName.data)
         except KeyError as err:
-            raise UnknownSecurityName(msgUserName) from err
+            raise UnknownSecurityName(msgUserName.data) from err
 
         if not securityLevel.auth:
             return SecureData(msgData[:], user, securityLevel)
@@ -209,27 +209,27 @@ class SecurityModule:
 
         wholeMsg = bytearray(msg.data)
         padding = user.auth.msgAuthenticationParameters
-        if len(msgAuthenticationParameters) != len(padding):
+        if len(msgAuthenticationParameters.data) != len(padding):
             raise AuthenticationFailure("Invalid signature length")
 
-        for i in range(len(msgAuthenticationParameters)):
+        for i in range(len(msgAuthenticationParameters.data)):
             wholeMsg[msgAuthenticationParametersIndex + i] = padding[i]
 
-        if user.auth.sign(wholeMsg) != msgAuthenticationParameters:
+        if user.auth.sign(wholeMsg) != msgAuthenticationParameters.data:
             raise AuthenticationFailure("Invalid signature")
 
         if not engine.verifyTimeliness(
-                msgAuthoritativeEngineBoots,
-                msgAuthoritativeEngineTime,
+                msgAuthoritativeEngineBoots.value,
+                msgAuthoritativeEngineTime.value,
                 timestamp=timestamp):
             raise NotInTimeWindow()
 
         if securityLevel.priv:
             payload = user.priv.decrypt(
-                OctetString.decode(msgData),
-                msgAuthoritativeEngineBoots,
-                msgAuthoritativeEngineTime,
-                msgPrivacyParameters
+                OctetString.decode(msgData).data,
+                msgAuthoritativeEngineBoots.value,
+                msgAuthoritativeEngineTime.value,
+                msgPrivacyParameters.data
             )
         else:
             payload = msgData[:]
