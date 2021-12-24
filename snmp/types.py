@@ -1,6 +1,7 @@
 __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
-    "Asn1Encodable", "Integer", "OctetString", "Null", "OID", "Sequence",
+    "Asn1Encodable", "Integer", "OctetString", "Null", "OID",
+    "Constructed", "Sequence",
 ]
 
 from snmp.ber import *
@@ -191,9 +192,7 @@ class OID(Asn1Encodable):
     def serialize(self):
         return self.raw
 
-class Sequence(Asn1Encodable):
-    TYPE = SEQUENCE
-
+class Constructed(Asn1Encodable):
     @property
     def objects(self):
         raise AttributeError(
@@ -202,3 +201,6 @@ class Sequence(Asn1Encodable):
 
     def serialize(self):
         return b''.join([item.encode() for item in self.objects])
+
+class Sequence(Constructed):
+    TYPE = SEQUENCE
