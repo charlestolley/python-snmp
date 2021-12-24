@@ -3,6 +3,7 @@ __all__ = [
     "CLASS_CONTEXT_SPECIFIC", "CLASS_PRIVATE",
     "STRUCTURE_PRIMITIVE", "STRUCTURE_CONSTRUCTED",
     "Identifier", "ParseError", "decode", "encode",
+    "decode_identifier",
 ]
 
 from collections import namedtuple

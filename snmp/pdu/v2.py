@@ -1,4 +1,7 @@
-__all__ = ["NoSuchObject", "NoSuchInstance", "EndOfMibView", "VarBind"]
+__all__ = [
+    "NoSuchObject", "NoSuchInstance", "EndOfMibView",
+    "VarBind", "VarBindList"
+]
 
 from snmp.ber import *
 from snmp.smi.v2 import *
@@ -60,3 +63,27 @@ class VarBind(Sequence):
             raise ParseError(msg.format(identifier)) from err
 
         return cls(name, valueType.decode(data))
+
+class VarBindList(Sequence):
+    def __init__(self, *args):
+        self.objects = [None] * len(args)
+        for i, var in enumerate(args):
+            if not isinstance(var, VarBind):
+                var = VarBind(var)
+            self.objects[i] = var
+
+    def __iter__(self):
+        return iter(self.objects)
+
+    def __getitem__(self, key):
+        return self.objects[key]
+
+    @classmethod
+    def deserialize(cls, data):
+        objects = []
+
+        while data:
+            var, data = VarBind.decode(data, leftovers=True)
+            objects.append(var)
+
+        return cls(*objects)
