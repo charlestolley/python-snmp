@@ -1,5 +1,6 @@
-from snmp.ber import ParseError
+from snmp.ber import ParseError, decode_identifier
 from snmp.types import *
+from snmp.utils import subbytes
 
 class MessageFlags(OctetString):
     MIN_SIZE = 1
@@ -86,4 +87,34 @@ class HeaderData(Sequence):
             msgMaxSize.value,
             msgFlags,
             msgSecurityModel.value
+        )
+
+class ScopedPDU(Sequence):
+    def __init__(self, pdu, contextEngineID, contextName=b''):
+        self.contextEngineID = contextEngineID
+        self.contextName = contextName
+        self.pdu = pdu
+
+    @property
+    def objects(self):
+        yield OctetString(self.contextEngineID)
+        yield OctetString(self.contextName)
+        yield self.pdu
+
+    @classmethod
+    def deserialize(cls, data, types={}):
+        contextEngineID, data = OctetString.decode(data, leftovers=True)
+        contextName,     data = OctetString.decode(data, leftovers=True)
+
+        identifier = decode_identifier(subbytes(data))
+
+        try:
+            pduType = types[identifier]
+        except KeyError as err:
+            raise ParseError("Invalid PDU type: {}".format(identifier)) from err
+
+        return cls(
+            pduType.decode(data),
+            contextEngineID=contextEngineID,
+            contextName=contextName
         )

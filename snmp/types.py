@@ -13,15 +13,14 @@ SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
 
 class Asn1Encodable:
     @classmethod
-    def decode(cls, data, **kwargs):
-        kwargs["expected"] = cls.TYPE
-        result = decode(data, **kwargs)
+    def decode(cls, data, leftovers=False, copy=True, **kwargs):
+        result = decode(data, expected=cls.TYPE, leftovers=leftovers, copy=copy)
 
-        if kwargs.get("leftovers", False):
+        if leftovers:
             encoding, leftovers = result
-            return cls.deserialize(encoding), leftovers
+            return cls.deserialize(encoding, **kwargs), leftovers
         else:
-            return cls.deserialize(result)
+            return cls.deserialize(result, **kwargs)
 
     def encode(self):
         return encode(self.TYPE, self.serialize())
