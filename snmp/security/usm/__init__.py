@@ -63,28 +63,29 @@ class EngineEntry:
         if timestamp is None:
             timestamp = time()
 
-        snmpEngineTime = self.calculateEngineTime(timestamp)
+
         withinTimeWindow = False
-
         if self.authoritative:
-            if (msgEngineBoots == self.snmpEngineBoots
-            and abs(snmpEngineTime - msgEngineTime) <= self.TIME_WINDOW_SIZE):
-                withinTimeWindow = True
-        elif msgEngineBoots == self.snmpEngineBoots:
-            if msgEngineTime > snmpEngineTime:
-                snmpEngineTime = msgEngineTime
-                self.latestBootTime = timestamp - snmpEngineTime
+            if msgEngineBoots == self.snmpEngineBoots:
+                difference = self.calculateEngineTime(timestamp) - msgEngineTime
+                if abs(difference) <= self.TIME_WINDOW_SIZE:
+                    withinTimeWindow = True
+        else:
+            if msgEngineBoots > self.snmpEngineBoots:
+                self.snmpEngineBoots = msgEngineBoots
+                self.latestBootTime = timestamp
+                self.latestReceivedEngineTime = 0
 
-            if snmpEngineTime > self.latestReceivedEngineTime:
-                self.latestReceivedEngineTime = snmpEngineTime
-
-            if snmpEngineTime - msgEngineTime <= self.TIME_WINDOW_SIZE:
-                withinTimeWindow = True
-        elif msgEngineBoots > self.snmpEngineBoots:
-            self.snmpEngineBoots = msgEngineBoots
-            self.latestBootTime = timestamp - msgEngineTime
-            self.latestReceivedEngineTime = msgEngineTime
-            withinTimeWindow = True
+            if msgEngineBoots == self.snmpEngineBoots:
+                if msgEngineTime > self.latestReceivedEngineTime:
+                    self.latestBootTime = timestamp - msgEngineTime
+                    self.latestReceivedEngineTime = msgEngineTime
+                    withinTimeWindow = True
+                else:
+                    snmpEngineTime = self.calculateEngineTime(timestamp)
+                    difference = snmpEngineTime - msgEngineTime
+                    if difference <= self.TIME_WINDOW_SIZE:
+                        withinTimeWindow = True
 
         if self.snmpEngineBoots == self.MAX_ENGINE_BOOTS:
             withinTimeWindow = False
