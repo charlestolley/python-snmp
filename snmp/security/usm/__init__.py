@@ -188,6 +188,10 @@ class SecurityModule:
             ptr.start - len(msgAuthenticationParameters.data)
         msgPrivacyParameters = OctetString.decode(ptr)
 
+        if not securityLevel.auth:
+            user = UserEntry(msgAuthoritativeEngineID.data, msgUserName.data)
+            return SecureData(msgData[:], user)
+
         try:
             engine = self.engineTable[msgAuthoritativeEngineID.data]
         except KeyError as err:
@@ -198,9 +202,7 @@ class SecurityModule:
         except KeyError as err:
             raise UnknownSecurityName(msgUserName.data) from err
 
-        if not securityLevel.auth:
-            return SecureData(msgData[:], user, securityLevel)
-        elif user.auth is None:
+        if user.auth is None:
             err = "Authentication is disabled for user {}".format(user.name)
             raise UnsupportedSecurityLevel(err)
         elif securityLevel.priv and user.priv is None:
