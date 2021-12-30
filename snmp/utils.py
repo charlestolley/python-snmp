@@ -1,3 +1,25 @@
+from random import randint
+
+class NumberGenerator:
+    def __init__(self, nbits, signed=True):
+        half = 1 << (nbits-1)
+
+        self.previous = 0
+        self.range = half << 1
+        self.step = 2 * randint(1, half) - 1
+        self.wrap = self.range - 1
+
+        if signed:
+            self.wrap -= half
+
+    def __next__(self):
+        self.previous += self.step
+
+        if self.previous > self.wrap:
+            self.previous -= self.range
+
+        return self.previous
+
 class subbytes:
     def __init__(self, data, start=0, end=None):
         if isinstance(data, subbytes):
