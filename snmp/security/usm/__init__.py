@@ -19,18 +19,17 @@ class UnsupportedSecurityLevel(ValueError):
     pass
 
 class UserEntry:
-    def __init__(self, engineID, name, auth=None, priv=None):
-        self.engineID = engineID
+    def __init__(self, name, auth=None, priv=None):
         self.name = name
         self.auth = auth
         self.priv = priv
 
 class SecureData:
-    def __init__(self, data, user, securityLevel=noAuthNoPriv):
+    def __init__(self, data, engineID, userName, securityLevel=noAuthNoPriv):
         self.scopedPDU = data
-        self.securityEngineID = user.engineID
+        self.securityEngineID = engineID
         self.securityLevel = securityLevel
-        self.securityName = user.name
+        self.securityName = userName
 
 class EngineEntry:
     MAX_ENGINE_BOOTS = 0x7fffffff
@@ -96,14 +95,30 @@ class SecurityModule:
     def __init__(self):
         self.engineTable = {}
 
-    def addUser(self, user):
+    def addUser(self, engineID, userName, authProtocol=None, authSecret=None,
+                privProtocol=None, privSecret=None, secret=b''):
         try:
-            entry = self.engineTable[user.engineID]
+            entry = self.engineTable[engineID]
         except KeyError:
             entry = EngineEntry()
-            self.engineTable[user.engineID] = entry
+            self.engineTable[engineID] = entry
 
-        entry.addUser(user)
+        kwargs = dict()
+        if authProtocol is not None:
+            if authSecret is None:
+                authSecret = secret
+
+            authKey = authProtocol.localize(authSecret, engineID)
+            kwargs["auth"] = authProtocol(authKey)
+
+            if privProtocol is not None:
+                if privSecret is None:
+                    privSecret = secret
+
+                privKey = authProtocol.localize(privSecret, engineID)
+                kwargs["priv"] = privProtocol(privKey)
+
+        entry.addUser(UserEntry(userName, **kwargs))
 
     def generateRequestMsg(self, header, data, engineID,
                             securityName, securityLevel):
@@ -189,19 +204,21 @@ class SecurityModule:
             ptr.start - len(msgAuthenticationParameters.data)
         msgPrivacyParameters = OctetString.decode(ptr)
 
+        engineID = msgAuthoritativeEngineID.data
+        userName = msgUserName.data
+
         if not securityLevel.auth:
-            user = UserEntry(msgAuthoritativeEngineID.data, msgUserName.data)
-            return SecureData(msgData[:], user)
+            return SecureData(msgData[:], engineID, userName)
 
         try:
-            engine = self.engineTable[msgAuthoritativeEngineID.data]
+            engine = self.engineTable[engineID]
         except KeyError as err:
-            raise UnknownEngineID(msgAuthoritativeEngineID.data) from err
+            raise UnknownEngineID(engineID) from err
 
         try:
-            user = engine.getUser(msgUserName.data)
+            user = engine.getUser(userName)
         except KeyError as err:
-            raise UnknownSecurityName(msgUserName.data) from err
+            raise UnknownSecurityName(userName) from err
 
         if user.auth is None:
             err = "Authentication is disabled for user {}".format(user.name)
@@ -237,4 +254,4 @@ class SecurityModule:
         else:
             payload = msgData[:]
 
-        return SecureData(payload, user, securityLevel)
+        return SecureData(payload, engineID, userName, securityLevel)
