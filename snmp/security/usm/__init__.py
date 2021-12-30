@@ -1,3 +1,9 @@
+__all__ = [
+    "AuthenticationFailure", "NotInTimeWindow", "UnknownEngineID",
+    "UnknownSecurityName", "UnsupportedSecurityLevel",
+    "SecureData", "SecurityModule",
+]
+
 from time import time
 from snmp.ber import decode, encode
 from snmp.types import *
@@ -23,13 +29,6 @@ class UserEntry:
         self.name = name
         self.auth = auth
         self.priv = priv
-
-class SecureData:
-    def __init__(self, data, engineID, userName, securityLevel=noAuthNoPriv):
-        self.scopedPDU = data
-        self.securityEngineID = engineID
-        self.securityLevel = securityLevel
-        self.securityName = userName
 
 class EngineEntry:
     MAX_ENGINE_BOOTS = 0x7fffffff
@@ -90,6 +89,13 @@ class EngineEntry:
             withinTimeWindow = False
 
         return withinTimeWindow
+
+class SecureData:
+    def __init__(self, data, engineID, userName, securityLevel=noAuthNoPriv):
+        self.scopedPDU = data
+        self.securityEngineID = engineID
+        self.securityLevel = securityLevel
+        self.securityName = userName
 
 class SecurityModule:
     def __init__(self):
