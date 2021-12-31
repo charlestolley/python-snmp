@@ -92,12 +92,14 @@ class EngineEntry:
 
 class SecureData:
     def __init__(self, data, engineID, userName, securityLevel=noAuthNoPriv):
-        self.scopedPDU = data
+        self.data = data
         self.securityEngineID = engineID
         self.securityLevel = securityLevel
         self.securityName = userName
 
 class SecurityModule:
+    MODEL = 3
+
     def __init__(self):
         self.engineTable = {}
 

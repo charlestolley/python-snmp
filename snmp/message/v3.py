@@ -1,6 +1,15 @@
 from snmp.ber import ParseError, decode_identifier
+from snmp.pdu.v2 import pduTypes
+from snmp.security import SecurityLevel
+from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
-from snmp.utils import subbytes
+from snmp.utils import NumberGenerator, subbytes
+
+class InvalidMessage(ValueError):
+    pass
+
+class UnknownSecurityModel(ValueError):
+    pass
 
 class MessageFlags(OctetString):
     MIN_SIZE = 1
@@ -117,4 +126,49 @@ class ScopedPDU(Sequence):
             pduType.decode(data),
             contextEngineID=contextEngineID,
             contextName=contextName
+        )
+
+class MessagePreparer:
+    VERSION = 3
+
+    def __init__(self, security):
+        self.generator = NumberGenerator(31, signed=False)
+        self.security = security
+
+    def prepareDataElements(self, msg):
+        msgGlobalData, msg = HeaderData.decode(msg, leftovers=True)
+
+        if msgGlobalData.securityModel != self.security.MODEL:
+            raise UnknownSecurityModel(msgGlobalData.securityModel)
+
+        try:
+            securityLevel = SecurityLevel(
+                auth=msgGlobalData.flags.authFlag,
+                priv=msgGlobalData.flags.privFlag)
+        except ValueError as err:
+            raise InvalidMessage("Invalid msgFlags: {}".format(err)) from err
+
+        secureData = self.security.processIncomingMsg(msg, securityLevel)
+        secureData.scopedPDU = ScopedPDU.decode(secureData.data, types=pduTypes)
+        return secureData
+
+    def prepareOutgoingMessage(self, pdu, engineID, userName,
+                securityLevel=noAuthNoPriv, contextName=b''):
+        scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
+
+        msgID = next(self.generator)
+        flags = MessageFlags()
+        flags.authFlag = securityLevel.auth
+        flags.privFlag = securityLevel.priv
+        flags.reportableFlag = True
+
+        msgGlobalData = HeaderData(msgID, 1472, flags, self.security.MODEL)
+        header = Integer(self.VERSION).encode() + msgGlobalData.encode()
+
+        return self.security.generateRequestMsg(
+            header,
+            scopedPDU.encode(),
+            engineID,
+            userName,
+            securityLevel,
         )
