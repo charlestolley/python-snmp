@@ -1,5 +1,18 @@
 from random import randint
 
+class DummyLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def acquire(self, *args, **kwargs):
+        return True
+
+    def release(self):
+        pass
+
 class NumberGenerator:
     def __init__(self, nbits, signed=True):
         half = 1 << (nbits-1)
