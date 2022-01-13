@@ -41,13 +41,9 @@ class TimeKeeper:
     MAX_ENGINE_BOOTS = 0x7fffffff
     TIME_WINDOW_SIZE = 150
 
-    def __init__(self, lockType, engineID=None, *args, **kwargs):
-        self.engineID = engineID
+    def __init__(self, lockType):
         self.lock = lockType()
         self.table = {}
-
-        if self.engineID is not None:
-            self.addEngine(self.engineID, *args, **kwargs)
 
     def addEngine(self, engineID, engineBoots=0, bootTime=None):
         with self.lock:
@@ -65,7 +61,8 @@ class TimeKeeper:
 
             return entry.snmpEngineBoots, entry.snmpEngineTime(timestamp)
 
-    def verifyTimeliness(self, engineID, msgBoots, msgTime, timestamp=None):
+    def verifyTimeliness(self, engineID, msgBoots, msgTime,
+                        authoritative=False, timestamp=None):
         if timestamp is None:
             timestamp = time()
 
@@ -76,7 +73,7 @@ class TimeKeeper:
             except KeyError as err:
                 raise UnknownEngineID(engineID) from err
 
-            if engineID == self.engineID:
+            if authoritative:
                 if msgBoots == entry.snmpEngineBoots:
                     difference = entry.snmpEngineTime(timestamp) - msgTime
                     if abs(difference) < self.TIME_WINDOW_SIZE:
@@ -160,9 +157,13 @@ class SecureData:
 class SecurityModule:
     MODEL = 3
 
-    def __init__(self, lockType=DummyLock):
+    def __init__(self, lockType=DummyLock, engineID=None, *args, **kwargs):
+        self.engineID = engineID
         self.timekeeper = TimeKeeper(lockType)
         self.users = UserTable(lockType)
+
+        if self.engineID is not None:
+            self.addEngine(self.engineID, *args, **kwargs)
 
     def addEngine(self, *args, **kwargs):
         self.timekeeper.addEngine(*args, **kwargs)
@@ -170,8 +171,8 @@ class SecurityModule:
     def addUser(self, *args, **kwargs):
         self.users.addUser(*args, **kwargs)
 
-    def generateRequestMsg(self, header, data, engineID,
-                            securityName, securityLevel):
+    def prepareOutgoing(self, header, data, engineID,
+                        securityName, securityLevel):
         if securityLevel.auth:
             try:
                 user = self.users.getUser(engineID, securityName)
@@ -183,7 +184,7 @@ class SecurityModule:
                 raise UnsupportedSecurityLevel(err)
 
             engineTimeParameters = self.timekeeper.getEngineTime(engineID)
-            snmpEngineBoots, snmpEngineTime = engineTimeParameters 
+            snmpEngineBoots, snmpEngineTime = engineTimeParameters
             msgAuthenticationParameters = user.auth.msgAuthenticationParameters
             msgPrivacyParameters = b''
 
@@ -201,8 +202,13 @@ class SecurityModule:
                 )).encode()
 
         else:
-            snmpEngineBoots = 0
-            snmpEngineTime = 0
+            if engineID == self.engineID:
+                engineTimeParameters = self.timekeeper.getEngineTime(engineID)
+                snmpEngineBoots, snmpEngineTime = engineTimeParameters
+            else:
+                snmpEngineBoots = 0
+                snmpEngineTime = 0
+
             msgAuthenticationParameters = b''
             msgPrivacyParameters = b''
 
@@ -235,7 +241,7 @@ class SecurityModule:
 
         return wholeMsg
 
-    def processIncomingMsg(self, msg, securityLevel, timestamp=None):
+    def processIncoming(self, msg, securityLevel, timestamp=None):
         if timestamp is None:
             timestamp = time()
 
@@ -288,6 +294,7 @@ class SecurityModule:
                 engineID,
                 msgAuthoritativeEngineBoots.value,
                 msgAuthoritativeEngineTime.value,
+                authoritative=(engineID == self.engineID),
                 timestamp=timestamp):
             raise NotInTimeWindow(
                 engineID,

@@ -148,7 +148,7 @@ class MessagePreparer:
         except ValueError as err:
             raise InvalidMessage("Invalid msgFlags: {}".format(err)) from err
 
-        secureData = self.security.processIncomingMsg(msg, securityLevel)
+        secureData = self.security.processIncoming(msg, securityLevel)
         secureData.scopedPDU = ScopedPDU.decode(secureData.data, types=pduTypes)
         return secureData
 
@@ -165,7 +165,7 @@ class MessagePreparer:
         msgGlobalData = HeaderData(msgID, 1472, flags, self.security.MODEL)
         header = Integer(self.VERSION).encode() + msgGlobalData.encode()
 
-        return self.security.generateRequestMsg(
+        return self.security.prepareOutgoing(
             header,
             scopedPDU.encode(),
             engineID,
