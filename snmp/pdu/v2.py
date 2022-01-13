@@ -3,6 +3,7 @@ __all__ = [
     "VarBind", "VarBindList", "PDU", "pduTypes",
     "GetRequestPDU", "GetNextRequestPDU", "ResponsePDU", "SetRequestPDU",
     "GetBulkRequestPDU", "InformRequestPDU", "TrapPDU", "ReportPDU",
+    "Read", "Write", "Response", "Internal", "Notification", "Confirmed",
 ]
 
 import enum
@@ -208,28 +209,46 @@ class BulkPDU(Constructed):
             variableBindings=variableBindings,
         )
 
-class GetRequestPDU(PDU):
+class Read:
+    pass
+
+class Write:
+    pass
+
+class Response:
+    pass
+
+class Notification:
+    pass
+
+class Internal:
+    pass
+
+class Confirmed:
+    pass
+
+class GetRequestPDU(PDU, Read, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 0)
 
-class GetNextRequestPDU(PDU):
+class GetNextRequestPDU(PDU, Read, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 1)
 
-class ResponsePDU(PDU):
+class ResponsePDU(PDU, Response):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 2)
 
-class SetRequestPDU(PDU):
+class SetRequestPDU(PDU, Write, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 3)
 
-class GetBulkRequestPDU(BulkPDU):
+class GetBulkRequestPDU(BulkPDU, Read, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 5)
 
-class InformRequestPDU(PDU):
+class InformRequestPDU(PDU, Notification, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 6)
 
-class TrapPDU(PDU):
+class TrapPDU(PDU, Notification):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 7)
 
-class ReportPDU(PDU):
+class ReportPDU(PDU, Response, Internal):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 8)
 
 pduTypes = {

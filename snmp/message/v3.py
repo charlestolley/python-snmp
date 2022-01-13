@@ -1,9 +1,9 @@
 from snmp.ber import ParseError, decode_identifier
-from snmp.pdu.v2 import pduTypes
+from snmp.pdu.v2 import Confirmed, Response, pduTypes
 from snmp.security import SecurityLevel
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
-from snmp.utils import NumberGenerator, subbytes
+from snmp.utils import DummyLock, NumberGenerator, subbytes
 
 class InvalidMessage(ValueError):
     pass
@@ -124,16 +124,50 @@ class ScopedPDU(Sequence):
 
         return cls(
             pduType.decode(data),
-            contextEngineID=contextEngineID,
-            contextName=contextName
+            contextEngineID=contextEngineID.data,
+            contextName=contextName.data,
         )
+
+class CacheEntry:
+    def __init__(self, engineID, contextName, handle,
+            securityName, securityModel, securityLevel):
+        self.context = contextName
+        self.engineID = engineID
+        self.handle = handle
+        self.securityName = securityName
+        self.securityModel = securityModel
+        self.securityLevel = securityLevel
 
 class MessagePreparer:
     VERSION = 3
 
-    def __init__(self, security):
+    def __init__(self, security, lockType=DummyLock):
         self.generator = NumberGenerator(31, signed=False)
+        self.lock = lockType()
         self.security = security
+
+        self.outstanding = {}
+
+    def cache(self, entry):
+        for i in range(10):
+            with self.lock:
+                msgID = next(self.generator)
+                if msgID not in self.outstanding:
+                    self.outstanding[msgID] = entry
+                    return msgID
+
+        raise Exception("Failed to allocate message ID")
+
+    def retrieve(self, msgID):
+        with self.lock:
+            return self.outstanding[msgID]
+
+    def uncache(self, msgID):
+        with self.lock:
+            try:
+                del self.outstanding[msgID]
+            except KeyError:
+                pass
 
     def prepareDataElements(self, msg):
         msgGlobalData, msg = HeaderData.decode(msg, leftovers=True)
@@ -150,20 +184,57 @@ class MessagePreparer:
 
         secureData = self.security.processIncoming(msg, securityLevel)
         secureData.scopedPDU = ScopedPDU.decode(secureData.data, types=pduTypes)
-        return secureData
 
-    def prepareOutgoingMessage(self, pdu, engineID, userName,
+        if isinstance(secureData.scopedPDU.pdu, Response):
+            try:
+                entry = self.retrieve(msgGlobalData.id)
+            except KeyError as err:
+                errmsg = "Unknown msgID: {}".format(msgGlobalData.id)
+                raise ValueError(errmsg) from err
+
+            if (entry.engineID
+            and entry.engineID != secureData.securityEngineID):
+                raise ValueError("Security Engine ID does not match request")
+
+            if entry.securityName != secureData.securityName:
+                raise ValueError("Security Name does not match request")
+
+            if (entry.securityLevel < secureData.securityLevel
+            and not isinstance(secureData.scopedPDU.pdu, Internal)):
+                raise ValueError("Security Level does not match request")
+
+            if (entry.engineID
+            and entry.engineID != secureData.scopedPDU.contextEngineID):
+                raise ValueError("Context Engine ID does not match request")
+
+            if entry.context != secureData.scopedPDU.contextName:
+                raise ValueError("Context Name does not match request")
+        else:
+            raise ValueError("Received a non-response PDU type")
+
+        # TODO: periodically uncache unanswered messages
+        self.uncache(msgGlobalData.id)
+        return secureData, entry.handle
+
+    def prepareOutgoingMessage(self, pdu, handle, engineID, userName,
                 securityLevel=noAuthNoPriv, contextName=b''):
-        scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
+        entry = CacheEntry(
+            engineID,
+            contextName,
+            handle,
+            userName,
+            self.security.MODEL,
+            securityLevel)
 
-        msgID = next(self.generator)
+        msgID = self.cache(entry)
         flags = MessageFlags()
         flags.authFlag = securityLevel.auth
         flags.privFlag = securityLevel.priv
-        flags.reportableFlag = True
+        flags.reportableFlag = isinstance(pdu, Confirmed)
 
         msgGlobalData = HeaderData(msgID, 1472, flags, self.security.MODEL)
         header = Integer(self.VERSION).encode() + msgGlobalData.encode()
+        scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
 
         return self.security.prepareOutgoing(
             header,
