@@ -183,9 +183,9 @@ class MessagePreparer:
             raise InvalidMessage("Invalid msgFlags: {}".format(err)) from err
 
         secureData = self.security.processIncoming(msg, securityLevel)
-        secureData.scopedPDU = ScopedPDU.decode(secureData.data, types=pduTypes)
+        scopedPDU = ScopedPDU.decode(secureData.data, types=pduTypes)
 
-        if isinstance(secureData.scopedPDU.pdu, Response):
+        if isinstance(scopedPDU.pdu, Response):
             try:
                 entry = self.retrieve(msgGlobalData.id)
             except KeyError as err:
@@ -200,29 +200,29 @@ class MessagePreparer:
                 raise ValueError("Security Name does not match request")
 
             if (entry.securityLevel < secureData.securityLevel
-            and not isinstance(secureData.scopedPDU.pdu, Internal)):
+            and not isinstance(scopedPDU.pdu, Internal)):
                 raise ValueError("Security Level does not match request")
 
             if (entry.engineID
-            and entry.engineID != secureData.scopedPDU.contextEngineID):
+            and entry.engineID != scopedPDU.contextEngineID):
                 raise ValueError("Context Engine ID does not match request")
 
-            if entry.context != secureData.scopedPDU.contextName:
+            if entry.context != scopedPDU.contextName:
                 raise ValueError("Context Name does not match request")
         else:
             raise ValueError("Received a non-response PDU type")
 
         # TODO: periodically uncache unanswered messages
         self.uncache(msgGlobalData.id)
-        return secureData, entry.handle
+        return scopedPDU, entry.handle
 
-    def prepareOutgoingMessage(self, pdu, handle, engineID, userName,
+    def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
                 securityLevel=noAuthNoPriv, contextName=b''):
         entry = CacheEntry(
             engineID,
             contextName,
             handle,
-            userName,
+            securityName,
             self.security.MODEL,
             securityLevel)
 
@@ -240,6 +240,6 @@ class MessagePreparer:
             header,
             scopedPDU.encode(),
             engineID,
-            userName,
+            securityName,
             securityLevel,
         )
