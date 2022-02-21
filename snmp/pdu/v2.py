@@ -42,7 +42,7 @@ class VarBind(Sequence):
 
     def __init__(self, name, value=None):
         if not isinstance(name, OID):
-            name = OID(name)
+            name = OID.parse(name)
 
         if value is None:
             value = Null()

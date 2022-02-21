@@ -119,55 +119,32 @@ class Null(Asn1Encodable):
         return b''
 
 class OID(Asn1Encodable):
+    DOT = '.'
     TYPE = OBJECT_IDENTIFIER
 
-    def __init__(self, oid="0.0", raw=None):
-        self.oid = oid
-        self._raw = raw
+    def __init__(self, *numbers):
+        while len(numbers) < 2:
+            numbers += 0,
+
+        self.numbers = numbers
+
+    def __str__(self):
+        return self.DOT.join(str(num) for num in self.numbers)
 
     def __repr__(self):
-        return "{}(\"{}\")".format(self.__class__.__name__, self.oid)
+        return "{}{}".format(self.__class__.__name__, self.numbers)
 
-    @property
-    def raw(self):
-        if self._raw is None:
-            words = self.oid.split(".")
+    @classmethod
+    def parse(cls, oid):
+        first = 1 if oid.startswith(cls.DOT) else 0
 
-            if words[0] == '':
-                words.pop(0)
-
-            nums = [int(word) for word in words]
-
-            while(len(nums) < 2):
-                nums.append(0)
-
-            nums[0] *= 40
-            nums[1] += nums[0]
-            nums.pop(0)
-
-            raw = bytearray()
-            for num in nums:
-                if num < 0x80:
-                    raw.append(num)
-                else:
-                    scratch = bytearray()
-                    while num > 0x7f:
-                        scratch.append(num & 0x7f)
-                        num >>= 7
-
-                    scratch.append(num)
-                    for i in range(1, len(scratch)):
-                        scratch[i] |= 0x80
-
-                    scratch.reverse()
-                    raw.extend(scratch)
-
-            self._raw = bytes(raw)
-        return self._raw
+        try:
+            return cls(*(int(num) for num in oid.split(cls.DOT)[first:]))
+        except ValueError as e:
+            raise ValueError("Invalid OID string: \"{}\"".format(oid)) from e
 
     @classmethod
     def deserialize(cls, data):
-        raw = bytes(data)
         data = iter(data)
 
         try:
@@ -187,10 +164,29 @@ class OID(Asn1Encodable):
         if value:
             raise ParseError("OID ended unexpectedly")
 
-        return cls(".".join([str(num) for num in oid]), raw=raw)
+        return cls(*oid)
 
     def serialize(self):
-        return self.raw
+        def append(bytearr, num):
+            if num < 0x80:
+                bytearr.append(num)
+            else:
+                flag = 0
+                tmp = bytearray()
+
+                while num:
+                    tmp.append((num & 0x7f) | flag)
+                    flag = 0x80
+                    num >>= 7
+
+                bytearr.extend(tmp.reverse())
+
+        encoding = bytearray()
+        append(encoding, self.numbers[0] * 40 | self.numbers[1])
+        for number in self.numbers[2:]:
+            append(encoding, number)
+
+        return bytes(encoding)
 
 class Constructed(Asn1Encodable):
     @property
