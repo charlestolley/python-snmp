@@ -50,6 +50,16 @@ class VarBind(Sequence):
         self.name = name
         self.value = value
 
+    def __repr__(self):
+        args = ", ".join((repr(self.name), repr(self.value)))
+        return "{}({})".format(self.__class__.__name__, args)
+
+    def __str__(self):
+        return "{}: {}".format(self.name, self.value)
+
+    def __iter__(self):
+        return self.objects
+
     @property
     def objects(self):
         yield self.name
@@ -75,6 +85,13 @@ class VarBindList(Sequence):
             if not isinstance(var, VarBind):
                 var = VarBind(var)
             self.variables[i] = var
+
+    def __repr__(self):
+        args = ", ".join(repr(var) for var in self.variables)
+        return "{}({})".format(self.__class__.__name__, args)
+
+    def __str__(self, indent=""):
+        return "\n".join("{}{}".format(indent, var) for var in self.variables)
 
     def __iter__(self):
         return iter(self.variables)
@@ -135,6 +152,38 @@ class PDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
+    def __repr__(self):
+        args = []
+        if self.requestID:
+            args.append("requestID={}".format(self.requestID))
+
+        if self.errorStatus:
+            args.append("errorStatus={}".format(self.errorStatus))
+
+        if self.errorIndex:
+            args.append("errorIndex={}".format(self.errorIndex))
+
+        args.append("variableBindings={}".format(repr(self.variableBindings)))
+        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+
+    def __str__(self, depth=0, tab="    "):
+        indent = tab * depth
+        subindent = indent + tab
+        return "\n".join((
+            "{}{}:",
+            "{}Request ID: {}",
+            "{}Error Status: {}",
+            "{}Error Index: {}",
+            "{}Variable Bindings:",
+            "{}"
+        )).format(
+            indent, self.__class__.__name__,
+            subindent, self.requestID,
+            subindent, self.errorStatus,
+            subindent, self.errorIndex,
+            subindent, self.variableBindings.__str__(subindent + tab)
+        )
+
     @property
     def objects(self):
         yield Integer(self.requestID)
@@ -182,6 +231,37 @@ class BulkPDU(Constructed):
             self.variableBindings = VarBindList(*args)
         else:
             self.variableBindings = variableBindings
+
+    def __repr__(self):
+        args = []
+        if self.requestID:
+            args.append("requestID={}".format(self.requestID))
+
+        if self.nonRepeaters:
+            args.append("nonRepeaters={}".format(self.nonRepeaters))
+
+        if self.maxRepetitions:
+            args.append("maxRepetitions={}".format(self.maxRepetitions))
+
+        args.append("variableBindings={}".format(repr(self.variableBindings)))
+        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+
+    def __str__(self, depth=0, tab="    "):
+        indent = tab * (depth + 1)
+        return "\n".join((
+            "{}:",
+            "{}Request ID: {}",
+            "{}Non-Repeaters: {}",
+            "{}Max Repetitions: {}",
+            "{}Variable Bindings:",
+            "{}"
+        )).format(
+            self.__class__.__name__,
+            indent, self.requestID,
+            indent, self.nonRepeaters,
+            indent, self.maxRepetitions,
+            indent, self.variableBindings.__str__(tab * (depth + 2))
+        )
 
     @property
     def objects(self):

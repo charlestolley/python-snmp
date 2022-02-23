@@ -22,6 +22,22 @@ class MessageFlags(OctetString):
     def __init__(self, byte=0):
         self.byte = byte & self.ALL_FLAGS
 
+    def __repr__(self):
+        return "{}({})".format(self.__class__.__name__, self.byte)
+
+    def __str__(self):
+        flags = []
+        if self.authFlag:
+            flags.append("AUTH")
+
+        if self.privFlag:
+            flags.append("PRIV")
+
+        if self.reportableFlag:
+            flags.append("REPORTABLE")
+
+        return "<{}>".format(",".join(flags))
+
     @classmethod
     def parse(cls, data=b''):
         return cls(byte=data[0])
@@ -70,6 +86,32 @@ class HeaderData(Sequence):
         self.flags = flags
         self.securityModel = securityModel
 
+    def __repr__(self):
+        return "{}({}, {}, {}, {})".format(
+            self.__class__.__name__,
+            self.id,
+            self.maxSize,
+            repr(self.flags),
+            self.securityModel,
+        )
+
+    def __str__(self, depth=0, tab="    "):
+        indent = tab * depth
+        subindent = indent + tab
+        return "\n".join((
+            "{}{}:",
+            "{}Message ID: {}",
+            "{}Sender Message Size Limit: {}",
+            "{}Flags: {}",
+            "{}Security Model: {}"
+        )).format(
+            indent, self.__class__.__name__,
+            subindent, self.id,
+            subindent, self.maxSize,
+            subindent, self.flags,
+            subindent, self.securityModel
+        )
+
     @property
     def objects(self):
         yield Integer(self.id)
@@ -103,6 +145,30 @@ class ScopedPDU(Sequence):
         self.contextEngineID = contextEngineID
         self.contextName = contextName
         self.pdu = pdu
+
+    def __repr__(self):
+        args = (
+            repr(self.pdu),
+            repr(self.contextEngineID),
+            "contextName={}".format(repr(self.contextName))
+        )
+
+        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+
+    def __str__(self, depth=0, tab="    "):
+        indent = tab * depth
+        subindent = indent + tab
+        return "\n".join((
+            "{}{}:",
+            "{}Context Engine ID: {}",
+            "{}Context Name: {}",
+            "{}"
+        )).format(
+            indent, self.__class__.__name__,
+            subindent, self.contextEngineID,
+            subindent, self.contextName,
+            self.pdu.__str__(depth=depth+1, tab=tab)
+        )
 
     @property
     def objects(self):

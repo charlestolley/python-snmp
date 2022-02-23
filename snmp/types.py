@@ -109,7 +109,7 @@ class Null(Asn1Encodable):
     TYPE = NULL
 
     def __repr__(self):
-        return self.__class__.__name__
+        return "{}()".format( self.__class__.__name__)
 
     @classmethod
     def deserialize(cls, data):
@@ -128,17 +128,17 @@ class OID(Asn1Encodable):
 
         self.numbers = numbers
 
+    def __repr__(self):
+        return "{}{}".format(self.__class__.__name__, self.numbers)
+
+    def __str__(self):
+        return self.DOT.join(str(num) for num in self.numbers)
+
     def __getitem__(self, index):
         return self.numbers.__getitem__(index)
 
     def __len__(self):
         return self.numbers.__len__()
-
-    def __str__(self):
-        return self.DOT.join(str(num) for num in self.numbers)
-
-    def __repr__(self):
-        return "{}{}".format(self.__class__.__name__, self.numbers)
 
     @classmethod
     def parse(cls, oid):
