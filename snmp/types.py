@@ -128,6 +128,12 @@ class OID(Asn1Encodable):
 
         self.numbers = numbers
 
+    def __getitem__(self, index):
+        return self.numbers.__getitem__(index)
+
+    def __len__(self):
+        return self.numbers.__len__()
+
     def __str__(self):
         return self.DOT.join(str(num) for num in self.numbers)
 
@@ -142,6 +148,19 @@ class OID(Asn1Encodable):
             return cls(*(int(num) for num in oid.split(cls.DOT)[first:]))
         except ValueError as e:
             raise ValueError("Invalid OID string: \"{}\"".format(oid)) from e
+
+    def extend(self, *numbers):
+        numbers = self.numbers + numbers
+        return self.__class__(*numbers)
+
+    def extractIndex(self, prefix):
+        if isinstance(prefix, str):
+            prefix = self.parse(prefix)
+
+        if prefix.numbers == self.numbers[:len(prefix)]:
+            return self.numbers[len(prefix):]
+        else:
+            return None
 
     @classmethod
     def deserialize(cls, data):
