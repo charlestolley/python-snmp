@@ -134,6 +134,9 @@ class OID(Asn1Encodable):
     def __str__(self):
         return self.DOT.join(str(num) for num in self.numbers)
 
+    def __eq__(a, b):
+        return a.numbers.__eq__(b.numbers)
+
     def __getitem__(self, index):
         return self.numbers.__getitem__(index)
 
@@ -154,13 +157,11 @@ class OID(Asn1Encodable):
         return self.__class__(*numbers)
 
     def extractIndex(self, prefix):
-        if isinstance(prefix, str):
-            prefix = self.parse(prefix)
-
-        if prefix.numbers == self.numbers[:len(prefix)]:
+        if self.startswith(prefix):
             return self.numbers[len(prefix):]
-        else:
-            return None
+
+    def startswith(self, prefix):
+        return prefix.numbers == self.numbers[:len(prefix)]
 
     @classmethod
     def deserialize(cls, data):
