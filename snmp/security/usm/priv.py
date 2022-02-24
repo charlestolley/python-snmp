@@ -2,9 +2,6 @@ from os import urandom
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-class DecryptionError(ValueError):
-    pass
-
 class Aes128Cfb:
     BYTEORDER = "big"
     KEYLEN = 16
@@ -26,7 +23,7 @@ class Aes128Cfb:
 
     def cipher(self, engineBoots, engineTime, salt):
         if len(salt) != self.SALTLEN:
-            raise DecryptionError("Invalid salt")
+            raise ValueError("Invalid salt")
 
         iv = b''.join((
             engineBoots.to_bytes(4, self.BYTEORDER),

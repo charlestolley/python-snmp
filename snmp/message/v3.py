@@ -1,14 +1,20 @@
 from snmp.ber import ParseError, decode_identifier
+from snmp.exception import *
 from snmp.pdu.v2 import Confirmed, Response, pduTypes
 from snmp.security import SecurityLevel
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
 from snmp.utils import DummyLock, NumberGenerator, subbytes
 
-class InvalidMessage(ValueError):
+class InvalidMessage(IncomingMessageError):
     pass
 
-class UnknownSecurityModel(ValueError):
+class ResponseMismatch(IncomingMessageError):
+    @classmethod
+    def byField(cls, field):
+        return cls("{} does not match request".format(field))
+
+class UnknownSecurityModel(IncomingMessageError):
     pass
 
 class MessageFlags(OctetString):
@@ -256,27 +262,27 @@ class MessagePreparer:
                 entry = self.retrieve(msgGlobalData.id)
             except KeyError as err:
                 errmsg = "Unknown msgID: {}".format(msgGlobalData.id)
-                raise ValueError(errmsg) from err
+                raise ResponseMismatch(errmsg) from err
 
             if (entry.engineID
             and entry.engineID != secureData.securityEngineID):
-                raise ValueError("Security Engine ID does not match request")
+                raise ResponseMismatch.byField("Security Engine ID")
 
             if entry.securityName != secureData.securityName:
-                raise ValueError("Security Name does not match request")
+                raise ResponseMismatch.byField("Security Name")
 
             if (entry.securityLevel < secureData.securityLevel
             and not isinstance(scopedPDU.pdu, Internal)):
-                raise ValueError("Security Level does not match request")
+                raise ResponseMismatch.byField("Security Level")
 
             if (entry.engineID
             and entry.engineID != scopedPDU.contextEngineID):
-                raise ValueError("Context Engine ID does not match request")
+                raise ResponseMismatch.byField("Context Engine ID")
 
             if entry.context != scopedPDU.contextName:
-                raise ValueError("Context Name does not match request")
+                raise ResponseMismatch.byField("Context Name")
         else:
-            raise ValueError("Received a non-response PDU type")
+            raise UnsupportedFeature("Received a non-response PDU type")
 
         # TODO: periodically uncache unanswered messages
         self.uncache(msgGlobalData.id)

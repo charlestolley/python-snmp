@@ -1,28 +1,47 @@
 __all__ = [
-    "AuthenticationFailure", "NotInTimeWindow", "UnknownEngineID",
-    "UnknownSecurityName", "UnsupportedSecurityLevel",
+    "InvalidEngineID", "InvalidUserName", "InvalidSecurityLevel",
     "SecureData", "SecurityModule",
 ]
 
 from time import time
 from snmp.ber import decode, encode
+from snmp.exception import IncomingMessageError
 from snmp.types import *
 from snmp.security.levels import *
 from snmp.utils import DummyLock
 
-class AuthenticationFailure(ValueError):
+class UsmStatsError(IncomingMessageError):
+    USM_STATS = OID.parse(".1.3.6.1.6.3.15.1.1")
+
+    def __init__(self, msg):
+        super().__init__(msg)
+        self.oid = self.USM_STATS.extend(self.ERRNUM)
+
+class UnsupportedSecLevel(UsmStatsError):
+    ERRNUM = 1
+
+class NotInTimeWindow(UsmStatsError):
+    ERRNUM = 2
+
+class UnknownUserName(UsmStatsError):
+    ERRNUM = 3
+
+class UnknownEngineID(UsmStatsError):
+    ERRNUM = 4
+
+class WrongDigest(UsmStatsError):
+    ERRNUM = 5
+
+class DecryptionError(UsmStatsError):
+    ERRNUM = 6
+
+class InvalidEngineID(ValueError):
     pass
 
-class NotInTimeWindow(ValueError):
+class InvalidUserName(ValueError):
     pass
 
-class UnknownEngineID(ValueError):
-    pass
-
-class UnknownSecurityName(ValueError):
-    pass
-
-class UnsupportedSecurityLevel(ValueError):
+class InvalidSecurityLevel(ValueError):
     pass
 
 class TimeEntry:
@@ -71,7 +90,7 @@ class TimeKeeper:
             try:
                 entry = self.table[engineID]
             except KeyError as err:
-                raise UnknownEngineID(engineID) from err
+                raise InvalidEngineID(engineID) from err
 
             if authoritative:
                 if msgBoots == entry.snmpEngineBoots:
@@ -111,14 +130,18 @@ class UserTable:
         self.engines = {}
         self.lock = lockType()
 
+    def addEngine(self, engineID):
+        with self.lock:
+            if engineID not in self.engines:
+                self.engines[engineID] = {}
+
     def addUser(self, engineID, userName, authProtocol=None, authSecret=None,
                 privProtocol=None, privSecret=None, secret=b''):
         with self.lock:
             try:
                 users = self.engines[engineID]
-            except KeyError:
-                users = {}
-                self.engines[engineID] = users
+            except KeyError as err:
+                raise InvalidEngineID(engineID) from err
 
             if userName not in users:
                 kwargs = dict()
@@ -143,9 +166,12 @@ class UserTable:
             try:
                 users = self.engines[engineID]
             except KeyError as err:
-                raise UnknownEngineID(engineID) from err
+                raise InvalidEngineID(engineID) from err
 
-            return users[userName]
+            try:
+                return users[userName]
+            except KeyError as err:
+                raise InvalidUserName(userName) from err
 
 class SecureData:
     def __init__(self, data, engineID, userName, securityLevel=noAuthNoPriv):
@@ -165,8 +191,9 @@ class SecurityModule:
         if self.engineID is not None:
             self.addEngine(self.engineID, *args, **kwargs)
 
-    def addEngine(self, *args, **kwargs):
-        self.timekeeper.addEngine(*args, **kwargs)
+    def addEngine(self, engineID, *args, **kwargs):
+        self.timekeeper.addEngine(engineID, *args, **kwargs)
+        self.users.addEngine(engineID)
 
     def addUser(self, *args, **kwargs):
         self.users.addUser(*args, **kwargs)
@@ -174,14 +201,11 @@ class SecurityModule:
     def prepareOutgoing(self, header, data, engineID,
                         securityName, securityLevel):
         if securityLevel.auth:
-            try:
-                user = self.users.getUser(engineID, securityName)
-            except KeyError as err:
-                raise UnknownSecurityName(securityName) from err
+            user = self.users.getUser(engineID, securityName)
 
             if not user.auth:
                 err = "Authentication is disabled for user {}".format(user.name)
-                raise UnsupportedSecurityLevel(err)
+                raise InvalidSecurityLevel(err)
 
             engineTimeParameters = self.timekeeper.getEngineTime(engineID)
             snmpEngineBoots, snmpEngineTime = engineTimeParameters
@@ -191,7 +215,7 @@ class SecurityModule:
             if securityLevel.priv:
                 if not user.priv:
                     err = "Privacy is disabled for user {}".format(user.name)
-                    raise UnsupportedSecurityLevel(err)
+                    raise InvalidSecurityLevel(err)
 
                 msgPrivacyParameters = user.priv.msgPrivacyParameters
                 data = OctetString(user.priv.encrypt(
@@ -267,19 +291,19 @@ class SecurityModule:
 
         try:
             user = self.users.getUser(engineID, userName)
-        except KeyError as err:
-            raise UnknownSecurityName(userName) from err
+        except InvalidUserName as err:
+            raise UnknownUserName(userName) from err
 
         if user.auth is None:
             err = "Authentication is disabled for user {}".format(user.name)
-            raise UnsupportedSecurityLevel(err)
+            raise UnsupportedSecLevel(err)
         elif securityLevel.priv and user.priv is None:
             err = "Data privacy is disabled for user {}".format(user.name)
-            raise UnsupportedSecurityLevel(err)
+            raise UnsupportedSecLevel(err)
 
         padding = user.auth.msgAuthenticationParameters
         if len(msgAuthenticationParameters.data) != len(padding):
-            raise AuthenticationFailure("Invalid signature length")
+            raise WrongDigest("Invalid signature length")
 
         wholeMsg = b''.join((
             msg.data[:msgAuthenticationParametersIndex],
@@ -288,27 +312,33 @@ class SecurityModule:
         ))
 
         if user.auth.sign(wholeMsg) != msgAuthenticationParameters.data:
-            raise AuthenticationFailure("Invalid signature")
+            raise WrongDigest("Invalid signature")
 
-        if not self.timekeeper.verifyTimeliness(
-                engineID,
-                msgAuthoritativeEngineBoots.value,
-                msgAuthoritativeEngineTime.value,
-                authoritative=(engineID == self.engineID),
-                timestamp=timestamp):
-            raise NotInTimeWindow(
-                engineID,
-                msgAuthoritativeEngineBoots.value,
-                msgAuthoritativeEngineTime.value,
-            )
+        try:
+            if not self.timekeeper.verifyTimeliness(
+                    engineID,
+                    msgAuthoritativeEngineBoots.value,
+                    msgAuthoritativeEngineTime.value,
+                    authoritative=(engineID == self.engineID),
+                    timestamp=timestamp):
+                raise NotInTimeWindow(
+                    engineID,
+                    msgAuthoritativeEngineBoots.value,
+                    msgAuthoritativeEngineTime.value,
+                )
+        except InvalidEngineID as err:
+            raise UnknownEngineID(engineID) from err
 
         if securityLevel.priv:
-            payload = user.priv.decrypt(
-                OctetString.decode(msgData).data,
-                msgAuthoritativeEngineBoots.value,
-                msgAuthoritativeEngineTime.value,
-                msgPrivacyParameters.data
-            )
+            try:
+                payload = user.priv.decrypt(
+                    OctetString.decode(msgData).data,
+                    msgAuthoritativeEngineBoots.value,
+                    msgAuthoritativeEngineTime.value,
+                    msgPrivacyParameters.data
+                )
+            except ValueError as err:
+                raise DecryptionError(str(err)) from err
         else:
             payload = msgData[:]
 

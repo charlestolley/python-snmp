@@ -1,10 +1,8 @@
 import threading
-from snmp.ber import decode
+from snmp.ber import ParseError, decode
+from snmp.exception import *
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import SEQUENCE, Integer
-
-class BadVersion(ValueError):
-    pass
 
 class Handle:
     def __init__(self):
@@ -26,15 +24,27 @@ class Dispatcher:
         return self.transport
 
     def hear(self, sender, data):
-        message = decode(data, expected=SEQUENCE, copy=False)
-        msgVersion, message = Integer.decode(message, leftovers=True)
+        try:
+            try:
+                message = decode(data, expected=SEQUENCE, copy=False)
+                msgVersion, message = Integer.decode(message, leftovers=True)
+            except ParseError:
+                return
 
-        if msgVersion.value != self.preparer.VERSION:
-            raise BadVersion(msgVersion.value)
+            if msgVersion.value != self.preparer.VERSION:
+                return
 
-        response, handle = self.preparer.prepareDataElements(message)
-        handle.response = response
-        handle.signal()
+            try:
+                response, handle = self.preparer.prepareDataElements(message)
+            except IncomingMessageError:
+                return
+
+            handle.response = response
+            handle.signal()
+        except SNMPLibraryBug:
+            pass
+        except Exception:
+            pass
 
     def sendPdu(self, address, pdu, *args, **kwargs):
         handle = Handle()

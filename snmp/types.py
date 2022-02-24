@@ -5,6 +5,7 @@ __all__ = [
 ]
 
 from snmp.ber import *
+from snmp.exception import IncompleteChildClass
 
 INTEGER             = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 2)
 OCTET_STRING        = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
@@ -28,13 +29,13 @@ class Asn1Encodable:
 
     @classmethod
     def deserialize(cls, data):
-        raise AttributeError(
-            "{} does not override deserialize()".format(cls.__name__)
+        raise IncompleteChildClass(
+            "{} does not implement deserialize()".format(cls.__name__)
         )
 
     def serialize(self):
-        raise AttributeError(
-            "{} does not override serialize()".format(self.__class__.__name__)
+        raise IncompleteChildClass(
+            "{} does not implement serialize()".format(self.__class__.__name__)
         )
 
 class Integer(Asn1Encodable):
@@ -211,8 +212,8 @@ class OID(Asn1Encodable):
 class Constructed(Asn1Encodable):
     @property
     def objects(self):
-        raise AttributeError(
-            "{} does not override .objects".format(self.__class__.__name__)
+        raise IncompleteChildClass(
+            "{} does not implement .objects".format(self.__class__.__name__)
         )
 
     def serialize(self):

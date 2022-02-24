@@ -1,13 +1,20 @@
 __all__ = [
+    "EncodeError", "ParseError",
     "CLASS_UNIVERSAL", "CLASS_APPLICATION",
     "CLASS_CONTEXT_SPECIFIC", "CLASS_PRIVATE",
     "STRUCTURE_PRIMITIVE", "STRUCTURE_CONSTRUCTED",
-    "Identifier", "ParseError", "decode", "encode",
-    "decode_identifier",
+    "Identifier", "decode_identifier", "decode", "encode",
 ]
 
 from collections import namedtuple
+from .exception import *
 from .utils import subbytes
+
+class EncodeError(SNMPException):
+    pass
+
+class ParseError(IncomingMessageError):
+    pass
 
 CLASS_UNIVERSAL         = 0
 CLASS_APPLICATION       = 1
@@ -16,9 +23,6 @@ CLASS_PRIVATE           = 3
 
 STRUCTURE_PRIMITIVE     = 0
 STRUCTURE_CONSTRUCTED   = 1
-
-class ParseError(ValueError):
-    pass
 
 Identifier = namedtuple("Identifier", ("cls", "structure", "tag"))
 
@@ -99,7 +103,7 @@ def encode_length(length):
         length >>= 8
 
     if len(arr) > 0x7f:
-        raise ValueError("Length too large for definite-length encoding")
+        raise EncodeError("Length too large for definite-length encoding")
 
     arr.append(0x80 | len(arr))
     return bytes(reversed(arr))
