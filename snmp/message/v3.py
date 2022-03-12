@@ -214,16 +214,18 @@ class CacheEntry:
 class MessagePreparer:
     VERSION = MessageProcessingModel.SNMPv3
 
-    def __init__(self, security, lockType=DummyLock):
+    def __init__(self, lockType=DummyLock):
+        self.cacheLock = lockType()
         self.generator = NumberGenerator(31, signed=False)
-        self.lock = lockType()
-        self.security = security
-
         self.outstanding = {}
+
+        self.securityLock = lockType()
+        self.defaultSecurityModel = None
+        self.securityModules = {}
 
     def cache(self, entry):
         for i in range(10):
-            with self.lock:
+            with self.cacheLock:
                 msgID = next(self.generator)
                 if msgID not in self.outstanding:
                     self.outstanding[msgID] = entry
@@ -232,21 +234,31 @@ class MessagePreparer:
         raise Exception("Failed to allocate message ID")
 
     def retrieve(self, msgID):
-        with self.lock:
+        with self.cacheLock:
             return self.outstanding[msgID]
 
     def uncache(self, msgID):
-        with self.lock:
+        with self.cacheLock:
             try:
                 del self.outstanding[msgID]
             except KeyError:
                 pass
 
+    def secure(self, module, default=False):
+        with self.securityLock:
+            self.securityModules[module.MODEL] = module
+
+            if default or self.defaultSecurityModel is None:
+                self.defaultSecurityModel = module.MODEL
+
     def prepareDataElements(self, msg):
         msgGlobalData, msg = HeaderData.decode(msg, leftovers=True)
 
-        if msgGlobalData.securityModel != self.security.MODEL:
-            raise UnknownSecurityModel(msgGlobalData.securityModel)
+        with self.securityLock:
+            try:
+                securityModule = self.securityModules[msgGlobalData.securityModel]
+            except KeyError as e:
+                raise UnknownSecurityModel(msgGlobalData.securityModel) from e
 
         try:
             securityLevel = SecurityLevel(
@@ -255,7 +267,7 @@ class MessagePreparer:
         except ValueError as err:
             raise InvalidMessage("Invalid msgFlags: {}".format(err)) from err
 
-        secureData = self.security.processIncoming(msg, securityLevel)
+        secureData = securityModule.processIncoming(msg, securityLevel)
         scopedPDU = ScopedPDU.decode(secureData.data, types=pduTypes)
 
         if isinstance(scopedPDU.pdu, Response):
@@ -290,13 +302,24 @@ class MessagePreparer:
         return scopedPDU, entry.handle
 
     def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
-                securityLevel=noAuthNoPriv, contextName=b''):
+            securityLevel=noAuthNoPriv, securityModel=None, contextName=b''):
+
+        with self.securityLock:
+            if securityModel is None:
+                securityModel = self.defaultSecurityModel
+
+            try:
+                securityModule = self.securityModules[securityModel]
+            except KeyError as err:
+                errmsg = "Security Model {} has not been enabled"
+                raise ValueError(errmsg.format(securityModel)) from err
+
         entry = CacheEntry(
             engineID,
             contextName,
             handle,
             securityName,
-            self.security.MODEL,
+            securityModel,
             securityLevel)
 
         msgID = self.cache(entry)
@@ -305,11 +328,11 @@ class MessagePreparer:
         flags.privFlag = securityLevel.priv
         flags.reportableFlag = isinstance(pdu, Confirmed)
 
-        msgGlobalData = HeaderData(msgID, 1472, flags, self.security.MODEL)
+        msgGlobalData = HeaderData(msgID, 1472, flags, securityModel)
         header = Integer(self.VERSION).encode() + msgGlobalData.encode()
         scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
 
-        return self.security.prepareOutgoing(
+        return securityModule.prepareOutgoing(
             header,
             scopedPDU.encode(),
             engineID,
