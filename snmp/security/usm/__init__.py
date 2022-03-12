@@ -9,6 +9,7 @@ from snmp.exception import IncomingMessageError
 from snmp.types import *
 from snmp.security.levels import *
 from snmp.utils import DummyLock
+from .. import SecurityModel
 
 class UsmStatsError(IncomingMessageError):
     USM_STATS = OID.parse(".1.3.6.1.6.3.15.1.1")
@@ -181,7 +182,7 @@ class SecureData:
         self.securityName = userName
 
 class SecurityModule:
-    MODEL = 3
+    MODEL = SecurityModel.USER_BASED
 
     def __init__(self, lockType=DummyLock, engineID=None, *args, **kwargs):
         self.engineID = engineID

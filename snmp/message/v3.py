@@ -5,6 +5,7 @@ from snmp.security import SecurityLevel
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
 from snmp.utils import DummyLock, NumberGenerator, subbytes
+from . import MessageProcessingModel
 
 class InvalidMessage(IncomingMessageError):
     pass
@@ -211,7 +212,7 @@ class CacheEntry:
         self.securityLevel = securityLevel
 
 class MessagePreparer:
-    VERSION = 3
+    VERSION = MessageProcessingModel.SNMPv3
 
     def __init__(self, security, lockType=DummyLock):
         self.generator = NumberGenerator(31, signed=False)

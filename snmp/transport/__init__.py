@@ -1,4 +1,8 @@
+import enum
 import os
+
+class TransportDomain(enum.IntEnum):
+    UDP = 0
 
 if os.name == "posix":
     package = "posix"

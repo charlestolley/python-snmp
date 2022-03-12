@@ -1,3 +1,5 @@
+import enum
+
 class SecurityLevel:
     def __init__(self, auth=False, priv=False):
         self._auth = False
@@ -38,3 +40,6 @@ class SecurityLevel:
             return b.priv and not a.priv
         else:
             return b.auth
+
+class SecurityModel(enum.IntEnum):
+    USER_BASED = 3
