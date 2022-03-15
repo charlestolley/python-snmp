@@ -2,7 +2,9 @@ import threading
 from snmp.ber import ParseError, decode
 from snmp.exception import *
 from snmp.security.levels import noAuthNoPriv
+from snmp.transport import TransportDomain
 from snmp.types import SEQUENCE, Integer
+from snmp.utils import DummyLock
 
 class Handle:
     def __init__(self):
@@ -16,14 +18,17 @@ class Handle:
         self.event.wait()
 
 class Dispatcher:
-    def __init__(self, preparer):
-        self.preparer = preparer
+    def __init__(self, preparer, lockType=DummyLock):
+        self.preparer = preaprer
+        self.lock = lockType()
+        self.threads = {}
+        self.transports = {}
 
-    def enableTransport(self, transportType):
-        self.transport = transportType(self)
-        return self.transport
+    def connectTransport(self, transport):
+        with self.lock:
+            self.transports[transport.DOMAIN] = transport
 
-    def hear(self, sender, data):
+    def hear(self, transport, address, data):
         try:
             try:
                 message = decode(data, expected=SEQUENCE, copy=False)
@@ -46,16 +51,32 @@ class Dispatcher:
         except Exception:
             pass
 
-    def sendPdu(self, address, pdu, *args, **kwargs):
+    def sendPdu(self, domain, address, pdu, *args, **kwargs):
+        with self.lock:
+            try:
+                transport = self.transports[domain]
+            except KeyError as err:
+                domain = TransportDomain(domain)
+                raise ValueError("{} is not enabled".format(domain)) from err
+
         handle = Handle()
         msg = self.preparer.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
-        self.transport.send(address, msg)
+        transport.send(address, msg)
         return handle
 
     def activate(self):
-        self.thread = threading.Thread(target=self.transport.listen)
-        self.thread.start()
+        with self.lock:
+            for domain, transport in self.transports.items():
+                thread = threading.Thread(
+                    target=transport.listen,
+                    args=(self,))
+                thread.start()
+                self.threads[domain] = thread
 
     def shutdown(self):
-        self.transport.stop()
-        self.thread.join()
+        with self.lock:
+            for domain in self.threads.keys():
+                self.transports[domain].stop()
+
+            for thread in self.threads.values():
+                thread.join()

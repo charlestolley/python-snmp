@@ -7,10 +7,8 @@ import socket
 RECV_SIZE = 65507
 
 class UdpTransport:
-    def __init__(self, listener, host="", port=0):
-        self.listener = listener
+    def __init__(self, host="", port=0):
         self.pipe = os.pipe()
-
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setblocking(False)
         self.socket.bind((host, port))
@@ -20,7 +18,7 @@ class UdpTransport:
         os.close(self.pipe[1])
         self.socket.close()
 
-    def listen(self):
+    def listen(self, listener):
         abort = self.pipe[0]
         sock = self.socket.fileno()
 
@@ -34,7 +32,7 @@ class UdpTransport:
             for fd, _ in ready:
                 if fd == sock:
                     data, addr = self.socket.recvfrom(RECV_SIZE)
-                    self.listener.hear(addr, data)
+                    listener.hear(self, addr, data)
                 elif fd == abort:
                     os.read(fd, 1)
                     done = True
