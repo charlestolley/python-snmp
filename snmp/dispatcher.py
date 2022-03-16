@@ -5,20 +5,18 @@ from snmp.message import MessageProcessingModel
 from snmp.security.levels import noAuthNoPriv
 from snmp.transport import TransportDomain
 from snmp.types import SEQUENCE, Integer
-from snmp.utils import DummyLock
-
-class Handle:
-    def __init__(self):
-        self.event = threading.Event()
-        self.response = None
-
-    def signal(self):
-        self.event.set()
-
-    def wait(self):
-        self.event.wait()
+from snmp.utils import DummyLock, typename
 
 class Dispatcher:
+    class Handle:
+        def signal(self):
+            errmsg = "{} does not implement signal()".format(typename(self))
+            raise IncompleteChildClass(errmsg)
+
+        def wait(self):
+            errmsg = "{} does not implement wait()".format(typename(self))
+            raise IncompleteChildClass(errmsg)
+
     def __init__(self, lockType=DummyLock):
         self.lock = lockType()
         self.msgProcessors = {}
@@ -94,3 +92,14 @@ class Dispatcher:
 
             for thread in self.threads.values():
                 thread.join()
+
+class Handle(Dispatcher.Handle):
+    def __init__(self):
+        self.event = threading.Event()
+        self.response = None
+
+    def signal(self):
+        self.event.set()
+
+    def wait(self):
+        self.event.wait()
