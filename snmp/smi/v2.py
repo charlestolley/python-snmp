@@ -23,7 +23,7 @@ class IpAddress(OctetString):
         self.addr = addr
 
     def __repr__(self):
-        return "{}({})".format(self.__class__.__name__, repr(self.addr))
+        return "{}({})".format(typename(self), repr(self.addr))
 
     @property
     def data(self):

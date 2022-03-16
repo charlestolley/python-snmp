@@ -10,7 +10,7 @@ import enum
 from snmp.ber import *
 from snmp.smi.v2 import *
 from snmp.types import *
-from snmp.utils import subbytes
+from snmp.utils import subbytes, typename
 
 class NoSuchObject(Null):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_PRIMITIVE, 0)
@@ -52,7 +52,7 @@ class VarBind(Sequence):
 
     def __repr__(self):
         args = ", ".join((repr(self.name), repr(self.value)))
-        return "{}({})".format(self.__class__.__name__, args)
+        return "{}({})".format(typename(self), args)
 
     def __str__(self):
         return "{}: {}".format(self.name, self.value)
@@ -88,7 +88,7 @@ class VarBindList(Sequence):
 
     def __repr__(self):
         args = ", ".join(repr(var) for var in self.variables)
-        return "{}({})".format(self.__class__.__name__, args)
+        return "{}({})".format(typename(self), args)
 
     def __str__(self, indent=""):
         return "\n".join("{}{}".format(indent, var) for var in self.variables)
@@ -164,7 +164,7 @@ class PDU(Constructed):
             args.append("errorIndex={}".format(self.errorIndex))
 
         args.append("variableBindings={}".format(repr(self.variableBindings)))
-        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+        return "{}({})".format(typename(self), ", ".join(args))
 
     def __str__(self, depth=0, tab="    "):
         indent = tab * depth
@@ -177,7 +177,7 @@ class PDU(Constructed):
             "{}Variable Bindings:",
             "{}"
         )).format(
-            indent, self.__class__.__name__,
+            indent, typename(self),
             subindent, self.requestID,
             subindent, self.errorStatus,
             subindent, self.errorIndex,
@@ -244,7 +244,7 @@ class BulkPDU(Constructed):
             args.append("maxRepetitions={}".format(self.maxRepetitions))
 
         args.append("variableBindings={}".format(repr(self.variableBindings)))
-        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+        return "{}({})".format(typename(self), ", ".join(args))
 
     def __str__(self, depth=0, tab="    "):
         indent = tab * (depth + 1)
@@ -256,7 +256,7 @@ class BulkPDU(Constructed):
             "{}Variable Bindings:",
             "{}"
         )).format(
-            self.__class__.__name__,
+            typename(self),
             indent, self.requestID,
             indent, self.nonRepeaters,
             indent, self.maxRepetitions,

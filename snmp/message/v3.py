@@ -30,7 +30,7 @@ class MessageFlags(OctetString):
         self.byte = byte & self.ALL_FLAGS
 
     def __repr__(self):
-        return "{}({})".format(self.__class__.__name__, self.byte)
+        return "{}({})".format(typename(self), self.byte)
 
     def __str__(self):
         flags = []
@@ -95,7 +95,7 @@ class HeaderData(Sequence):
 
     def __repr__(self):
         return "{}({}, {}, {}, {})".format(
-            self.__class__.__name__,
+            typename(self),
             self.id,
             self.maxSize,
             repr(self.flags),
@@ -112,7 +112,7 @@ class HeaderData(Sequence):
             "{}Flags: {}",
             "{}Security Model: {}"
         )).format(
-            indent, self.__class__.__name__,
+            indent, typename(self),
             subindent, self.id,
             subindent, self.maxSize,
             subindent, self.flags,
@@ -160,7 +160,7 @@ class ScopedPDU(Sequence):
             "contextName={}".format(repr(self.contextName))
         )
 
-        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+        return "{}({})".format(typename(self), ", ".join(args))
 
     def __str__(self, depth=0, tab="    "):
         indent = tab * depth
@@ -171,7 +171,7 @@ class ScopedPDU(Sequence):
             "{}Context Name: {}",
             "{}"
         )).format(
-            indent, self.__class__.__name__,
+            indent, typename(self),
             subindent, self.contextEngineID,
             subindent, self.contextName,
             self.pdu.__str__(depth=depth+1, tab=tab)

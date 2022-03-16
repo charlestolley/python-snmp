@@ -6,6 +6,7 @@ __all__ = [
 
 from snmp.ber import *
 from snmp.exception import IncompleteChildClass
+from snmp.utils import typename
 
 INTEGER             = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 2)
 OCTET_STRING        = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
@@ -29,14 +30,12 @@ class Asn1Encodable:
 
     @classmethod
     def deserialize(cls, data):
-        raise IncompleteChildClass(
-            "{} does not implement deserialize()".format(cls.__name__)
-        )
+        errmsg = "{} does not implement deserialize()"
+        raise IncompleteChildClass(errmsg.format(typename(cls, True)))
 
     def serialize(self):
-        raise IncompleteChildClass(
-            "{} does not implement serialize()".format(self.__class__.__name__)
-        )
+        errmsg = "{} does not implement serialize()"
+        raise IncompleteChildClass(errmsg.format(typename(self, True)))
 
 class Integer(Asn1Encodable):
     SIGNED = True
@@ -47,13 +46,13 @@ class Integer(Asn1Encodable):
         self.value = value
 
     def __repr__(self):
-        return "{}({})".format(self.__class__.__name__, self.value)
+        return "{}({})".format(typename(self), self.value)
 
     @classmethod
     def deserialize(cls, data):
         for i in range(len(data) - cls.SIZE):
             if data[i] != 0:
-                msg = "Encoding too large for {}".format(cls.__name__)
+                msg = "Encoding too large for {}".format(typename(cls))
                 raise ParseError(msg)
 
         return cls(int.from_bytes(data, "big", signed=cls.SIGNED))
@@ -83,19 +82,19 @@ class OctetString(Asn1Encodable):
         self.data = data
 
     def __repr__(self):
-        return "{}({})".format(self.__class__.__name__, self.data)
+        return "{}({})".format(typename(self), self.data)
 
     @classmethod
     def deserialize(cls, data):
         if len(data) < cls.MIN_SIZE:
             msg = "Encoded {} may not be less than {} bytes long"
-            raise ParseError(msg.format(cls.__name__, cls.MIN_SIZE))
+            raise ParseError(msg.format(typename(cls), cls.MIN_SIZE))
         elif len(data) > cls.MAX_SIZE:
             msg = "Encoded {} may not be more than {} bytes long"
-            raise ParseError(msg.format(cls.__name__, cls.MAX_SIZE))
+            raise ParseError(msg.format(typename(cls), cls.MAX_SIZE))
         elif len(data) in cls.INVALID_SIZES:
             msg = "Encoded {} not permitted to be {} bytes long"
-            raise ParseError(msg.format(cls.__name__, len(data)))
+            raise ParseError(msg.format(typename(cls), len(data)))
 
         return cls.parse(data)
 
@@ -110,7 +109,7 @@ class Null(Asn1Encodable):
     TYPE = NULL
 
     def __repr__(self):
-        return "{}()".format( self.__class__.__name__)
+        return "{}()".format(typename(self))
 
     @classmethod
     def deserialize(cls, data):
@@ -130,7 +129,7 @@ class OID(Asn1Encodable):
         self.numbers = numbers
 
     def __repr__(self):
-        return "{}{}".format(self.__class__.__name__, self.numbers)
+        return "{}{}".format(typename(self), self.numbers)
 
     def __str__(self):
         return self.DOT.join(str(num) for num in self.numbers)
@@ -155,7 +154,7 @@ class OID(Asn1Encodable):
 
     def extend(self, *numbers):
         numbers = self.numbers + numbers
-        return self.__class__(*numbers)
+        return type(self)(*numbers)
 
     def extractIndex(self, prefix):
         if self.startswith(prefix):
@@ -212,9 +211,8 @@ class OID(Asn1Encodable):
 class Constructed(Asn1Encodable):
     @property
     def objects(self):
-        raise IncompleteChildClass(
-            "{} does not implement .objects".format(self.__class__.__name__)
-        )
+        errmsg = "{} does not implement .objects"
+        raise IncompleteChildClass(errmsg.format(typename(self, True)))
 
     def serialize(self):
         return b''.join([item.encode() for item in self.objects])
