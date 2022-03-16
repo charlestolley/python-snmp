@@ -64,13 +64,13 @@ class Dispatcher:
             try:
                 transport = self.transports[domain]
             except KeyError as err:
-                domain = TransportDomain(domain)
+                domain = str(TransportDomain(domain))
                 raise ValueError("{} is not enabled".format(domain)) from err
 
             try:
                 mp = self.msgProcessors[mpm]
             except KeyError as err:
-                mpm = MessageProcessingModel(mpm)
+                mpm = str(MessageProcessingModel(mpm))
                 raise ValueError("{} is not enabled".format(mpm)) from err
 
         handle = Handle()
