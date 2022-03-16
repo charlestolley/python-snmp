@@ -4,7 +4,7 @@ from snmp.pdu.v2 import Confirmed, Response, pduTypes
 from snmp.security import SecurityLevel
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
-from snmp.utils import DummyLock, NumberGenerator, subbytes
+from snmp.utils import *
 from . import MessageProcessingModel
 
 class InvalidMessage(IncomingMessageError):
