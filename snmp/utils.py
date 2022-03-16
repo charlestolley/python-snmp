@@ -115,3 +115,12 @@ class subbytes:
         removed = subbytes(self, length)
         self.end = removed.start
         return removed
+
+def typename(cls, qualified=False):
+    if not isinstance(cls, type):
+        cls = type(cls)
+
+    if qualified:
+        return ".".join((cls.__module__, cls.__qualname__))
+    else:
+        return cls.__name__
