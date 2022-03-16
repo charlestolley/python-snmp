@@ -211,7 +211,7 @@ class CacheEntry:
         self.securityModel = securityModel
         self.securityLevel = securityLevel
 
-class MessagePreparer:
+class MessageProcessor:
     VERSION = MessageProcessingModel.SNMPv3
 
     def __init__(self, lockType=DummyLock):

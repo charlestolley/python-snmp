@@ -1,6 +1,7 @@
 import threading
 from snmp.ber import ParseError, decode
 from snmp.exception import *
+from snmp.message import MessageProcessingModel
 from snmp.security.levels import noAuthNoPriv
 from snmp.transport import TransportDomain
 from snmp.types import SEQUENCE, Integer
@@ -18,11 +19,15 @@ class Handle:
         self.event.wait()
 
 class Dispatcher:
-    def __init__(self, preparer, lockType=DummyLock):
-        self.preparer = preaprer
+    def __init__(self, lockType=DummyLock):
         self.lock = lockType()
+        self.msgProcessors = {}
         self.threads = {}
         self.transports = {}
+
+    def addMessageProcessor(self, mp):
+        with self.lock:
+            self.msgProcessors[mp.VERSION] = mp
 
     def connectTransport(self, transport):
         with self.lock:
@@ -36,11 +41,14 @@ class Dispatcher:
             except ParseError:
                 return
 
-            if msgVersion.value != self.preparer.VERSION:
-                return
+            with self.lock:
+                try:
+                    mp = self.msgProcessors[msgVersion.value]
+                except KeyError:
+                    return
 
             try:
-                response, handle = self.preparer.prepareDataElements(message)
+                response, handle = mp.prepareDataElements(message)
             except IncomingMessageError:
                 return
 
@@ -51,7 +59,7 @@ class Dispatcher:
         except Exception:
             pass
 
-    def sendPdu(self, domain, address, pdu, *args, **kwargs):
+    def sendPdu(self, domain, address, mpm, pdu, *args, **kwargs):
         with self.lock:
             try:
                 transport = self.transports[domain]
@@ -59,8 +67,14 @@ class Dispatcher:
                 domain = TransportDomain(domain)
                 raise ValueError("{} is not enabled".format(domain)) from err
 
+            try:
+                mp = self.msgProcessors[mpm]
+            except KeyError as err:
+                mpm = MessageProcessingModel(mpm)
+                raise ValueError("{} is not enabled".format(mpm)) from err
+
         handle = Handle()
-        msg = self.preparer.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
+        msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
         transport.send(address, msg)
         return handle
 
