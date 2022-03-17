@@ -28,8 +28,24 @@ class Dispatcher:
             self.msgProcessors[mp.VERSION] = mp
 
     def connectTransport(self, transport):
+        domain = transport.DOMAIN
+
         with self.lock:
-            self.transports[transport.DOMAIN] = transport
+            if domain in self.threads:
+                if self.transports.get(domain) is transport:
+                    return
+
+                errmsg = "This {} instance is already connected to {}"
+                raise ValueError(errmsg.format(typename(self), str(domain)))
+
+            thread = threading.Thread(
+                target=transport.listen,
+                args=(self,))
+
+            thread.start()
+
+            self.transports[domain] = transport
+            self.threads[domain] = thread
 
     def hear(self, transport, address, data):
         try:
@@ -76,15 +92,6 @@ class Dispatcher:
         transport.send(address, msg)
         return handle
 
-    def activate(self):
-        with self.lock:
-            for domain, transport in self.transports.items():
-                thread = threading.Thread(
-                    target=transport.listen,
-                    args=(self,))
-                thread.start()
-                self.threads[domain] = thread
-
     def shutdown(self):
         with self.lock:
             for domain in self.threads.keys():
@@ -92,6 +99,9 @@ class Dispatcher:
 
             for thread in self.threads.values():
                 thread.join()
+
+            self.transports.clear()
+            self.threads.clear()
 
 class Handle(Dispatcher.Handle):
     def __init__(self):
