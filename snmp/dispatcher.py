@@ -94,11 +94,14 @@ class Dispatcher:
 
     def shutdown(self):
         with self.lock:
-            for domain in self.threads.keys():
-                self.transports[domain].stop()
+            for transport in self.transports.values():
+                transport.stop()
 
             for thread in self.threads.values():
                 thread.join()
+
+            for transport in self.transports.values():
+                transport.close()
 
             self.transports.clear()
             self.threads.clear()
