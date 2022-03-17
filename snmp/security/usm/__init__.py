@@ -182,7 +182,7 @@ class SecureData:
         self.securityName = userName
 
 class SecurityModule:
-    MODEL = SecurityModel.USER_BASED
+    MODEL = SecurityModel.USM
 
     def __init__(self, lockType=DummyLock, engineID=None, *args, **kwargs):
         self.engineID = engineID

@@ -42,4 +42,4 @@ class SecurityLevel:
             return b.auth
 
 class SecurityModel(enum.IntEnum):
-    USER_BASED = 3
+    USM = 3
