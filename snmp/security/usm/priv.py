@@ -16,11 +16,6 @@ class Aes128Cfb:
         self.algo = algorithms.AES(key[:self.KEYLEN])
         self.salt = int.from_bytes(urandom(self.SALTLEN), self.BYTEORDER)
 
-    @property
-    def msgPrivacyParameters(self):
-        self.salt = (self.salt + 1) % self.SALTWRAP
-        return self.salt.to_bytes(self.SALTLEN, self.BYTEORDER)
-
     def cipher(self, engineBoots, engineTime, salt):
         if len(salt) != self.SALTLEN:
             raise ValueError("Invalid salt")
@@ -42,5 +37,7 @@ class Aes128Cfb:
         return decryptor.update(data) + decryptor.finalize()
 
     def encrypt(self, data, *args, **kwargs):
-        encryptor = self.cipher(*args, **kwargs).encryptor()
-        return encryptor.update(data) + encryptor.finalize()
+        self.salt = (self.salt + 1) % self.SALTWRAP
+        salt = self.salt.to_bytes(self.SALTLEN, self.BYTEORDER)
+        encryptor = self.cipher(*args, salt=salt, **kwargs).encryptor()
+        return salt, encryptor.update(data) + encryptor.finalize()

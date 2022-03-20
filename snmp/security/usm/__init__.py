@@ -218,13 +218,13 @@ class SecurityModule:
                     err = "Privacy is disabled for user {}".format(user.name)
                     raise InvalidSecurityLevel(err)
 
-                msgPrivacyParameters = user.priv.msgPrivacyParameters
-                data = OctetString(user.priv.encrypt(
+                msgPrivacyParameters, ciphertext = user.priv.encrypt(
                     data,
                     snmpEngineBoots,
                     snmpEngineTime,
-                    msgPrivacyParameters
-                )).encode()
+                )
+
+                data = OctetString(ciphertext).encode()
 
         else:
             if engineID == self.engineID:
