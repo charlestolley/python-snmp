@@ -268,7 +268,7 @@ class MessageProcessor:
             raise InvalidMessage("Invalid msgFlags: {}".format(err)) from err
 
         secureData = securityModule.processIncoming(msg, securityLevel)
-        scopedPDU = ScopedPDU.decode(secureData.data, types=pduTypes)
+        scopedPDU, _ = ScopedPDU.decode(secureData.data, types=pduTypes, leftovers=True)
 
         if isinstance(scopedPDU.pdu, Response):
             try:

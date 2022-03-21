@@ -1,6 +1,10 @@
 from os import urandom
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from snmp.exception import IncomingMessageError
+
+class DecryptionError(IncomingMessageError):
+    pass
 
 class Aes128Cfb:
     BYTEORDER = "big"
