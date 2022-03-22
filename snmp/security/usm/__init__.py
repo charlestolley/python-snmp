@@ -175,8 +175,10 @@ class UserTable:
                 raise InvalidUserName(userName) from err
 
 class SecureData:
-    def __init__(self, data, engineID, userName, securityLevel=noAuthNoPriv):
+    def __init__(self, data, engineID, userName,
+            securityLevel=noAuthNoPriv, **kwargs):
         self.data = data
+        self.engineParams = kwargs
         self.securityEngineID = engineID
         self.securityLevel = securityLevel
         self.securityName = userName
@@ -287,8 +289,13 @@ class SecurityModule:
         engineID = msgAuthoritativeEngineID.data
         userName = msgUserName.data
 
+        kwargs = {
+            "engineBoots": msgAuthoritativeEngineBoots.value,
+            "bootTime": timestamp - msgAuthoritativeEngineTime.value,
+        }
+
         if not securityLevel.auth:
-            return SecureData(msgData[:], engineID, userName)
+            return SecureData(msgData[:], engineID, userName, **kwargs)
 
         try:
             user = self.users.getUser(engineID, userName)
@@ -343,4 +350,4 @@ class SecurityModule:
         else:
             payload = msgData[:]
 
-        return SecureData(payload, engineID, userName, securityLevel)
+        return SecureData(payload, engineID, userName, securityLevel, **kwargs)

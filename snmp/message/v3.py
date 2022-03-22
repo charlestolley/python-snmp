@@ -268,8 +268,13 @@ class MessageProcessor:
             raise InvalidMessage("Invalid msgFlags: {}".format(err)) from err
 
         secureData = securityModule.processIncoming(msg, securityLevel)
-        scopedPDU, _ = ScopedPDU.decode(secureData.data, types=pduTypes, leftovers=True)
+        scopedPDU, _ = ScopedPDU.decode(
+            secureData.data,
+            types=pduTypes,
+            leftovers=True
+        )
 
+        secureData.data = scopedPDU
         if isinstance(scopedPDU.pdu, Response):
             try:
                 entry = self.retrieve(msgGlobalData.id)
@@ -299,7 +304,7 @@ class MessageProcessor:
 
         # TODO: periodically uncache unanswered messages
         self.uncache(msgGlobalData.id)
-        return scopedPDU, entry.handle
+        return secureData, entry.handle
 
     def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
             securityLevel=noAuthNoPriv, securityModel=None, contextName=b''):
