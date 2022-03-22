@@ -1,3 +1,5 @@
+__all__ = ["Aes128Cfb"]
+
 import os
 from snmp.openssl.aes import ffi, lib
 from . import DecryptionError

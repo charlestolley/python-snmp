@@ -1,3 +1,5 @@
+__all__ = ["DesCbc"]
+
 import os
 from snmp.openssl.des import ffi, lib
 from . import DecryptionError
