@@ -1,8 +1,7 @@
 import enum
 import os
 
-class TransportDomain(enum.IntEnum):
-    UDP = 0
+TransportDomain = enum.Enum("TransportDomain", ("UDP",))
 
 if os.name == "posix":
     package = "posix"
