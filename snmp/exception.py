@@ -1,7 +1,7 @@
 class SNMPException(Exception):
     pass
 
-class SNMPLibraryBug(SNMPException):
+class SNMPLibraryBug(AssertionError):
     pass
 
 class IncompleteChildClass(SNMPLibraryBug):

@@ -68,7 +68,7 @@ class Dispatcher:
 
             handle.response = response
             handle.signal()
-        except SNMPLibraryBug:
+        except AssertionError:
             pass
         except Exception:
             pass
