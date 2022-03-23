@@ -1,4 +1,5 @@
 import enum
+from snmp.utils import typename
 
 class SecurityLevel:
     def __init__(self, auth=False, priv=False):
@@ -7,6 +8,19 @@ class SecurityLevel:
 
         self.auth = auth
         self.priv = priv
+
+    def __repr__(self):
+        return "{}(auth={}, priv={})".format(
+            typename(self),
+            self.auth,
+            self.priv
+        )
+
+    def __str__(self):
+        return "{}{}".format(
+            "auth" if self.auth else "noAuth",
+            "Priv" if self.priv else "NoPriv"
+        )
 
     @property
     def auth(self):
