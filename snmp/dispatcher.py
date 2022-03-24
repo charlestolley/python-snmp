@@ -3,11 +3,11 @@ from snmp.ber import ParseError, decode
 from snmp.exception import *
 from snmp.message import MessageProcessingModel
 from snmp.security.levels import noAuthNoPriv
-from snmp.transport import TransportDomain
+from snmp.transport import Transport, TransportDomain
 from snmp.types import SEQUENCE, Integer
 from snmp.utils import DummyLock, typename
 
-class Dispatcher:
+class Dispatcher(Transport.Listener):
     class Handle:
         def signal(self):
             errmsg = "{} does not implement signal()".format(typename(self))

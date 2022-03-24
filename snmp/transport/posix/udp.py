@@ -3,10 +3,11 @@ __all__ = ["UdpTransport"]
 import os
 import select
 import socket
+from ..udp import UdpTransportBase
 
 RECV_SIZE = 65507
 
-class UdpTransport:
+class UdpTransport(UdpTransportBase):
     def __init__(self, host="", port=0):
         self.pipe = os.pipe()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
