@@ -199,7 +199,8 @@ class OID(Asn1Encodable):
                     flag = 0x80
                     num >>= 7
 
-                bytearr.extend(tmp.reverse())
+                tmp.reverse()
+                bytearr.extend(tmp)
 
         encoding = bytearray()
         append(encoding, self.numbers[0] * 40 | self.numbers[1])
