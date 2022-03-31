@@ -1,3 +1,4 @@
+from collections import namedtuple
 import enum
 import os
 from snmp.exception import IncompleteChildClass
@@ -6,6 +7,10 @@ class Transport:
     class Listener:
         def hear(self, transport, address, data):
             pass
+
+    @classmethod
+    def Locator(cls, address):
+        return TransportLocator(cls.DOMAIN, cls.normalizeAddress(address))
 
     @classmethod
     def normalizeAddress(cls, address):
@@ -25,6 +30,7 @@ class Transport:
         pass
 
 TransportDomain = enum.Enum("TransportDomain", ("UDP",))
+TransportLocator = namedtuple("TransportLocator", ("domain", "address"))
 
 if os.name == "posix":
     package = "posix"
