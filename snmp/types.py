@@ -118,59 +118,91 @@ class Null(Asn1Encodable):
     def serialize(self):
         return b''
 
-class OID(Asn1Encodable):
+class UInt32Sequence:
     DOT = '.'
-    TYPE = OBJECT_IDENTIFIER
 
-    def __init__(self, *numbers):
-        while len(numbers) < 2:
-            numbers += 0,
-
-        self.numbers = numbers
+    def __init__(self, *nums):
+        assert all(0 <= n < (1 << 32) for n in nums)
+        self.nums = nums
 
     def __repr__(self):
-        return "{}{}".format(typename(self), self.numbers)
+        return "{}{}".format(typename(self), self.nums)
 
     def __str__(self):
-        return self.DOT.join(str(num) for num in self.numbers)
+        return self.DOT.join(str(n) for n in self.nums)
 
     def __eq__(a, b):
-        return a.numbers.__eq__(b.numbers)
+        return a.nums.__eq__(b.nums)
 
-    def __getitem__(self, index):
-        return self.numbers.__getitem__(index)
+    def __getitem__(self, idx):
+        return self.nums.__getitem__(idx)
 
     def __len__(self):
-        return self.numbers.__len__()
+        return self.nums.__len__()
+
+class OID(Asn1Encodable, UInt32Sequence):
+    MULT = 40
+    MAXLEN = 128
+    TYPE = OBJECT_IDENTIFIER
+
+    def __init__(self, *nums, strict=False):
+        if __debug__:
+            first = 0
+            second = 0
+
+            try:
+                first = nums[0]
+                second = nums[1]
+            except IndexError as err:
+                if strict:
+                    errmsg = "{} must contain at least two sub-identifiers"
+                    raise ValueError(errmsg.format(typename(self))) from err
+            else:
+                if len(nums) > self.MAXLEN:
+                    errmsg = "{} may not contain more than {} sub-identifiers"
+                    raise ValueError(errmsg.format(typename(self), self.MAXLEN))
+
+            if first > 2:
+                errmsg = "{} may not begin with {}"
+                raise ValueError(errmsg.format(typename(self), first))
+
+            if second >= self.MULT:
+                errmsg = "second number in {} must be less than {}"
+                raise ValueError(errmsg.format(typename(self, second)))
+
+        super().__init__(*nums)
 
     @classmethod
     def parse(cls, oid):
-        first = 1 if oid.startswith(cls.DOT) else 0
+        if oid.startswith(cls.DOT):
+            oid = oid[len(cls.DOT):]
 
         try:
-            return cls(*(int(num) for num in oid.split(cls.DOT)[first:]))
+            nums = (int(num) for num in oid.split(cls.DOT))
         except ValueError as e:
             raise ValueError("Invalid OID string: \"{}\"".format(oid)) from e
 
-    def extend(self, *numbers):
-        numbers = self.numbers + numbers
-        return type(self)(*numbers)
+        return cls(*nums, strict=True)
+
+    def extend(self, *nums):
+        nums = self.nums + nums
+        return type(self)(*nums)
 
     def extractIndex(self, prefix):
         if self.startswith(prefix):
-            return self.numbers[len(prefix):]
+            return self.nums[len(prefix):]
 
     def startswith(self, prefix):
-        return prefix.numbers == self.numbers[:len(prefix)]
+        return prefix.nums == self.nums[:len(prefix)]
 
     @classmethod
     def deserialize(cls, data):
         data = iter(data)
 
         try:
-            oid = list(divmod(next(data), 40))
+            oid = list(divmod(next(data), cls.MULT))
         except StopIteration as err:
-            raise ParseError("Empty OID") from err
+            raise ParseError("Empty {}".format(typename(cls))) from err
 
         value = 0
         for byte in data:
@@ -203,8 +235,8 @@ class OID(Asn1Encodable):
                 bytearr.extend(tmp)
 
         encoding = bytearray()
-        append(encoding, self.numbers[0] * 40 | self.numbers[1])
-        for number in self.numbers[2:]:
+        append(encoding, self.nums[0] * self.MULT | self.nums[1])
+        for number in self.nums[2:]:
             append(encoding, number)
 
         return bytes(encoding)
