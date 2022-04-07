@@ -136,8 +136,9 @@ class UserTable:
             if engineID not in self.engines:
                 self.engines[engineID] = {}
 
-    def addUser(self, engineID, userName, authProtocol=None, authSecret=None,
-                privProtocol=None, privSecret=None, secret=b''):
+    def addUser(self, engineID, userName,
+            authProtocol=None, authKey=None,
+            privProtocol=None, privKey=None):
         with self.lock:
             try:
                 users = self.engines[engineID]
@@ -147,17 +148,8 @@ class UserTable:
             if userName not in users:
                 kwargs = dict()
                 if authProtocol is not None:
-                    if authSecret is None:
-                        authSecret = secret
-
-                    authKey = authProtocol.localize(authSecret, engineID)
                     kwargs["auth"] = authProtocol(authKey)
-
                     if privProtocol is not None:
-                        if privSecret is None:
-                            privSecret = secret
-
-                        privKey = authProtocol.localize(privSecret, engineID)
                         kwargs["priv"] = privProtocol(privKey)
 
                 users[userName] = UserEntry(userName, **kwargs)
