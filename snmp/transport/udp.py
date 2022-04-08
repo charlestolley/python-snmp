@@ -7,13 +7,13 @@ from . import Transport, TransportDomain, package
 class UdpTransportBase(Transport):
     DEFAULT_PORT = 161
 
-    @classmethod
-    def normalizeAddress(cls, address):
+    @staticmethod
+    def normalizeAddress(address):
         if isinstance(address, tuple):
             ip, port = address
         else:
             ip = address
-            port = cls.DEFAULT_PORT
+            port = UdpTransportBase.DEFAULT_PORT
 
         try:
             inet_pton(AF_INET, ip)
