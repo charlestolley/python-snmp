@@ -50,6 +50,16 @@ class subbytes:
             self.start = min(start, len(data))
             self.end   = min(end,   len(data))
 
+    def __eq__(a, b):
+        if len(a) != len(b):
+            return False
+
+        for chars in zip(a, b):
+            if chars[0] != chars[1]:
+                return False
+
+        return True
+
     def __iter__(self):
         for index in range(self.start, self.end):
             yield self.data[index]
