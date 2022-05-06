@@ -5,7 +5,7 @@ __all__ = [
 ]
 
 from snmp.ber import *
-from snmp.exception import IncompleteChildClass
+from snmp.exception import *
 from snmp.utils import typename
 
 INTEGER             = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 2)
@@ -147,6 +147,12 @@ class OID(Asn1Encodable, UInt32Sequence):
     MULT = 40
     MAXLEN = 128
     TYPE = OBJECT_IDENTIFIER
+
+    class BadPrefix(IncomingMessageError):
+        pass
+
+    class IndexDecodeError(IncomingMessageError):
+        pass
 
     def __init__(self, *nums, strict=False):
         if __debug__:
