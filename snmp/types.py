@@ -218,6 +218,8 @@ class OID(Asn1Encodable, UInt32Sequence):
             value |= byte & 0x7f
             if byte & 0x80:
                 value <<= 7
+                if value >= (1 << 32):
+                    raise ParseError("Sub-identifier out of range")
             else:
                 oid.append(value)
                 value = 0
