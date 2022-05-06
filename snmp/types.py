@@ -154,30 +154,10 @@ class OID(Asn1Encodable, UInt32Sequence):
     class IndexDecodeError(IncomingMessageError):
         pass
 
-    def __init__(self, *nums, strict=False):
-        if __debug__:
-            first = 0
-            second = 0
-
-            try:
-                first = nums[0]
-                second = nums[1]
-            except IndexError as err:
-                if strict:
-                    errmsg = "{} must contain at least two sub-identifiers"
-                    raise ValueError(errmsg.format(typename(self))) from err
-            else:
-                if len(nums) > self.MAXLEN:
-                    errmsg = "{} may not contain more than {} sub-identifiers"
-                    raise ValueError(errmsg.format(typename(self), self.MAXLEN))
-
-            if first > 2:
-                errmsg = "{} may not begin with {}"
-                raise ValueError(errmsg.format(typename(self), first))
-
-            if second >= self.MULT:
-                errmsg = "second number in {} must be less than {}"
-                raise ValueError(errmsg.format(typename(self, second)))
+    def __init__(self, *nums):
+        if len(nums) > self.MAXLEN:
+            errmsg = "{} may not contain more than {} sub-identifiers"
+            raise ValueError(errmsg.format(typename(self), self.MAXLEN))
 
         super().__init__(*nums)
 
@@ -186,18 +166,27 @@ class OID(Asn1Encodable, UInt32Sequence):
         if oid.startswith(cls.DOT):
             oid = oid[len(cls.DOT):]
 
-        split = oid.split(cls.DOT)
-
-        if len(split) < 2:
-            errmsg = "OID \"{}\" contains fewer than 2 sub-identifiers"
-            raise ValueError(errmsg.format(oid))
-
         try:
-            nums = (int(num) for num in split)
+            nums = (int(num) for num in oid.split(cls.DOT))
         except ValueError as e:
             raise ValueError("Invalid OID string: \"{}\"".format(oid)) from e
 
-        return cls(*nums, strict=True)
+        try:
+            first = next(nums)
+            second = next(nums)
+        except StopIteration as e:
+            errmsg = "OID \"{}\" contains fewer than 2 sub-identifiers"
+            raise ValueError(errmsg.format(oid)) from e
+
+        if first > 2:
+            errmsg = "{} may not begin with {}"
+            raise ValueError(errmsg.format(typename(cls), first))
+
+        if second >= cls.MULT:
+            errmsg = "second number in {} must be less than {}"
+            raise ValueError(errmsg.format(typename(cls), second))
+
+        return cls(first, second, *nums)
 
     def extend(self, *nums):
         nums = self.nums + nums
