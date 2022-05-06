@@ -167,26 +167,29 @@ class OID(Asn1Encodable, UInt32Sequence):
             oid = oid[len(cls.DOT):]
 
         try:
-            nums = (int(num) for num in oid.split(cls.DOT))
+            nums = tuple(int(num) for num in oid.split(cls.DOT))
         except ValueError as e:
             raise ValueError("Invalid OID string: \"{}\"".format(oid)) from e
 
         try:
-            first = next(nums)
-            second = next(nums)
-        except StopIteration as e:
+            if nums[0] > 2:
+                errmsg = "{} may not begin with {}"
+                raise ValueError(errmsg.format(typename(cls), nums[0]))
+
+            if nums[1] >= cls.MULT:
+                errmsg = "second number in {} must be less than {}"
+                raise ValueError(errmsg.format(typename(cls), nums[1]))
+        except IndexError as e:
             errmsg = "OID \"{}\" contains fewer than 2 sub-identifiers"
             raise ValueError(errmsg.format(oid)) from e
 
-        if first > 2:
-            errmsg = "{} may not begin with {}"
-            raise ValueError(errmsg.format(typename(cls), first))
+        if any(n < 0 for n in nums):
+            raise ValueError("\"{}\" contains a negative sub-identifier")
+        elif any(n >= (1 << 32) for n in nums):
+            errmsg = "OID \"{}\" contains a sub-identifier that is too large"
+            raise ValueError(errmsg.format(oid))
 
-        if second >= cls.MULT:
-            errmsg = "second number in {} must be less than {}"
-            raise ValueError(errmsg.format(typename(cls), second))
-
-        return cls(first, second, *nums)
+        return cls(*nums)
 
     def extend(self, *nums):
         nums = self.nums + nums
