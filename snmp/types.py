@@ -251,8 +251,18 @@ class OID(Asn1Encodable, UInt32Sequence):
                 tmp.reverse()
                 bytearr.extend(tmp)
 
+        try:
+            first = self.nums[0]
+        except IndexError:
+            return b"\x00"
+
+        try:
+            second = self.nums[1]
+        except IndexError:
+            second = 0
+
         encoding = bytearray()
-        append(encoding, self.nums[0] * self.MULT | self.nums[1])
+        append(encoding, first * self.MULT | second)
         for number in self.nums[2:]:
             append(encoding, number)
 
