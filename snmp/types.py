@@ -177,8 +177,14 @@ class OID(Asn1Encodable, UInt32Sequence):
         if oid.startswith(cls.DOT):
             oid = oid[len(cls.DOT):]
 
+        split = oid.split(cls.DOT)
+
+        if len(split) < 2:
+            errmsg = "OID \"{}\" contains fewer than 2 sub-identifiers"
+            raise ValueError(errmsg.format(oid))
+
         try:
-            nums = (int(num) for num in oid.split(cls.DOT))
+            nums = (int(num) for num in split)
         except ValueError as e:
             raise ValueError("Invalid OID string: \"{}\"".format(oid)) from e
 
