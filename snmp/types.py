@@ -58,7 +58,10 @@ class Integer(Asn1Encodable):
         return cls(int.from_bytes(data, "big", signed=cls.SIGNED))
 
     def serialize(self):
-        encoding = self.value.to_bytes(self.SIZE, "big", signed=self.SIGNED)
+        try:
+            encoding = self.value.to_bytes(self.SIZE, "big", signed=self.SIGNED)
+        except OverflowError as err:
+            raise ValueError(err) from err
 
         if encoding[0]:
             return encoding
