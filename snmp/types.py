@@ -28,6 +28,15 @@ class Asn1Encodable:
     def encode(self):
         return encode(self.TYPE, self.serialize())
 
+    def appendToOID(self, oid):
+        errmsg = "{} does not implement appendToOID()"
+        raise IncompleteChildClass(errmsg.format(typename(cls, True)))
+
+    @classmethod
+    def decodeFromOID(cls, nums):
+        errmsg = "{} does not implement decodeFromOID()"
+        raise IncompleteChildClass(errmsg.format(typename(cls, True)))
+
     @classmethod
     def deserialize(cls, data):
         errmsg = "{} does not implement deserialize()"
@@ -38,6 +47,7 @@ class Asn1Encodable:
         raise IncompleteChildClass(errmsg.format(typename(self, True)))
 
 class Integer(Asn1Encodable):
+    BYTEORDER = "big"
     SIGNED = True
     SIZE = 4
     TYPE = INTEGER
@@ -49,17 +59,33 @@ class Integer(Asn1Encodable):
         return "{}({})".format(typename(self), self.value)
 
     @classmethod
+    def decodeFromOID(cls, nums):
+        value = next(nums)
+
+        try:
+            value.to_bytes(cls.SIZE, cls.BYTEORDER, signed=cls.SIGNED)
+        except OverflowError as err:
+            errmsg = "{} value out of range: {}".format(typename(cls), value)
+            raise OID.IndexDecodeError(errmsg) from err
+
+        return cls(value)
+
+    @classmethod
     def deserialize(cls, data):
         for i in range(len(data) - cls.SIZE):
             if data[i] != 0:
                 msg = "Encoding too large for {}".format(typename(cls))
                 raise ParseError(msg)
 
-        return cls(int.from_bytes(data, "big", signed=cls.SIGNED))
+        return cls(int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED))
 
     def serialize(self):
         try:
-            encoding = self.value.to_bytes(self.SIZE, "big", signed=self.SIGNED)
+            encoding = self.value.to_bytes(
+                self.SIZE,
+                self.BYTEORDER,
+                signed=self.SIGNED
+            )
         except OverflowError as err:
             raise ValueError(err) from err
 
@@ -88,6 +114,22 @@ class OctetString(Asn1Encodable):
         return "{}({})".format(typename(self), self.data)
 
     @classmethod
+    def decodeFromOID(cls, nums):
+        length = next(nums)
+        data = bytearray(length)
+
+        for i in range(length):
+            byte = next(nums)
+
+            try:
+                data[i] = byte
+            except ValueError as err:
+                errmsg = "Sub-identifier does not fit within a single octet: {}"
+                raise OID.IndexDecodeError(errmsg.format(byte)) from err
+
+        return cls(bytes(data))
+
+    @classmethod
     def deserialize(cls, data):
         if len(data) < cls.MIN_SIZE:
             msg = "Encoded {} may not be less than {} bytes long"
@@ -113,6 +155,11 @@ class Null(Asn1Encodable):
 
     def __repr__(self):
         return "{}()".format(typename(self))
+
+    @classmethod
+    def decodeFromOID(cls, nums):
+        errmsg = "{} may not be used as an OID index"
+        raise TypeError(errmsg.format(typename(cls)))
 
     @classmethod
     def deserialize(cls, data):
@@ -195,12 +242,55 @@ class OID(Asn1Encodable, UInt32Sequence):
         nums = self.nums + nums
         return type(self)(*nums)
 
-    def extractIndex(self, prefix):
-        if self.startswith(prefix):
-            return self.nums[len(prefix):]
+    def tryDecode(self, nums, cls):
+        try:
+            return cls.decodeFromOID(nums)
+        except StopIteration as err:
+            errmsg = "Incomplete {} index".format(typename(cls))
+            raise OID.IndexDecodeError(errmsg) from err
+
+    def extractIndex(self, prefix, *types):
+        nums = iter(self.nums)
+        for subid in prefix:
+            try:
+                match = (subid == next(nums))
+            except StopIteration as err:
+                errmsg = "\"{}\" is shorter than the given prefix \"{}\""
+                raise self.BadPrefix(errmsg.format(self, prefix)) from err
+
+            if not match:
+                errmsg = "\"{}\" does not begin with \"{}\""
+                raise self.BadPrefix(errmsg.format(self, prefix))
+
+        index = None
+        if len(types) == 1:
+            index = self.tryDecode(nums, types[0])
+        elif types:
+            index = [None] * len(types)
+            for i, cls in enumerate(types):
+                index[i] = self.tryDecode(nums, cls)
+
+            index = tuple(index)
+
+        try:
+            next(nums)
+        except StopIteration:
+            return index
+        else:
+            raise self.IndexDecodeError("Not all sub-identifiers were consumed")
 
     def startswith(self, prefix):
         return prefix.nums == self.nums[:len(prefix)]
+
+    @classmethod
+    def decodeFromOID(cls, nums):
+        length = next(nums)
+        subids = [0] * length
+
+        for i in range(length):
+            subids[i] = next(nums)
+
+        return cls(*subids)
 
     @classmethod
     def deserialize(cls, data):

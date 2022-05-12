@@ -208,7 +208,15 @@ class OIDTest(unittest.TestCase):
         oid = self.internet.extend(3)
         index = oid.extractIndex(self.internet, Integer)
         self.assertTrue(isinstance(index, Integer))
-        self.assertEqual(index, 3)
+        self.assertEqual(index.value, 3)
+
+    def testExtractIntegerOutOfRange(self):
+        oid = self.internet.extend(1 << 31)
+        self.assertRaises(
+            OID.IndexDecodeError,
+            oid.extractIndex,
+            self.internet,
+        )
 
     def testExtractOctetString(self):
         data = b"test string"
@@ -220,6 +228,15 @@ class OIDTest(unittest.TestCase):
     def testExtractIncompleteOctetString(self):
         data = b"test string"
         oid = self.internet.extend(len(data) + 1, *data)
+        self.assertRaises(
+            OID.IndexDecodeError,
+            oid.extractIndex,
+            self.internet,
+            OctetString,
+        )
+
+    def testExtractInvalidOctets(self):
+        oid = self.internet.extend(3, ord("O"), ord("I"), 394)
         self.assertRaises(
             OID.IndexDecodeError,
             oid.extractIndex,
@@ -241,12 +258,20 @@ class OIDTest(unittest.TestCase):
             OID,
         )
 
-    def testExtractWrongPrefix(self):
+    def testExtractOversizedPrefix(self):
         sysDescr = OID(1, 3, 6, 1, 2, 1, 1, 1)
         self.assertRaises(
             OID.BadPrefix,
             self.internet.extractIndex,
             sysDescr,
+        )
+
+    def testExtractWrongPrefix(self):
+        self.assertRaises(
+            OID.BadPrefix,
+            self.internet.extractIndex,
+            OID(1, 4, 9),
+            Integer,
         )
 
     def testExtractLeftovers(self):
@@ -291,12 +316,14 @@ class OIDTest(unittest.TestCase):
         self.assertTrue(isinstance(nextHopType, Integer))
         self.assertTrue(isinstance(nextHop, OctetString))
 
-        self.assertEquals(destType.value, 1)
-        self.assertEquals(dest, b"\xc0\xa8\x00\x00")
-        self.assertEquals(pfxLen.value, 24)
-        self.assertEquals(policy, OID(0, 0, 2))
-        self.assertEquals(nextHopType.value, 1)
-        self.assertEquals(nextHop, b"\x00\x00\x00\x00")
+        self.assertEqual(destType.value, 1)
+        self.assertEqual(dest.data, b"\xc0\xa8\x00\x00")
+        self.assertEqual(pfxLen.value, 24)
+        self.assertEqual(policy, OID(0, 0, 2))
+        self.assertEqual(nextHopType.value, 1)
+        self.assertEqual(nextHop.data, b"\x00\x00\x00\x00")
+
+    # TODO: Test appendToOID()
 
 if __name__ == '__main__':
     unittest.main()
