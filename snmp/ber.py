@@ -30,7 +30,7 @@ def decode_identifier(data):
     try:
         byte = data.consume()
     except IndexError as err:
-        raise ParseError("Missing identifier")
+        raise ParseError("Missing identifier") from err
 
     cls         = (byte & 0xc0) >> 6
     structure   = (byte & 0x20) >> 5
@@ -43,7 +43,7 @@ def decode_identifier(data):
             try:
                 byte = data.consume()
             except IndexError as err:
-                raise ParseError("Incomplete identifier")
+                raise ParseError("Incomplete identifier") from err
 
             tag <<= 7
             tag |= byte & 0x7f
@@ -76,7 +76,7 @@ def decode_length(data):
     try:
         length = data.consume()
     except IndexError as err:
-        raise ParseError("Missing length")
+        raise ParseError("Missing length") from err
 
     if length & 0x80:
         n = length & 0x7f
@@ -86,7 +86,7 @@ def decode_length(data):
             try:
                 byte = data.consume()
             except IndexError as err:
-                raise ParseError("Incomplete length")
+                raise ParseError("Incomplete length") from err
 
             length <<= 8
             length |= byte

@@ -231,8 +231,8 @@ class OID(Asn1Encodable, UInt32Sequence):
 
         try:
             nums = tuple(int(num) for num in oid.split(cls.DOT))
-        except ValueError as e:
-            raise ValueError("Invalid OID string: \"{}\"".format(oid)) from e
+        except ValueError as err:
+            raise ValueError("Invalid OID string: \"{}\"".format(oid)) from err
 
         try:
             if nums[0] > 2:
@@ -242,9 +242,9 @@ class OID(Asn1Encodable, UInt32Sequence):
             if nums[1] >= cls.MULT:
                 errmsg = "second number in {} must be less than {}"
                 raise ValueError(errmsg.format(typename(cls), nums[1]))
-        except IndexError as e:
+        except IndexError as err:
             errmsg = "OID \"{}\" contains fewer than 2 sub-identifiers"
-            raise ValueError(errmsg.format(oid)) from e
+            raise ValueError(errmsg.format(oid)) from err
 
         if any(n < 0 for n in nums):
             raise ValueError("\"{}\" contains a negative sub-identifier")
