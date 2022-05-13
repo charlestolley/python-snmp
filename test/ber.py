@@ -1,3 +1,8 @@
+__all__ = [
+    "DecodeTest", "DecodeIdentiferTest", "DecodeLengthTest",
+    "EncodeTest", "EncodeIdentifierTest", "EncodeLengthTest",
+]
+
 import unittest
 from snmp.ber import *
 from snmp.ber import decode_length, encode_identifier, encode_length

@@ -1,3 +1,7 @@
+__all__ = [
+    "DummyLockTest", "NumberGeneratorTest", "SubbytesTest", "TypenameTest",
+]
+
 import unittest
 import snmp.utils
 

@@ -1,3 +1,5 @@
+__all__ = ["IntegerTest", "NullTest", "OIDTest", "OctetStringTest"]
+
 import unittest
 from snmp.ber import ParseError
 from snmp.types import *
