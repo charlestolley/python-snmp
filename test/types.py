@@ -323,7 +323,27 @@ class OIDTest(unittest.TestCase):
         self.assertEqual(nextHopType.value, 1)
         self.assertEqual(nextHop.data, b"\x00\x00\x00\x00")
 
-    # TODO: Test appendToOID()
+    def testAppendZero(self):
+        oid = self.internet.appendIndex(Integer(0))
+        self.assertEqual(oid, OID(1, 3, 6, 1, 0))
+
+    def testAppendInteger(self):
+        oid = self.internet.appendIndex(Integer(409))
+        self.assertEqual(oid, OID(1, 3, 6, 1, 409))
+
+    def testAppendOctetString(self):
+        oid = self.internet.appendIndex(OctetString(b"index"))
+        self.assertEqual(oid, OID(1, 3, 6, 1, 5, 0x69, 0x6e, 0x64, 0x65, 0x78))
+
+    def testAppendOID(self):
+        oid = self.internet.appendIndex(self.internet)
+        self.assertEqual(oid, OID(1, 3, 6, 1, 4, 1, 3, 6, 1))
+
+    def testAppendMany(self):
+        oid = self.internet.appendIndex(Integer(42), OctetString(b"Robinson"))
+        self.assertEqual(oid, OID(
+            1, 3, 6, 1, 42, 8, 0x52, 0x6f, 0x62, 0x69, 0x6e, 0x73, 0x6f, 0x6e
+        ))
 
 if __name__ == '__main__':
     unittest.main()

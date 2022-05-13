@@ -30,7 +30,7 @@ class Asn1Encodable:
 
     def appendToOID(self, oid):
         errmsg = "{} does not implement appendToOID()"
-        raise IncompleteChildClass(errmsg.format(typename(cls, True)))
+        raise IncompleteChildClass(errmsg.format(typename(self, True)))
 
     @classmethod
     def decodeFromOID(cls, nums):
@@ -57,6 +57,9 @@ class Integer(Asn1Encodable):
 
     def __repr__(self):
         return "{}({})".format(typename(self), self.value)
+
+    def appendToOID(self, oid):
+        return oid.extend(self.value)
 
     @classmethod
     def decodeFromOID(cls, nums):
@@ -113,6 +116,9 @@ class OctetString(Asn1Encodable):
     def __repr__(self):
         return "{}({})".format(typename(self), self.data)
 
+    def appendToOID(self, oid):
+        return oid.extend(len(self.data), *self.data)
+
     @classmethod
     def decodeFromOID(cls, nums):
         length = next(nums)
@@ -155,6 +161,9 @@ class Null(Asn1Encodable):
 
     def __repr__(self):
         return "{}()".format(typename(self))
+
+    def appendToOID(self, oid):
+        return oid
 
     @classmethod
     def decodeFromOID(cls, nums):
@@ -208,6 +217,13 @@ class OID(Asn1Encodable, UInt32Sequence):
 
         super().__init__(*nums)
 
+    def tryDecode(self, nums, cls):
+        try:
+            return cls.decodeFromOID(nums)
+        except StopIteration as err:
+            errmsg = "Incomplete {} index".format(typename(cls))
+            raise OID.IndexDecodeError(errmsg) from err
+
     @classmethod
     def parse(cls, oid):
         if oid.startswith(cls.DOT):
@@ -242,12 +258,12 @@ class OID(Asn1Encodable, UInt32Sequence):
         nums = self.nums + nums
         return type(self)(*nums)
 
-    def tryDecode(self, nums, cls):
-        try:
-            return cls.decodeFromOID(nums)
-        except StopIteration as err:
-            errmsg = "Incomplete {} index".format(typename(cls))
-            raise OID.IndexDecodeError(errmsg) from err
+    def appendIndex(self, *index):
+        oid = self
+        for obj in index:
+            oid = obj.appendToOID(oid)
+
+        return oid
 
     def extractIndex(self, prefix, *types):
         nums = iter(self.nums)
@@ -279,8 +295,8 @@ class OID(Asn1Encodable, UInt32Sequence):
         else:
             raise self.IndexDecodeError("Not all sub-identifiers were consumed")
 
-    def startswith(self, prefix):
-        return prefix.nums == self.nums[:len(prefix)]
+    def appendToOID(self, oid):
+        return oid.extend(len(self.nums), *self.nums)
 
     @classmethod
     def decodeFromOID(cls, nums):
