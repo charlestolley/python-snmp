@@ -23,6 +23,9 @@ class IpAddress(OctetString):
     def __init__(self, addr):
         self.addr = addr
 
+    def __eq__(a, b):
+        return a.addr == b.addr
+
     def __repr__(self):
         return "{}({})".format(typename(self), repr(self.addr))
 
