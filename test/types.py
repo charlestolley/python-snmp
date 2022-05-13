@@ -21,10 +21,10 @@ class IntegerTest(unittest.TestCase):
     def testDecodeByte(self):
         self.helpTestDecode(b"\x02\x01i", ord("i"))
 
-    def testDecodeIntMax(self):
+    def testDecodeMax(self):
         self.helpTestDecode(b"\x02\x04\x7f\xff\xff\xff", (1 << 31) - 1)
 
-    def testDecodeIntMin(self):
+    def testDecodeMin(self):
         self.helpTestDecode(b"\x02\x04\x80\x00\x00\x00", -(1 << 31))
 
     def testDecodeOverflow(self):
@@ -44,14 +44,14 @@ class IntegerTest(unittest.TestCase):
         generator = NumberGenerator(32, signed=True)
         self.helpTestEncode(next(generator))
 
-    def testEncodeIntMax(self):
+    def testEncodeMax(self):
         self.helpTestEncode((1 << 31) - 1)
 
-    def testEncodeIntMin(self):
+    def testEncodeMin(self):
         self.helpTestEncode(-(1 << 31))
 
     def testEncodeTooLarge(self):
-        self.assertRaises(ValueError, self.helpTestEncode, 1 << 31)
+        self.assertRaises(ValueError, Integer(1 << 31).encode)
 
 class OctetStringTest(unittest.TestCase):
     def testDecodeEmpty(self):
@@ -88,8 +88,7 @@ class NullTest(unittest.TestCase):
         self.assertEqual(Null().encode(), b"\x05\x00")
 
 class OIDTest(unittest.TestCase):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def setUp(self):
         self.internet = OID(1, 3, 6, 1)
 
     def testLength(self):

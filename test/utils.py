@@ -6,8 +6,7 @@ import unittest
 import snmp.utils
 
 class DummyLockTest(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def setUp(self):
         self.lock = snmp.utils.DummyLock()
 
     def testContext(self):
@@ -78,8 +77,7 @@ class NumberGeneratorTest(unittest.TestCase):
             self.assertNotEqual(next(generator), first)
 
 class SubbytesTest(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def setUp(self):
         self.data = b"the quick brown fox jumps over the lazy dog"
         self.start = 4
         self.end = 25
