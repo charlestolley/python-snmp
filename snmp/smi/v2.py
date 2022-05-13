@@ -52,4 +52,4 @@ class Counter64(Unsigned):
     SIZE = 8
     TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 6)
 
-zeroDotZero = OID()
+zeroDotZero = OID(0, 0)
