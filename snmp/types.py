@@ -15,6 +15,9 @@ OBJECT_IDENTIFIER   = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 6)
 SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
 
 class Asn1Encodable:
+    def __eq__(a, b):
+        return a.equals(b) if type(a) == type(b) else False
+
     @classmethod
     def decode(cls, data, leftovers=False, copy=True, **kwargs):
         result = decode(data, expected=cls.TYPE, leftovers=leftovers, copy=copy)
@@ -27,6 +30,10 @@ class Asn1Encodable:
 
     def encode(self):
         return encode(self.TYPE, self.serialize())
+
+    def equals(a, b):
+        errmsg = "{} does not support comparison"
+        raise IncompleteChildClass(errmsg.format(typename(a, True)))
 
     def appendToOID(self, oid):
         errmsg = "{} does not implement appendToOID()"
@@ -57,6 +64,9 @@ class Integer(Asn1Encodable):
 
     def __repr__(self):
         return "{}({})".format(typename(self), self.value)
+
+    def equals(a, b):
+        return a.value == b.value
 
     def appendToOID(self, oid):
         return oid.extend(self.value)
@@ -116,6 +126,9 @@ class OctetString(Asn1Encodable):
     def __repr__(self):
         return "{}({})".format(typename(self), self.data)
 
+    def equals(a, b):
+        return a.data == b.data
+
     def appendToOID(self, oid):
         return oid.extend(len(self.data), *self.data)
 
@@ -162,6 +175,9 @@ class Null(Asn1Encodable):
     def __repr__(self):
         return "{}()".format(typename(self))
 
+    def equals(a, b):
+        return True
+
     def appendToOID(self, oid):
         return oid
 
@@ -189,9 +205,6 @@ class UInt32Sequence:
 
     def __str__(self):
         return self.DOT.join(str(n) for n in self.nums)
-
-    def __eq__(a, b):
-        return a.nums.__eq__(b.nums)
 
     def __getitem__(self, idx):
         return self.nums.__getitem__(idx)
@@ -295,6 +308,9 @@ class OID(Asn1Encodable, UInt32Sequence):
         else:
             raise self.IndexDecodeError("Not all sub-identifiers were consumed")
 
+    def equals(a, b):
+        return a.nums == b.nums
+
     def appendToOID(self, oid):
         return oid.extend(len(self.nums), *self.nums)
 
@@ -367,6 +383,18 @@ class OID(Asn1Encodable, UInt32Sequence):
         return bytes(encoding)
 
 class Constructed(Asn1Encodable):
+    def equals(a, b):
+        if len(a) == len(b):
+            for left, right in zip(a.objects, b.objects):
+                if left != right:
+                    return False
+
+        return True
+
+    def __len__(self):
+        errmsg = "{} does not implement __len__"
+        raise IncompleteChildClass(errmsg.format(typename(self, True)))
+
     @property
     def objects(self):
         errmsg = "{} does not implement .objects"

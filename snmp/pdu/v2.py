@@ -50,15 +50,18 @@ class VarBind(Sequence):
         self.name = name
         self.value = value
 
+    def __iter__(self):
+        return self.objects
+
+    def __len__(self):
+        return 2
+
     def __repr__(self):
         args = ", ".join((repr(self.name), repr(self.value)))
         return "{}({})".format(typename(self), args)
 
     def __str__(self):
         return "{}: {}".format(self.name, self.value)
-
-    def __iter__(self):
-        return self.objects
 
     @property
     def objects(self):
@@ -86,24 +89,24 @@ class VarBindList(Sequence):
                 var = VarBind(var)
             self.variables[i] = var
 
+    def __bool__(self):
+        return bool(self.variables)
+
+    def __getitem__(self, key):
+        return self.variables[key]
+
+    def __iter__(self):
+        return iter(self.variables)
+
+    def __len__(self):
+        return len(self.variables)
+
     def __repr__(self):
         args = ", ".join(repr(var) for var in self.variables)
         return "{}({})".format(typename(self), args)
 
     def __str__(self, indent=""):
         return "\n".join("{}{}".format(indent, var) for var in self.variables)
-
-    def __iter__(self):
-        return iter(self.variables)
-
-    def __getitem__(self, key):
-        return self.variables[key]
-
-    def __bool__(self):
-        return bool(self.variables)
-
-    def __len__(self):
-        return len(self.variables)
 
     @property
     def objects(self):
@@ -151,6 +154,9 @@ class PDU(Constructed):
             self.variableBindings = VarBindList(*args)
         else:
             self.variableBindings = variableBindings
+
+    def __len__(self):
+        return 4
 
     def __repr__(self):
         args = []
@@ -231,6 +237,9 @@ class BulkPDU(Constructed):
             self.variableBindings = VarBindList(*args)
         else:
             self.variableBindings = variableBindings
+
+    def __len__(self):
+        return 4
 
     def __repr__(self):
         args = []
