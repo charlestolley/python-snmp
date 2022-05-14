@@ -1,12 +1,13 @@
 from test import ber
 from test import types
 from test import utils
+from test.pdu import v2 as PDUv2
 from test.smi import v2 as SMIv2
 
 # The order of this list is meant to test each module
 # before testing the modules that depend on it
 modules = [
-    utils, ber, types, SMIv2,
+    utils, ber, types, SMIv2, PDUv2,
 ]
 
 def allTests(cls):
