@@ -1,4 +1,4 @@
-__all__ = ["NullTypesTest", "VarBindListTest", "VarBindTest",]
+__all__ = ["NullTypesTest", "PDUTest", "VarBindListTest", "VarBindTest",]
 
 import unittest
 from snmp.ber import ParseError
@@ -117,7 +117,7 @@ class VarBindListTest(unittest.TestCase):
 
     def testConstructorDefaults(self):
         self.assertEqual(
-            VarBindList(self.ifDescr, self.ifMtu),
+            VarBindList("1.3.6.1.2.1.2.2.1.2", "1.3.6.1.2.1.2.2.1.4"),
             VarBindList(
                 VarBind(self.ifDescr, Null()),
                 VarBind(self.ifMtu, Null()),
@@ -145,6 +145,192 @@ class VarBindListTest(unittest.TestCase):
 
     def testEncode(self):
         self.assertEqual(self.vblist.encode(), self.data)
+
+class PDUTest(unittest.TestCase):
+    def setUp(self):
+        ifDescr = OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2)
+        var = VarBind(ifDescr.extend(29), NoSuchInstance())
+
+        self.pdu = ResponsePDU(
+            requestID=0x709b4a44,
+            errorStatus=5,
+            variableBindings=VarBindList(var)
+        )
+
+        self.data = bytes.fromhex("""
+            a2 1e
+               02 04 70 9b 4a 44
+               02 01 05
+               02 01 00
+               30 10
+                  30 0e
+                     06 0a 2b 06 01 02 01 02 02 01 02 1d
+                     81 00 
+        """)
+
+    def testDecode(self):
+        self.assertEqual(self.pdu, ResponsePDU.decode(self.data))
+
+    def testEncode(self):
+        self.assertEqual(self.pdu.encode(), self.data)
+
+    def testRepr(self):
+        self.assertEqual(eval(repr(self.pdu)), self.pdu)
+
+    # see RFC 3416 section 3 (p. 8)
+    def testErrorStatusEnum(self):
+        self.assertEqual(PDU.ErrorStatus.noError,                0)
+        self.assertEqual(PDU.ErrorStatus.tooBig,                 1)
+        self.assertEqual(PDU.ErrorStatus.noSuchName,             2)
+        self.assertEqual(PDU.ErrorStatus.badValue,               3)
+        self.assertEqual(PDU.ErrorStatus.readOnly,               4)
+        self.assertEqual(PDU.ErrorStatus.genErr,                 5)
+        self.assertEqual(PDU.ErrorStatus.noAccess,               6)
+        self.assertEqual(PDU.ErrorStatus.wrongType,              7)
+        self.assertEqual(PDU.ErrorStatus.wrongLength,            8)
+        self.assertEqual(PDU.ErrorStatus.wrongEncoding,          9)
+        self.assertEqual(PDU.ErrorStatus.wrongValue,            10)
+        self.assertEqual(PDU.ErrorStatus.noCreation,            11)
+        self.assertEqual(PDU.ErrorStatus.inconsistentValue,     12)
+        self.assertEqual(PDU.ErrorStatus.resourceUnavailable,   13)
+        self.assertEqual(PDU.ErrorStatus.commitFailed,          14)
+        self.assertEqual(PDU.ErrorStatus.undoFailed,            15)
+        self.assertEqual(PDU.ErrorStatus.authorizationError,    16)
+        self.assertEqual(PDU.ErrorStatus.notWritable,           17)
+        self.assertEqual(PDU.ErrorStatus.inconsistentName,      18)
+
+    def testIgnoreUnusedArgs(self):
+        pdu = ResponsePDU(
+            "the first of four nonsense arguments",
+            1984,
+            OID(1, 2, 3, 4, 5),
+            unittest.main,
+            requestID=self.pdu.requestID,
+            errorStatus=self.pdu.errorStatus,
+            errorIndex=self.pdu.errorIndex,
+            variableBindings=self.pdu.variableBindings,
+        )
+
+        self.assertEqual(pdu, self.pdu)
+
+class BulkPDUTest(unittest.TestCase):
+    def setUp(self):
+        self.pdu = GetBulkRequestPDU(
+            requestID = 0x4bddc597,
+            maxRepetitions=10,
+            variableBindings=VarBindList(
+                OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2),
+                OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 4),
+            ),
+        )
+
+        self.data = bytes.fromhex("""
+            a5 2c
+               02 04 4b dd c5 97
+               02 01 00
+               02 01 0a
+               30 1e
+                  30 0d
+                     06 09 2b 06 01 02 01 02 02 01 02
+                     05 00
+                  30 0d
+                     06 09 2b 06 01 02 01 02 02 01 04
+                     05 00
+        """)
+
+    def testDecode(self):
+        self.assertEqual(self.pdu, GetBulkRequestPDU.decode(self.data))
+
+    def testEncode(self):
+        self.assertEqual(self.pdu.encode(), self.data)
+
+    def testRepr(self):
+        self.assertEqual(eval(repr(self.pdu)), self.pdu)
+
+    def testIgnoreUnusedArgs(self):
+        pdu = GetBulkRequestPDU(
+            "nonsense argument for BulkPDU",
+            requestID=self.pdu.requestID,
+            nonRepeaters=self.pdu.nonRepeaters,
+            maxRepetitions=self.pdu.maxRepetitions,
+            variableBindings=self.pdu.variableBindings,
+        )
+
+        self.assertEqual(pdu, self.pdu)
+
+class PDUTypesTest(unittest.TestCase):
+    def testGetRequest(self):
+        data = bytes.fromhex("a0 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = GetRequestPDU.decode(data)
+        self.assertTrue(isinstance(pdu, GetRequestPDU))
+
+    def testGetNextRequest(self):
+        data = bytes.fromhex("a1 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = GetNextRequestPDU.decode(data)
+        self.assertTrue(isinstance(pdu, GetNextRequestPDU))
+
+    def testResponse(self):
+        data = bytes.fromhex("a2 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = ResponsePDU.decode(data)
+        self.assertTrue(isinstance(pdu, ResponsePDU))
+
+    def testSetRequest(self):
+        data = bytes.fromhex("a3 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = SetRequestPDU.decode(data)
+        self.assertTrue(isinstance(pdu, SetRequestPDU))
+
+    def testGetBulkRequest(self):
+        data = bytes.fromhex("a5 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = GetBulkRequestPDU.decode(data)
+        self.assertTrue(isinstance(pdu, GetBulkRequestPDU))
+
+    def testInformRequest(self):
+        data = bytes.fromhex("a6 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = InformRequestPDU.decode(data)
+        self.assertTrue(isinstance(pdu, InformRequestPDU))
+
+    def testTrap(self):
+        data = bytes.fromhex("a7 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = TrapPDU.decode(data)
+        self.assertTrue(isinstance(pdu, TrapPDU))
+
+    def testReport(self):
+        data = bytes.fromhex("a8 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = ReportPDU.decode(data)
+        self.assertTrue(isinstance(pdu, ReportPDU))
+
+# see RFC 3411 section 2.8 (pp. 13-14)
+class testPDUClasses(unittest.TestCase):
+    def testReadClass(self):
+        self.assertTrue(isinstance(GetRequestPDU(), Read))
+        self.assertTrue(isinstance(GetNextRequestPDU(), Read))
+        self.assertTrue(isinstance(GetBulkRequestPDU(), Read))
+
+    def testWriteClass(self):
+        self.assertTrue(isinstance(SetRequestPDU(), Write))
+
+    def testResponseClass(self):
+        self.assertTrue(isinstance(ResponsePDU(), Response))
+        self.assertTrue(isinstance(ReportPDU(), Response))
+
+    def testNotificationClass(self):
+        self.assertTrue(isinstance(InformRequestPDU(), Notification))
+        self.assertTrue(isinstance(TrapPDU(), Notification))
+
+    def testInternalClass(self):
+        self.assertTrue(isinstance(ReportPDU(), Internal))
+
+    def testConfirmedClass(self):
+        self.assertTrue(isinstance(GetRequestPDU(), Confirmed))
+        self.assertTrue(isinstance(GetNextRequestPDU(), Confirmed))
+        self.assertTrue(isinstance(GetBulkRequestPDU(), Confirmed))
+        self.assertTrue(isinstance(SetRequestPDU(), Confirmed))
+        self.assertTrue(isinstance(InformRequestPDU(), Confirmed))
+
+    def testUnconfirmedClass(self):
+        self.assertFalse(isinstance(ResponsePDU(), Confirmed))
+        self.assertFalse(isinstance(TrapPDU(), Confirmed))
+        self.assertFalse(isinstance(ReportPDU(), Confirmed))
 
 if __name__ == '__main__':
     unittest.main()
