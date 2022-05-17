@@ -25,6 +25,9 @@ class NumberGenerator:
         if signed:
             self.wrap -= half
 
+    def __iter__(self):
+        return self
+
     def __next__(self):
         self.previous += self.step
 
