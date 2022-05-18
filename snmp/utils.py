@@ -37,21 +37,21 @@ class NumberGenerator:
         return self.previous
 
 class subbytes:
-    def __init__(self, data, start=0, end=None):
+    def __init__(self, data, start=None, stop=None):
         if isinstance(data, subbytes):
-            if end is None:
-                end = data.end
-
-            self.data  = data.data
-            self.start = min(data.start + start, data.end)
-            self.end   = min(data.start + end,   data.end)
+            self.data = data.data
         else:
-            if end is None:
-                end = len(data)
+            self.data = data
+            self.start = 0
+            self.stop = len(data)
+            data = self
 
-            self.data  = data
-            self.start = min(start, len(data))
-            self.end   = min(end,   len(data))
+        new_start = data.start if start is None else data.translate(start, True)
+        new_stop  = data.stop  if stop  is None else data.translate(stop,  True)
+
+        self.start = new_start
+        self.stop  = new_stop
+
 
     def __eq__(a, b):
         if len(a) != len(b):
@@ -64,21 +64,21 @@ class subbytes:
         return True
 
     def __iter__(self):
-        for index in range(self.start, self.end):
+        for index in range(self.start, self.stop):
             yield self.data[index]
 
     def __len__(self):
-        return self.end - self.start
+        return self.stop - self.start
 
     def __bool__(self):
-        return self.end > self.start
+        return self.stop > self.start
 
     def __repr__(self):
         return repr(self[:])
 
     def translate(self, index, clamp=False):
         if index < 0:
-            index += self.end
+            index += self.stop
             if index < self.start:
                 if clamp:
                     return self.start
@@ -88,9 +88,9 @@ class subbytes:
                 return index
         else:
             index += self.start
-            if index >= self.end:
+            if index >= self.stop:
                 if clamp:
-                    return self.end
+                    return self.stop
                 else:
                     return len(self.data)
             else:
@@ -104,7 +104,7 @@ class subbytes:
 
             key = slice(
                 self.start if start is None else self.translate(start, True),
-                self.end   if stop  is None else self.translate(stop, True),
+                self.stop  if stop  is None else self.translate(stop, True),
                 key.step
             )
 
@@ -120,7 +120,7 @@ class subbytes:
 
     def prune(self, length):
         removed = subbytes(self, length)
-        self.end = removed.start
+        self.stop = removed.start
         return removed
 
 def typename(cls, qualified=False):
