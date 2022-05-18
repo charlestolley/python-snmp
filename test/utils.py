@@ -212,5 +212,11 @@ class SubbytesTest(unittest.TestCase):
         self.assertEqual(data, self.data[self.start:self.stop])
         self.assertEqual(tail, self.data[self.stop:])
 
+    def testLongPrune(self):
+        data = subbytes(self.data, self.start, self.stop)
+        tail = data.prune(2 * len(data))
+        self.assertEqual(data, self.data[self.start:self.stop])
+        self.assertEqual(tail, b"")
+
 if __name__ == "__main__":
     unittest.main()
