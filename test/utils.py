@@ -121,6 +121,12 @@ class SubbytesTest(unittest.TestCase):
         self.assertEqual(type(copy), type(data))
         self.assertEqual(copy, data)
 
+    def testReprKeyword(self):
+        data = subbytes(self.data, stop=self.stop)
+        copy = eval(repr(data))
+
+        self.assertEqual(copy, data)
+
     def testGetItemPositiveIntegerIndex(self):
         data = subbytes(self.data, self.start, self.stop)
         substring = self.data[self.start:self.stop]
