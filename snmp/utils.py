@@ -110,12 +110,6 @@ class subbytes:
 
         return self.data[key]
 
-    def __setitem__(self, key, value):
-        if isinstance(key, int):
-            key = self.translate(key)
-
-        self.data[key] = value
-
     def consume(self):
         byte = self.dereference()
         self.start += 1
