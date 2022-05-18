@@ -73,7 +73,15 @@ class subbytes:
         return self.stop - self.start
 
     def __repr__(self):
-        return repr(self[:])
+        args = [repr(self.data)]
+
+        if self.start:
+            args.append("start={}".format(self.start))
+
+        if self.stop < len(self.data):
+            args.append("stop={}".format(self.stop))
+
+        return "{}({})".format(typename(self), ", ".join(args))
 
     def translate(self, index, clamp=False):
         if index < 0:
