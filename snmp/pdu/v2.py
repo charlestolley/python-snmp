@@ -71,7 +71,7 @@ class VarBind(Sequence):
     @classmethod
     def deserialize(cls, data):
         name, data = OID.decode(data, leftovers=True)
-        identifier = decode_identifier(subbytes(data))
+        identifier, data = decode(subbytes(data))
 
         try:
             valueType = cls.TYPES[identifier]
@@ -79,7 +79,7 @@ class VarBind(Sequence):
             msg = "Invalid variable value type: {}"
             raise ParseError(msg.format(identifier)) from err
 
-        return cls(name, valueType.decode(data))
+        return cls(name, valueType.deserialize(data))
 
 class VarBindList(Sequence):
     def __init__(self, *args):
