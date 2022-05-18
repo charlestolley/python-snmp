@@ -52,13 +52,15 @@ class subbytes:
         self.start = new_start
         self.stop  = new_stop
 
+    def __bool__(self):
+        return self.stop > self.start
 
     def __eq__(a, b):
         if len(a) != len(b):
             return False
 
-        for chars in zip(a, b):
-            if chars[0] != chars[1]:
+        for left, right in zip(a, b):
+            if left != right:
                 return False
 
         return True
@@ -69,9 +71,6 @@ class subbytes:
 
     def __len__(self):
         return self.stop - self.start
-
-    def __bool__(self):
-        return self.stop > self.start
 
     def __repr__(self):
         return repr(self[:])
