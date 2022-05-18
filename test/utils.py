@@ -70,287 +70,141 @@ class SubbytesTest(unittest.TestCase):
     def setUp(self):
         self.data = b"the quick brown fox jumps over the lazy dog"
         self.start = 4
-        self.end = 25
+        self.stop = 25
         self.step = 3
         self.a = 6
         self.b = 15
 
-    def testLength(self):
+    def testNotEqual(self):
         data = subbytes(self.data)
-        self.assertEqual(len(self.data), len(data))
+        self.assertNotEqual(data, self.data[1:])
 
-    def testBoundedLength(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(len(substring), len(data))
+    def testConstructorSignature(self):
+        data = subbytes(self.data, start=self.start, stop=self.stop)
 
-    def testEquality(self):
+    def testBasicConstruction(self):
         data = subbytes(self.data)
-        self.assertEqual(self.data, data)
+        self.assertEqual(data, self.data)
 
-    def testBoundedEquality(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(substring, data)
+    def testBoundedConstruction(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        self.assertEqual(data, substring)
 
-    def testIterator(self):
-        data = subbytes(self.data)
-        for (a, b) in zip(self.data, data):
-            self.assertEqual(a, b)
-
-    def testBoundedIterator(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        for (a, b) in zip(substring, data):
-            self.assertEqual(a, b)
-
-    def testRepr(self):
-        data = subbytes(self.data)
-        self.assertEqual(self.data, eval(repr(data)))
-
-    def testBoundedRepr(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(substring, eval(repr(data)))
-
-    def testTrue(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(bool(substring), bool(data))
+    def testWrappingConstruction(self):
+        wrapped = subbytes(self.data, self.start, self.stop)
+        data = subbytes(wrapped, self.a, self.b)
+        substring = self.data[self.start:self.stop][self.a:self.b]
+        self.assertEqual(data, substring)
 
     def testFalse(self):
-        data = subbytes(self.data, self.end, self.start)
-        substring = self.data[self.end:self.start]
-        self.assertEqual(bool(substring), bool(data))
+        self.assertFalse(subbytes(self.data, self.start, self.start))
 
-    def testPositiveIntegerIndex(self):
-        data = subbytes(self.data)
+    def testTrue(self):
+        self.assertTrue(subbytes(self.data, self.start, self.start+1))
 
-        i = 0
-        while i < len(self.data):
-            self.assertEqual(self.data[i], data[i])
-            i += 1
+    def testIterator(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        for (a, b) in zip(data, substring):
+            self.assertEqual(a, b)
 
-        self.assertRaises(IndexError, data.__getitem__, i)
+    def testLength(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        self.assertEqual(len(substring), len(data))
 
-    def testBoundedPositiveIntegerIndex(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
+    def testRepr(self):
+        data = subbytes(self.data, self.start, self.stop)
+        copy = eval(repr(data))
 
-        i = 0
-        while i < len(substring):
-            self.assertEqual(substring[i], data[i])
-            i += 1
+        self.assertEqual(type(copy), type(data))
+        self.assertEqual(copy, data)
 
-        self.assertRaises(IndexError, data.__getitem__, i)
+    def testGetItemPositiveIntegerIndex(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
 
-    def testNegativeIntegerIndex(self):
-        data = subbytes(self.data)
+        for i in range(len(data)):
+            self.assertEqual(data[i], substring[i])
 
-        i = -1
-        while -i <= len(self.data):
-            self.assertEqual(self.data[i], data[i])
-            i -= 1
+        self.assertRaises(IndexError, data.__getitem__, len(data))
 
-        self.assertRaises(IndexError, data.__getitem__, i)
+    def testGetItemNegativeIntegerIndex(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
 
-    def testBoundedNegativeIntegerIndex(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
+        for i in range(-len(data), 0):
+            self.assertEqual(data[i], substring[i])
 
-        i = -1
-        while -i <= len(substring):
-            self.assertEqual(substring[i], data[i])
-            i -= 1
+    def testGetItemFullSlice(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        self.assertEqual(data[:], substring)
 
-        self.assertRaises(IndexError, data.__getitem__, i)
+    def testGetItemPositiveSlice(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        self.assertEqual(data[self.a:self.b], substring[self.a:self.b])
 
-    def testSetItem(self):
-        data = subbytes(bytearray(self.data))
-        data[self.start] += 1
-        self.assertNotEqual(self.data, data)
+    def testGetItemNegativeSlice(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        a = self.a - len(data)
+        b = self.b - len(data)
+        self.assertEqual(data[a:b], substring[a:b])
 
-    def testBoundedSetItem(self):
-        data = subbytes(bytearray(self.data), self.start, self.end)
-        substring = bytearray(self.data[self.start:self.end])
-        data     [self.a] += 1
-        substring[self.a] += 1
-        self.assertEqual(substring, data)
+    def testGetItemSliceMiss(self):
+        data = subbytes(self.data, self.start, self.stop)
+        self.assertEqual(data[self.b:self.a], b"")
 
-    def testConsume(self):
-        data = subbytes(self.data)
-        byte = data.consume()
-        self.assertEqual(self.data[0], byte)
-        self.assertEqual(self.data[1:], data)
+    def testGetItemSliceOvershoot(self):
+        data = subbytes(self.data, self.start, self.stop)
+        self.assertEqual(data[-2*len(data):2*len(data)], data)
+
+    def testGetItemSliceWithStep(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        self.assertEqual(
+            data     [self.a:self.b:self.step],
+            substring[self.a:self.b:self.step]
+        )
+
+    def testGetItemSliceWithNegativeStep(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        self.assertEqual(
+            data     [self.a:self.b:-self.step],
+            substring[self.a:self.b:-self.step]
+        )
 
     def testBoundedConsume(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
         byte = data.consume()
-        self.assertEqual(substring[0], byte)
-        self.assertEqual(substring[1:], data)
+        self.assertEqual(byte, substring[0])
+        self.assertEqual(data, substring[1:])
 
     def testEmptyConsume(self):
         data = subbytes(self.data, self.start, self.start)
         self.assertRaises(IndexError, data.consume)
 
     def testDereference(self):
-        data = subbytes(self.data)
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
         byte = data.dereference()
-        self.assertEqual(self.data[0], byte)
-        self.assertEqual(self.data, data)
-
-    def testBoundedDereference(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        byte = data.dereference()
-        self.assertEqual(substring[0], byte)
-        self.assertEqual(substring, data)
+        self.assertEqual(byte, substring[0])
+        self.assertEqual(data, substring)
 
     def testEmptyDereference(self):
         data = subbytes(self.data, self.start, self.start)
         self.assertRaises(IndexError, data.dereference)
 
     def testPrune(self):
-        data = subbytes(self.data)
-        tail = data.prune(self.end)
-        self.assertEqual(self.data[:self.end], data)
-        self.assertEqual(self.data[self.end:], tail)
-
-    def testSliceByConstructor(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        sliced = subbytes(data, self.a, self.b)
-        self.assertEqual(substring[self.a:self.b], sliced)
-
-    def testSliceCopy(self):
-        data = subbytes(self.data)
-        self.assertEqual(self.data, data[:])
-
-    def testBoundedSliceCopy(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(substring, data[:])
-
-    def testPositiveSlice(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[self.start:self.end],
-            data     [self.start:self.end]
-        )
-
-    def testBoundedPositiveSlice(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[self.a:self.b],
-            data     [self.a:self.b]
-        )
-
-    def testNegativeSlice(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[self.start-len(self.data):self.end-len(self.data)],
-            data     [self.start-len(self.data):self.end-len(self.data)]
-        )
-
-    def testBoundedNegativeSlice(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[self.a-len(substring):self.b-len(substring)],
-            data     [self.a-len(substring):self.b-len(substring)]
-        )
-
-    def testSliceMiss(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[self.end:self.start],
-            data     [self.end:self.start]
-        )
-
-    def testBoundedSliceMiss(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[self.b:self.a],
-            data     [self.b:self.a]
-        )
-
-    def testSliceToNowhere(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[:-len(self.data)],
-            data     [:-len(self.data)],
-        )
-
-    def testBoundedSliceToNowhere(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[:-len(substring)],
-            data     [:-len(substring)]
-        )
-
-    def testSliceFromNowhere(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[len(self.data):],
-            data     [len(self.data):],
-        )
-
-    def testBoundedSliceFromNowhere(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[len(substring):],
-            data     [len(substring):]
-        )
-
-    def testSliceOvershoot(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[-2*len(self.data):2*len(self.data)],
-            data     [-2*len(self.data):2*len(self.data)],
-        )
-
-    def testBoundedSliceOvershoot(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[-2*len(substring):2*len(substring)],
-            data     [-2*len(substring):2*len(substring)],
-        )
-
-    def testSliceWithStep(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[self.start:self.end:self.step],
-            data     [self.start:self.end:self.step]
-        )
-
-    def testBoundedSliceWithStep(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[self.a:self.b:self.step],
-            data     [self.a:self.b:self.step]
-        )
-
-    def testSliceWithNegativeStep(self):
-        data = subbytes(self.data)
-        self.assertEqual(
-            self.data[self.start:self.end:-self.step],
-            data     [self.start:self.end:-self.step]
-        )
-
-    def testBoundedSliceWithNegativeStep(self):
-        data = subbytes(self.data, self.start, self.end)
-        substring = self.data[self.start:self.end]
-        self.assertEqual(
-            substring[self.a:self.b:-self.step],
-            data     [self.a:self.b:-self.step]
-        )
+        data = subbytes(self.data, self.start)
+        tail = data.prune(self.stop - self.start)
+        self.assertEqual(data, self.data[self.start:self.stop])
+        self.assertEqual(tail, self.data[self.stop:])
 
 if __name__ == "__main__":
     unittest.main()
