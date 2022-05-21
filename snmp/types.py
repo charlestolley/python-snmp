@@ -17,7 +17,7 @@ SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
 
 class Asn1Encodable:
     def __eq__(a, b):
-        return a.equals(b) if type(a) == type(b) else False
+        return type(a) is type(b) and a.equals(b)
 
     @classmethod
     def decode(cls, data, leftovers=False, copy=True, **kwargs):
@@ -33,7 +33,7 @@ class Asn1Encodable:
         return encode(self.TYPE, self.serialize())
 
     def equals(a, b):
-        errmsg = "{} does not support comparison"
+        errmsg = "{} does not implement equals()"
         raise IncompleteChildClass(errmsg.format(typename(a, True)))
 
     def appendToOID(self, oid):
@@ -188,7 +188,7 @@ class Null(Asn1Encodable):
         return f"{typename(self)}()"
 
     def equals(a, b):
-        return True
+        return isinstance(b, Null)
 
     def appendToOID(self, oid):
         return oid
