@@ -78,12 +78,12 @@ class subbytes:
         args = [repr(self.data)]
 
         if self.start:
-            args.append("start={}".format(self.start))
+            args.append(f"start={self.start}")
 
         if self.stop < len(self.data):
-            args.append("stop={}".format(self.stop))
+            args.append(f"stop={self.stop}")
 
-        return "{}({})".format(typename(self), ", ".join(args))
+        return f"{typename(self)}({', '.join(args)})"
 
     def translate(self, index, clamp=False):
         if index < 0:

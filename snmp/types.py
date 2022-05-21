@@ -64,7 +64,7 @@ class Integer(Asn1Encodable):
         self.value = value
 
     def __repr__(self):
-        return "{}({})".format(typename(self), self.value)
+        return f"{typename(self)}({self.value})"
 
     def equals(a, b):
         return a.value == b.value
@@ -79,7 +79,7 @@ class Integer(Asn1Encodable):
         try:
             value.to_bytes(cls.SIZE, cls.BYTEORDER, signed=cls.SIGNED)
         except OverflowError as err:
-            errmsg = "{} value out of range: {}".format(typename(cls), value)
+            errmsg = f"{typename(cls)} value out of range: {value}"
             raise OID.IndexDecodeError(errmsg) from err
 
         return cls(value)
@@ -88,7 +88,7 @@ class Integer(Asn1Encodable):
     def deserialize(cls, data):
         for i in range(len(data) - cls.SIZE):
             if data[i] != 0:
-                msg = "Encoding too large for {}".format(typename(cls))
+                msg = f"Encoding too large for {typename(cls)}"
                 raise ParseError(msg)
 
         return cls(int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED))
@@ -121,11 +121,11 @@ class OctetString(Asn1Encodable):
     MAX_SIZE = 0xffff
     INVALID_SIZES = ()
 
-    def __init__(self, data=b''):
+    def __init__(self, data=b""):
         self.data = data
 
     def __repr__(self):
-        return "{}({})".format(typename(self), self.data)
+        return f"{typename(self)}({self.data})"
 
     def equals(a, b):
         return a.data == b.data
@@ -185,7 +185,7 @@ class Null(Asn1Encodable):
     TYPE = NULL
 
     def __repr__(self):
-        return "{}()".format(typename(self))
+        return f"{typename(self)}()"
 
     def equals(a, b):
         return True
@@ -225,7 +225,7 @@ class OID(Asn1Encodable):
         self.nums = nums
 
     def __repr__(self):
-        return "{}{}".format(typename(self), self.nums)
+        return f"{typename(self)}{self.nums}"
 
     def __str__(self):
         return self.DOT.join(str(n) for n in self.nums)
@@ -240,7 +240,7 @@ class OID(Asn1Encodable):
         try:
             return cls.decodeFromOID(nums)
         except StopIteration as err:
-            errmsg = "Incomplete {} index".format(typename(cls))
+            errmsg = f"Incomplete {typename(cls)} index"
             raise OID.IndexDecodeError(errmsg) from err
 
     FIRST = re.compile(r"^\.?(\d+|$)")
@@ -346,7 +346,7 @@ class OID(Asn1Encodable):
         try:
             oid = list(divmod(next(data), cls.MULT))
         except StopIteration as err:
-            raise ParseError("Empty {}".format(typename(cls))) from err
+            raise ParseError(f"Empty {typename(cls)}") from err
 
         value = 0
         for byte in data:
