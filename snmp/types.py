@@ -4,6 +4,7 @@ __all__ = [
     "Constructed", "Sequence",
 ]
 
+import re
 from snmp.ber import *
 from snmp.exception import *
 from snmp.utils import typename
@@ -232,15 +233,25 @@ class OID(Asn1Encodable):
             errmsg = "Incomplete {} index".format(typename(cls))
             raise OID.IndexDecodeError(errmsg) from err
 
+    FIRST = re.compile(r"^\.?(\d+|$)")
+    REGEX = re.compile(r"\.(\d+)")
+
     @classmethod
     def parse(cls, oid):
-        if oid.startswith(cls.DOT):
-            oid = oid[len(cls.DOT):]
+        match = cls.FIRST.match(oid)
 
-        try:
-            nums = tuple(int(num) for num in oid.split(cls.DOT))
-        except ValueError as err:
-            raise ValueError("Invalid OID string: \"{}\"".format(oid)) from err
+        if match is None:
+            raise ValueError(f"Invalid OID string: {oid}")
+
+        nums = []
+        if match.group(1):
+            while match is not None:
+                nums.append(int(match.group(1)))
+                index = match.end()
+                match = cls.REGEX.match(oid, index)
+
+            if index != len(oid):
+                raise ValueError(f"Trailing characters in OID string: {oid}")
 
         try:
             if nums[0] > 2:
@@ -251,8 +262,7 @@ class OID(Asn1Encodable):
                 errmsg = "second number in {} must be less than {}"
                 raise ValueError(errmsg.format(typename(cls), nums[1]))
         except IndexError as err:
-            errmsg = "OID \"{}\" contains fewer than 2 sub-identifiers"
-            raise ValueError(errmsg.format(oid)) from err
+            pass
 
         if any(n < 0 for n in nums):
             raise ValueError("\"{}\" contains a negative sub-identifier")
