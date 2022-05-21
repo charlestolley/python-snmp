@@ -168,7 +168,18 @@ class OctetString(Asn1Encodable):
         return cls(data)
 
     def serialize(self):
-        return self.data
+        data = self.data
+        if len(data) < self.MIN_SIZE:
+            msg = "Encoded {} may not be less than {} bytes long"
+            raise ValueError(msg.format(typename(self), self.MIN_SIZE))
+        elif len(data) > self.MAX_SIZE:
+            msg = "Encoded {} may not be more than {} bytes long"
+            raise ValueError(msg.format(typename(self), self.MAX_SIZE))
+        elif len(data) in self.INVALID_SIZES:
+            msg = "Encoded {} not permitted to be {} bytes long"
+            raise ValueError(msg.format(typename(self), len(data)))
+
+        return data
 
 class Null(Asn1Encodable):
     TYPE = NULL
