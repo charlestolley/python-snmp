@@ -193,26 +193,8 @@ class Null(Asn1Encodable):
     def serialize(self):
         return b''
 
-class UInt32Sequence:
+class OID(Asn1Encodable):
     DOT = '.'
-
-    def __init__(self, *nums):
-        assert all(0 <= n < (1 << 32) for n in nums)
-        self.nums = nums
-
-    def __repr__(self):
-        return "{}{}".format(typename(self), self.nums)
-
-    def __str__(self):
-        return self.DOT.join(str(n) for n in self.nums)
-
-    def __getitem__(self, idx):
-        return self.nums.__getitem__(idx)
-
-    def __len__(self):
-        return self.nums.__len__()
-
-class OID(Asn1Encodable, UInt32Sequence):
     MULT = 40
     MAXLEN = 128
     TYPE = OBJECT_IDENTIFIER
@@ -228,7 +210,20 @@ class OID(Asn1Encodable, UInt32Sequence):
             errmsg = "{} may not contain more than {} sub-identifiers"
             raise ValueError(errmsg.format(typename(self), self.MAXLEN))
 
-        super().__init__(*nums)
+        assert all(0 <= n < (1 << 32) for n in nums)
+        self.nums = nums
+
+    def __repr__(self):
+        return "{}{}".format(typename(self), self.nums)
+
+    def __str__(self):
+        return self.DOT.join(str(n) for n in self.nums)
+
+    def __getitem__(self, idx):
+        return self.nums.__getitem__(idx)
+
+    def __len__(self):
+        return self.nums.__len__()
 
     def tryDecode(self, nums, cls):
         try:
