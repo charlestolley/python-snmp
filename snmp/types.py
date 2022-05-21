@@ -195,8 +195,7 @@ class Null(Asn1Encodable):
 
     @classmethod
     def decodeFromOID(cls, nums):
-        errmsg = "{} may not be used as an OID index"
-        raise TypeError(errmsg.format(typename(cls)))
+        return cls()
 
     @classmethod
     def deserialize(cls, data):
