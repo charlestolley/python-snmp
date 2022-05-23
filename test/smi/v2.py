@@ -1,68 +1,33 @@
 __all__ = [
     "Counter64Test", "IntegerTypesTest", "IpAddressTest",
-    "UnsignedTest", "ZeroDotZeroTest",
+    "ZeroDotZeroTest",
 ]
 
 import unittest
-from snmp.ber import ParseError
+from snmp.ber import *
 from snmp.smi.v2 import Unsigned
 from snmp.smi.v2 import *
-from snmp.types import OID
+from snmp.types import *
 from snmp.utils import NumberGenerator
-
-class UnsignedTest(unittest.TestCase):
-    def helpTestDecode(self, data, value):
-        result = Unsigned.decode(data)
-        self.assertTrue(isinstance(result, Unsigned))
-        self.assertEqual(result.value, value)
-
-    def helpTestEncode(self, n):
-        result = Unsigned(n).encode()
-        self.assertEqual(Unsigned.decode(result).value, n)
-
-    def testDecodeEmpty(self):
-        self.helpTestDecode(b"\x02\x00", 0)
-
-    def testDecodeZero(self):
-        self.helpTestDecode(b"\x02\x01\x00", 0)
-
-    def testDecodeMax(self):
-        self.helpTestDecode(b"\x02\x04\xff\xff\xff\xff", (1 << 32) - 1)
-
-    def testDecodeOverflow(self):
-        data = b"\x02\x05\x01\x00\x00\x00\x00"
-        self.assertRaises(ParseError, Unsigned.decode, data)
-
-    def testEncodeZero(self):
-        self.helpTestEncode(0)
-
-    def testEncodeRandom(self):
-        generator = NumberGenerator(32, signed=False)
-        self.helpTestEncode(next(generator))
-
-    def testEncodeMax(self):
-        self.helpTestEncode((1 << 32) - 1)
-
-    def testEncodeNegative(self):
-        self.assertRaises(ValueError, Unsigned(-1).encode)
-
-    def testEncodeTooLarge(self):
-        self.assertRaises(ValueError, Unsigned(1 << 32).encode)
 
 class IpAddressTest(unittest.TestCase):
     def setUp(self):
         self.addr = "12.34.56.78"
-        self.data = b"\x40\x04\x0c\x22\x38\x4e"
-
-    def testEqual(self):
-        self.assertEqual(IpAddress(self.addr), IpAddress(self.addr))
+        self.encoding = b"\x0c\x22\x38\x4e"
+        self.data = b"\x40\x04" + self.encoding
 
     def testRepr(self):
         addr = IpAddress(self.addr)
         self.assertEqual(eval(repr(addr)), addr)
 
+    def testEquals(self):
+        self.assertTrue(IpAddress(self.addr).equals(OctetString(self.encoding)))
+
+    def testNotEquals(self):
+        self.assertFalse(IpAddress(self.addr).equals(OctetString(self.data)))
+
     def testDecode(self):
-        self.assertEqual(IpAddress.decode(self.data).addr, self.addr)
+        self.assertEqual(IpAddress.decode(self.data), IpAddress(self.addr))
 
     def testDecodeTooShort(self):
         self.assertRaises(ParseError, IpAddress.decode, b"\x40\x03abc")
@@ -76,33 +41,131 @@ class IpAddressTest(unittest.TestCase):
 class IntegerTypesTest(unittest.TestCase):
     def testCounter32(self):
         result = Counter32.decode(b"\x41\x00")
-        self.assertTrue(isinstance(result, Counter32))
-        self.assertEqual(result.value, 0)
+        self.assertEqual(result, Counter32(0))
 
     def testGauge32(self):
         result = Gauge32.decode(b"\x42\x00")
-        self.assertTrue(isinstance(result, Gauge32))
-        self.assertEqual(result.value, 0)
+        self.assertEqual(result, Gauge32(0))
 
     def testTimeTicks(self):
         result = TimeTicks.decode(b"\x43\x00")
-        self.assertTrue(isinstance(result, TimeTicks))
-        self.assertEqual(result.value, 0)
+        self.assertEqual(result, TimeTicks(0))
 
     def testCounter64(self):
         result = Counter64.decode(b"\x46\x00")
-        self.assertTrue(isinstance(result, Counter64))
-        self.assertEqual(result.value, 0)
+        self.assertEqual(result, Counter64(0))
+
+class Counter32Test(unittest.TestCase):
+    def setUp(self):
+        self.num = 987654321
+
+    def testRepr(self):
+        counter = Counter32(self.num)
+        self.assertEqual(eval(repr(counter)), counter)
+
+    def testEquals(self):
+        self.assertTrue(Counter32(self.num).equals(Integer(self.num)))
+
+    def testNotEqual(self):
+        self.assertNotEqual(Counter32(self.num), Integer(self.num))
+
+    def testUnsigned(self):
+        counter = Counter32((1<<32)-self.num)
+        integer = Integer(-self.num)
+
+        self.assertFalse(counter.equals(integer))
+        self.assertEqual(
+            decode(counter.encode())[1],
+            decode(integer.encode())[1]
+        )
+
+    def testDecodeMax(self):
+        self.assertEqual(
+            Counter32.decode(b"\x41\x04\xff\xff\xff\xff"),
+            Counter32((1 << 32) - 1)
+        )
+
+class Gauge32Test(unittest.TestCase):
+    def setUp(self):
+        self.num = 987654321
+
+    def testRepr(self):
+        gauge = Gauge32(self.num)
+        self.assertEqual(eval(repr(gauge)), gauge)
+
+    def testEquals(self):
+        self.assertTrue(Gauge32(self.num).equals(Integer(self.num)))
+
+    def testNotEqual(self):
+        self.assertNotEqual(Gauge32(self.num), Integer(self.num))
+
+    def testUnsigned(self):
+        gauge = Gauge32((1<<32)-self.num)
+        integer = Integer(-self.num)
+
+        self.assertFalse(gauge.equals(integer))
+        self.assertEqual(
+            decode(gauge.encode())[1],
+            decode(integer.encode())[1]
+        )
+
+    def testDecodeMax(self):
+        self.assertEqual(
+            Gauge32.decode(b"\x42\x04\xff\xff\xff\xff"),
+            Gauge32((1 << 32) - 1)
+        )
+
+    def testUnsigned32(self):
+        self.assertIs(Unsigned32, Gauge32)
+
+class TimeTicksTest(unittest.TestCase):
+    def setUp(self):
+        self.num = 987654321
+
+    def testRepr(self):
+        ticks = TimeTicks(self.num)
+        self.assertEqual(eval(repr(ticks)), ticks)
+
+    def testEquality(self):
+        self.assertTrue(TimeTicks(self.num).equals(Integer(self.num)))
+
+    def testNotEqual(self):
+        self.assertNotEqual(TimeTicks(self.num), Integer(self.num))
+
+    def testUnsigned(self):
+        ticks = TimeTicks((1<<32)-self.num)
+        integer = Integer(-self.num)
+
+        self.assertFalse(ticks.equals(integer))
+        self.assertEqual(
+            decode(ticks.encode())[1],
+            decode(integer.encode())[1]
+        )
+
+    def testDecodeMax(self):
+        self.assertEqual(
+            TimeTicks.decode(b"\x43\x04\xff\xff\xff\xff"),
+            TimeTicks((1 << 32) - 1)
+        )
+
+class OpaqueTest(unittest.TestCase):
+    def setUp(self):
+        self.data = b"this could contain anyting"
+
+    def testEquality(self):
+        self.assertTrue(Opaque(self.data).equals(OctetString(self.data)))
+
+    def testRepr(self):
+        self.assertEqual(eval(repr(Opaque(self.data))), Opaque(self.data))
 
 class Counter64Test(unittest.TestCase):
     def helpTestDecode(self, data, value):
         result = Counter64.decode(data)
-        self.assertTrue(isinstance(result, Counter64))
-        self.assertEqual(result.value, value)
+        self.assertEqual(result, Counter64(value))
 
     def helpTestEncode(self, n):
         result = Counter64(n).encode()
-        self.assertEqual(Counter64.decode(result).value, n)
+        self.assertEqual(Counter64.decode(result), Counter64(n))
 
     def testDecodeMax(self):
         self.helpTestDecode(b"\x46\x08" + (b"\xff" * 8), (1 << 64) - 1)
@@ -111,21 +174,14 @@ class Counter64Test(unittest.TestCase):
         data = b"\x46\x09\x01" + (b"\x00" * 8)
         self.assertRaises(ParseError, Counter64.decode, data)
 
-    def testEncodeZero(self):
-        self.helpTestEncode(0)
-
-    def testEncodeRandom(self):
-        generator = NumberGenerator(64, signed=False)
-        self.helpTestEncode(next(generator))
-
     def testEncodeMax(self):
         self.helpTestEncode((1 << 64) - 1)
 
     def testEncodeNegative(self):
-        self.assertRaises(ValueError, Unsigned(-1).encode)
+        self.assertRaises(ValueError, Counter64(-1).encode)
 
     def testEncodeTooLarge(self):
-        self.assertRaises(ValueError, Unsigned(1 << 64).encode)
+        self.assertRaises(ValueError, Counter64(1 << 64).encode)
 
 class ZeroDotZeroTest(unittest.TestCase):
     def setUp(self):
