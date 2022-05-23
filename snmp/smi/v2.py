@@ -24,14 +24,17 @@ class IpAddress(OctetString):
         self.addr = addr
 
     def __repr__(self):
-        return "{}({})".format(typename(self), repr(self.addr))
+        return f"{typename(self)}({repr(self.addr)})"
 
     def equals(a, b):
-        return a.addr == b.addr
+        return a.data == b.data
 
     @property
     def data(self):
-        return inet_aton(self.addr)
+        try:
+            return inet_aton(self.addr)
+        except OSError as err:
+            raise ValueError(f"Invalid IPv4 address: \"{self.addr}\"") from err
 
     @classmethod
     def parse(cls, data):
@@ -40,10 +43,10 @@ class IpAddress(OctetString):
 class Counter32(Unsigned):
     TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 1)
 
-class Gauge32(Unsigned):
+class Unsigned32(Unsigned):
     TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 2)
 
-Unsigned32 = Gauge32
+Gauge32 = Unsigned32
 
 class TimeTicks(Unsigned):
     TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 3)
