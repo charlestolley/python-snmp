@@ -9,7 +9,7 @@ from snmp.types import *
 class NullTypesTest(unittest.TestCase):
     def helper(self, cls, data):
         result = cls.decode(data)
-        self.assertTrue(isinstance(result, cls))
+        self.assertEqual(result, cls())
 
     def testNoSuchObject(self):
         self.helper(NoSuchObject, b"\x80\x00")
@@ -40,52 +40,52 @@ class VarBindTest(unittest.TestCase):
 
     def testDecodeInteger(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 02 01 00"))
-        self.assertTrue(isinstance(varbind.value, Integer))
+        self.assertEqual(varbind.value, Integer(0))
 
     def testDecodeNull(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 05 01 00"))
-        self.assertTrue(isinstance(varbind.value, Null))
+        self.assertEqual(varbind.value, Null())
 
     def testDecodeOID(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 06 01 00"))
-        self.assertTrue(isinstance(varbind.value, OID))
+        self.assertEqual(varbind.value, zeroDotZero)
 
     def testDecodeIpAddress(self):
         data = bytes.fromhex("30 09 06 01 00 40 04 00 00 00 00")
         varbind = VarBind.decode(data)
-        self.assertTrue(isinstance(varbind.value, IpAddress))
+        self.assertEqual(varbind.value, IpAddress("0.0.0.0"))
 
     def testDecodeCounter32(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 41 01 00"))
-        self.assertTrue(isinstance(varbind.value, Counter32))
+        self.assertEqual(varbind.value, Counter32(0))
 
     def testDecodeGauge32(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 42 01 00"))
-        self.assertTrue(isinstance(varbind.value, Gauge32))
+        self.assertEqual(varbind.value, Gauge32(0))
 
     def testDecodeTimeTicks(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 43 01 00"))
-        self.assertTrue(isinstance(varbind.value, TimeTicks))
+        self.assertEqual(varbind.value, TimeTicks(0))
 
     def testDecodeOpaque(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 44 01 00"))
-        self.assertTrue(isinstance(varbind.value, Opaque))
+        self.assertEqual(varbind.value, Opaque(b"\x00"))
 
     def testDecodeCounter64(self):
         varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 46 01 00"))
-        self.assertTrue(isinstance(varbind.value, Counter64))
+        self.assertEqual(varbind.value, Counter64(0))
 
     def testDecodeNoSuchObject(self):
-        varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 80 01 00"))
-        self.assertTrue(isinstance(varbind.value, NoSuchObject))
+        varbind = VarBind.decode(bytes.fromhex("30 05 06 01 00 80 00"))
+        self.assertEqual(varbind.value, NoSuchObject())
 
     def testDecodeNoSuchInstance(self):
-        varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 81 01 00"))
-        self.assertTrue(isinstance(varbind.value, NoSuchInstance))
+        varbind = VarBind.decode(bytes.fromhex("30 05 06 01 00 81 00"))
+        self.assertEqual(varbind.value, NoSuchInstance())
 
     def testDecodeEndOfMibView(self):
-        varbind = VarBind.decode(bytes.fromhex("30 06 06 01 00 82 01 00"))
-        self.assertTrue(isinstance(varbind.value, EndOfMibView))
+        varbind = VarBind.decode(bytes.fromhex("30 05 06 01 00 82 00"))
+        self.assertEqual(varbind.value, EndOfMibView())
 
     def testEncode(self):
         self.assertEqual(self.varbind.encode(), self.data)
@@ -124,11 +124,9 @@ class VarBindListTest(unittest.TestCase):
             )
         )
 
-    def testLength(self):
-        self.assertEqual(len(self.vblist), 4)
-
-    def testRepr(self):
-        self.assertEqual(eval(repr(self.vblist)), self.vblist)
+    def testBool(self):
+        self.assertFalse(VarBindList())
+        self.assertTrue(self.vblist)
 
     def testGetItem(self):
         for i in range(len(self.vblist)):
@@ -136,9 +134,11 @@ class VarBindListTest(unittest.TestCase):
 
         self.assertRaises(IndexError, self.vblist.__getitem__, len(self.vblist))
 
-    def testBool(self):
-        self.assertFalse(VarBindList())
-        self.assertTrue(self.vblist)
+    def testLength(self):
+        self.assertEqual(len(self.vblist), 4)
+
+    def testRepr(self):
+        self.assertEqual(eval(repr(self.vblist)), self.vblist)
 
     def testDecode(self):
         self.assertEqual(VarBindList.decode(self.data), self.vblist)
@@ -167,15 +167,6 @@ class PDUTest(unittest.TestCase):
                      06 0a 2b 06 01 02 01 02 02 01 02 1d
                      81 00 
         """)
-
-    def testDecode(self):
-        self.assertEqual(self.pdu, ResponsePDU.decode(self.data))
-
-    def testEncode(self):
-        self.assertEqual(self.pdu.encode(), self.data)
-
-    def testRepr(self):
-        self.assertEqual(eval(repr(self.pdu)), self.pdu)
 
     # see RFC 3416 section 3 (p. 8)
     def testErrorStatusEnum(self):
@@ -213,6 +204,15 @@ class PDUTest(unittest.TestCase):
 
         self.assertEqual(pdu, self.pdu)
 
+    def testRepr(self):
+        self.assertEqual(eval(repr(self.pdu)), self.pdu)
+
+    def testDecode(self):
+        self.assertEqual(self.pdu, ResponsePDU.decode(self.data))
+
+    def testEncode(self):
+        self.assertEqual(self.pdu.encode(), self.data)
+
 class BulkPDUTest(unittest.TestCase):
     def setUp(self):
         self.pdu = GetBulkRequestPDU(
@@ -238,15 +238,6 @@ class BulkPDUTest(unittest.TestCase):
                      05 00
         """)
 
-    def testDecode(self):
-        self.assertEqual(self.pdu, GetBulkRequestPDU.decode(self.data))
-
-    def testEncode(self):
-        self.assertEqual(self.pdu.encode(), self.data)
-
-    def testRepr(self):
-        self.assertEqual(eval(repr(self.pdu)), self.pdu)
-
     def testIgnoreUnusedArgs(self):
         pdu = GetBulkRequestPDU(
             "nonsense argument for BulkPDU",
@@ -258,46 +249,55 @@ class BulkPDUTest(unittest.TestCase):
 
         self.assertEqual(pdu, self.pdu)
 
+    def testRepr(self):
+        self.assertEqual(eval(repr(self.pdu)), self.pdu)
+
+    def testDecode(self):
+        self.assertEqual(self.pdu, GetBulkRequestPDU.decode(self.data))
+
+    def testEncode(self):
+        self.assertEqual(self.pdu.encode(), self.data)
+
 class PDUTypesTest(unittest.TestCase):
     def testGetRequest(self):
         data = bytes.fromhex("a0 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = GetRequestPDU.decode(data)
-        self.assertTrue(isinstance(pdu, GetRequestPDU))
+        self.assertEqual(pdu, GetRequestPDU())
 
     def testGetNextRequest(self):
         data = bytes.fromhex("a1 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = GetNextRequestPDU.decode(data)
-        self.assertTrue(isinstance(pdu, GetNextRequestPDU))
+        self.assertEqual(pdu, GetNextRequestPDU())
 
     def testResponse(self):
         data = bytes.fromhex("a2 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = ResponsePDU.decode(data)
-        self.assertTrue(isinstance(pdu, ResponsePDU))
+        self.assertEqual(pdu, ResponsePDU())
 
     def testSetRequest(self):
         data = bytes.fromhex("a3 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = SetRequestPDU.decode(data)
-        self.assertTrue(isinstance(pdu, SetRequestPDU))
+        self.assertEqual(pdu, SetRequestPDU())
 
     def testGetBulkRequest(self):
         data = bytes.fromhex("a5 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = GetBulkRequestPDU.decode(data)
-        self.assertTrue(isinstance(pdu, GetBulkRequestPDU))
+        self.assertEqual(pdu, GetBulkRequestPDU())
 
     def testInformRequest(self):
         data = bytes.fromhex("a6 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = InformRequestPDU.decode(data)
-        self.assertTrue(isinstance(pdu, InformRequestPDU))
+        self.assertEqual(pdu, InformRequestPDU())
 
     def testTrap(self):
         data = bytes.fromhex("a7 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = TrapPDU.decode(data)
-        self.assertTrue(isinstance(pdu, TrapPDU))
+        self.assertEqual(pdu, TrapPDU())
 
     def testReport(self):
         data = bytes.fromhex("a8 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = ReportPDU.decode(data)
-        self.assertTrue(isinstance(pdu, ReportPDU))
+        self.assertEqual(pdu, ReportPDU())
 
 # see RFC 3411 section 2.8 (pp. 13-14)
 class testPDUClasses(unittest.TestCase):
