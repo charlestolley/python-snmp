@@ -3,6 +3,7 @@ import test.pdu.v2
 import test.security
 import test.security.levels
 import test.security.usm.auth
+import test.security.usm.priv
 import test.smi.v2
 import test.types
 import test.utils
@@ -18,6 +19,7 @@ modules = [
     test.security,
     test.security.levels,
     test.security.usm.auth,
+    test.security.usm.priv,
 ]
 
 def allTests(cls):
