@@ -1,15 +1,23 @@
-from test import ber
-from test import types
-from test import utils
-from test.pdu import v2 as PDUv2
-from test.smi import v2 as SMIv2
-from test import security
-from test.security import levels
+import test.ber
+import test.pdu.v2
+import test.security
+import test.security.levels
+import test.security.usm.auth
+import test.smi.v2
+import test.types
+import test.utils
 
 # The order of this list is meant to test each module
 # before testing the modules that depend on it
 modules = [
-    utils, ber, types, SMIv2, PDUv2, security, levels
+    test.ber,
+    test.types,
+    test.utils,
+    test.pdu.v2,
+    test.smi.v2,
+    test.security,
+    test.security.levels,
+    test.security.usm.auth,
 ]
 
 def allTests(cls):
