@@ -58,7 +58,7 @@ class TimeEntry:
         return int(timestamp - self.latestBootTime)
 
 class TimeKeeper:
-    MAX_ENGINE_BOOTS = 0x7fffffff
+    MAX_ENGINE_BOOTS = (1 << 31) - 1
     TIME_WINDOW_SIZE = 150
 
     def __init__(self, lockType):
