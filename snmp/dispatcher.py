@@ -9,11 +9,11 @@ from snmp.utils import DummyLock, typename
 
 class Dispatcher(Transport.Listener):
     class Handle:
-        def signal(self):
-            errmsg = "{} does not implement signal()".format(typename(self))
+        def push(self, response):
+            errmsg = "{} does not implement push()".format(typename(self))
             raise IncompleteChildClass(errmsg)
 
-        def wait(self):
+        def wait(self, timeout=None):
             errmsg = "{} does not implement wait()".format(typename(self))
             raise IncompleteChildClass(errmsg)
 
@@ -66,8 +66,7 @@ class Dispatcher(Transport.Listener):
             except IncomingMessageError:
                 return
 
-            handle.response = response
-            handle.signal()
+            handle.push(response)
         except AssertionError:
             pass
         except Exception:
@@ -111,8 +110,12 @@ class Handle(Dispatcher.Handle):
         self.event = threading.Event()
         self.response = None
 
-    def signal(self):
+    def push(self, response):
+        self.response = response
         self.event.set()
 
-    def wait(self):
-        self.event.wait()
+    def wait(self, timeout=None):
+        if self.event.wait(timeout=timeout):
+            return self.response
+        else:
+            return None
