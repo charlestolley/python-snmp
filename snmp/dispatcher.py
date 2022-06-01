@@ -9,6 +9,10 @@ from snmp.utils import DummyLock, typename
 
 class Dispatcher(Transport.Listener):
     class Handle:
+        def addCallback(self, func, *args):
+            errmsg = "{} does not support callbacks".format(typename(self))
+            raise IncompleteChildClass(errmsg)
+
         def push(self, response):
             errmsg = "{} does not implement push()".format(typename(self))
             raise IncompleteChildClass(errmsg)
@@ -108,9 +112,17 @@ class Dispatcher(Transport.Listener):
 class Handle(Dispatcher.Handle):
     def __init__(self):
         self.event = threading.Event()
+        self.callback = None
         self.response = None
 
+    def addCallback(self, func, *args):
+        self.callback = func, args
+
     def push(self, response):
+        if self.callback is not None:
+            func, args = self.callback
+            func(*args)
+
         self.response = response
         self.event.set()
 

@@ -295,8 +295,6 @@ class MessageProcessor:
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
-        # TODO: periodically uncache unanswered messages
-        self.uncache(msgGlobalData.id)
         return secureData, entry.handle
 
     def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
@@ -321,6 +319,8 @@ class MessageProcessor:
             securityLevel)
 
         msgID = self.cache(entry)
+        handle.addCallback(self.uncache, msgID)
+
         flags = MessageFlags()
         flags.authFlag = securityLevel.auth
         flags.privFlag = securityLevel.priv
