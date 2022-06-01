@@ -8,7 +8,7 @@ from snmp.ber import decode, encode
 from snmp.exception import IncomingMessageError
 from snmp.types import *
 from snmp.security.levels import *
-from snmp.utils import DummyLock
+from snmp.utils import DummyLock, typename
 from .. import SecurityModel
 
 class UsmStatsError(IncomingMessageError):
@@ -175,6 +175,27 @@ class SecureData:
         self.securityLevel = securityLevel
         self.securityName = userName
 
+    def __repr__(self):
+        args = [
+            repr(self.data),
+            repr(self.securityEngineID),
+            repr(self.securityName),
+            f"securityLevel={self.securityLevel}",
+        ]
+
+        return f"{typename(self)}({', '.join(args)})"
+
+    def __str__(self, depth=0, tab="    "):
+        indent = tab * depth
+        subindent = indent + tab
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            f"{subindent}User: {self.securityName.decode()}",
+            f"{subindent}Security Level: {self.securityLevel}",
+            f"{subindent}Security Engine ID: {self.securityEngineID}",
+            f"{self.data.__str__(depth=depth+1, tab=tab)}",
+        ))
+
 class SecurityModule:
     MODEL = SecurityModel.USM
 
@@ -199,7 +220,7 @@ class SecurityModule:
             user = self.users.getUser(engineID, securityName)
 
             if not user.auth:
-                err = "Authentication is disabled for user {}".format(user.name)
+                err = f"Authentication is disabled for user {user.name}"
                 raise InvalidSecurityLevel(err)
 
             engineTimeParameters = self.timekeeper.getEngineTime(engineID)
@@ -209,7 +230,7 @@ class SecurityModule:
 
             if securityLevel.priv:
                 if not user.priv:
-                    err = "Privacy is disabled for user {}".format(user.name)
+                    err = f"Privacy is disabled for user {user.name}"
                     raise InvalidSecurityLevel(err)
 
                 msgPrivacyParameters, ciphertext = user.priv.encrypt(
@@ -295,10 +316,10 @@ class SecurityModule:
             raise UnknownUserName(userName) from err
 
         if user.auth is None:
-            err = "Authentication is disabled for user {}".format(user.name)
+            err = f"Authentication is disabled for user {user.name}"
             raise UnsupportedSecLevel(err)
         elif securityLevel.priv and user.priv is None:
-            err = "Data privacy is disabled for user {}".format(user.name)
+            err = f"Data privacy is disabled for user {user.name}"
             raise UnsupportedSecLevel(err)
 
         padding = user.auth.msgAuthenticationParameters
