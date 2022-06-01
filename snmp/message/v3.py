@@ -215,12 +215,15 @@ class MessageProcessor:
         self.securityModules = {}
 
     def cache(self, entry):
-        for i in range(10):
+        retry = 0
+        while retry < 10:
             with self.cacheLock:
                 msgID = next(self.generator)
                 if msgID not in self.outstanding:
                     self.outstanding[msgID] = entry
                     return msgID
+
+            retry += 1
 
         raise Exception("Failed to allocate message ID")
 
