@@ -1,7 +1,7 @@
 from snmp.ber import ParseError, decode_identifier
 from snmp.exception import *
 from snmp.pdu.v2 import Confirmed, Response, pduTypes
-from snmp.security import SecurityLevel
+from snmp.security import *
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
 from snmp.utils import *
@@ -13,7 +13,7 @@ class InvalidMessage(IncomingMessageError):
 class ResponseMismatch(IncomingMessageError):
     @classmethod
     def byField(cls, field):
-        return cls("{} does not match request".format(field))
+        return cls(f"{field} does not match request")
 
 class UnknownSecurityModel(IncomingMessageError):
     pass
@@ -30,7 +30,7 @@ class MessageFlags(OctetString):
         self.byte = byte & self.ALL_FLAGS
 
     def __repr__(self):
-        return "{}({})".format(typename(self), self.byte)
+        return f"{typename(self)}({self.byte})"
 
     def __str__(self):
         flags = []
@@ -43,7 +43,7 @@ class MessageFlags(OctetString):
         if self.reportableFlag:
             flags.append("REPORTABLE")
 
-        return "<{}>".format(",".join(flags))
+        return f"<{','.join(flags)}>"
 
     @classmethod
     def parse(cls, data=b''):
@@ -94,30 +94,26 @@ class HeaderData(Sequence):
         self.securityModel = securityModel
 
     def __repr__(self):
-        return "{}({}, {}, {}, {})".format(
-            typename(self),
-            self.id,
-            self.maxSize,
+        args = (
+            str(self.id),
+            str(self.maxSize),
             repr(self.flags),
-            self.securityModel,
+            str(SecurityModel(self.securityModel)),
         )
+
+        return f"{typename(self)}({', '.join(args)})"
 
     def __str__(self, depth=0, tab="    "):
         indent = tab * depth
         subindent = indent + tab
+        securityModel = SecurityModel(self.securityModel)
         return "\n".join((
-            "{}{}:",
-            "{}Message ID: {}",
-            "{}Sender Message Size Limit: {}",
-            "{}Flags: {}",
-            "{}Security Model: {}"
-        )).format(
-            indent, typename(self),
-            subindent, self.id,
-            subindent, self.maxSize,
-            subindent, self.flags,
-            subindent, self.securityModel
-        )
+            f"{indent}{typename(self)}:",
+            f"{subindent}Message ID: {self.id}",
+            f"{subindent}Sender Message Size Limit: {self.maxSize}",
+            f"{subindent}Flags: {self.flags}",
+            f"{subindent}Security Model: {securityModel.name}"
+        ))
 
     @property
     def objects(self):
@@ -157,25 +153,20 @@ class ScopedPDU(Sequence):
         args = (
             repr(self.pdu),
             repr(self.contextEngineID),
-            "contextName={}".format(repr(self.contextName))
+            f"contextName={repr(self.contextName)}"
         )
 
-        return "{}({})".format(typename(self), ", ".join(args))
+        return f"{typename(self)}({', '.join(args)})"
 
     def __str__(self, depth=0, tab="    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
-            "{}{}:",
-            "{}Context Engine ID: {}",
-            "{}Context Name: {}",
-            "{}"
-        )).format(
-            indent, typename(self),
-            subindent, self.contextEngineID,
-            subindent, self.contextName,
-            self.pdu.__str__(depth=depth+1, tab=tab)
-        )
+            f"{indent}{typename(self)}:",
+            f"{subindent}Context Engine ID: {self.contextEngineID}",
+            f"{subindent}Context Name: {self.contextName}",
+            f"{self.pdu.__str__(depth=depth+1, tab=tab)}"
+        ))
 
     @property
     def objects(self):
@@ -193,7 +184,7 @@ class ScopedPDU(Sequence):
         try:
             pduType = types[identifier]
         except KeyError as err:
-            raise ParseError("Invalid PDU type: {}".format(identifier)) from err
+            raise ParseError(f"Invalid PDU type: {identifier}") from err
 
         return cls(
             pduType.decode(data),
@@ -256,7 +247,9 @@ class MessageProcessor:
 
         with self.securityLock:
             try:
-                securityModule = self.securityModules[msgGlobalData.securityModel]
+                securityModule = self.securityModules[
+                    msgGlobalData.securityModel
+                ]
             except KeyError as e:
                 raise UnknownSecurityModel(msgGlobalData.securityModel) from e
 
@@ -265,7 +258,7 @@ class MessageProcessor:
                 auth=msgGlobalData.flags.authFlag,
                 priv=msgGlobalData.flags.privFlag)
         except ValueError as err:
-            raise InvalidMessage("Invalid msgFlags: {}".format(err)) from err
+            raise InvalidMessage(f"Invalid msgFlags: {err}") from err
 
         secureData = securityModule.processIncoming(msg, securityLevel)
         scopedPDU, _ = ScopedPDU.decode(
@@ -279,7 +272,7 @@ class MessageProcessor:
             try:
                 entry = self.retrieve(msgGlobalData.id)
             except KeyError as err:
-                errmsg = "Unknown msgID: {}".format(msgGlobalData.id)
+                errmsg = f"Unknown msgID: {msgGlobalData.id}"
                 raise ResponseMismatch(errmsg) from err
 
             if (entry.engineID
@@ -316,8 +309,8 @@ class MessageProcessor:
             try:
                 securityModule = self.securityModules[securityModel]
             except KeyError as err:
-                errmsg = "Security Model {} has not been enabled"
-                raise ValueError(errmsg.format(securityModel)) from err
+                errmsg = f"Security Model {securityModel} has not been enabled"
+                raise ValueError(errmsg) from err
 
         entry = CacheEntry(
             engineID,
