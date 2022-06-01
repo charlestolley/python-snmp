@@ -76,7 +76,7 @@ class Dispatcher(Transport.Listener):
         except Exception:
             pass
 
-    def sendPdu(self, domain, address, mpm, pdu, *args, **kwargs):
+    def sendPdu(self, domain, address, mpm, pdu, *args, handle=None, **kwargs):
         with self.lock:
             try:
                 transport = self.transports[domain]
@@ -90,7 +90,9 @@ class Dispatcher(Transport.Listener):
                 mpm = str(MessageProcessingModel(mpm))
                 raise ValueError("{} is not enabled".format(mpm)) from err
 
-        handle = Handle()
+        if handle is None:
+            handle = Handle()
+
         msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
         transport.send(address, msg)
         return handle
