@@ -46,10 +46,11 @@ class InvalidSecurityLevel(ValueError):
     pass
 
 class TimeEntry:
-    def __init__(self, engineBoots, latestBootTime=None):
+    def __init__(self, engineBoots, latestBootTime=None, authenticated=False):
         if latestBootTime is None:
             latestBootTime = time()
 
+        self.authenticated = authenticated
         self.snmpEngineBoots = engineBoots
         self.latestBootTime = latestBootTime
         self.latestReceivedEngineTime = 0
@@ -65,10 +66,6 @@ class TimeKeeper:
         self.lock = lockType()
         self.table = {}
 
-    def addEngine(self, engineID, engineBoots=0, bootTime=None):
-        with self.lock:
-            self.table[engineID] = TimeEntry(engineBoots, bootTime)
-
     def getEngineTime(self, engineID, timestamp=None):
         if timestamp is None:
             timestamp = time()
@@ -81,24 +78,23 @@ class TimeKeeper:
 
             return entry.snmpEngineBoots, entry.snmpEngineTime(timestamp)
 
-    def verifyTimeliness(self, engineID, msgBoots, msgTime,
-                        authoritative=False, timestamp=None):
+    def update(self, engineID, msgBoots=0, msgTime=0, timestamp=None):
+        self.updateAndVerify(engineID, msgBoots, msgTime, False, timestamp)
+
+    def updateAndVerify(self, engineID, msgBoots, msgTime,
+                                auth=True, timestamp=None):
         if timestamp is None:
             timestamp = time()
 
-        withinTimeWindow = False
         with self.lock:
             try:
                 entry = self.table[engineID]
             except KeyError as err:
-                raise InvalidEngineID(engineID) from err
+                entry = TimeEntry(msgBoots, timestamp - msgTime, auth)
+                self.table[engineID] = entry
 
-            if authoritative:
-                if msgBoots == entry.snmpEngineBoots:
-                    difference = entry.snmpEngineTime(timestamp) - msgTime
-                    if abs(difference) < self.TIME_WINDOW_SIZE:
-                        withinTimeWindow = True
-            else:
+            withinTimeWindow = False
+            if auth or not entry.authenticated:
                 if msgBoots > entry.snmpEngineBoots:
                     entry.snmpEngineBoots = msgBoots
                     entry.latestBootTime = timestamp
@@ -114,6 +110,30 @@ class TimeKeeper:
                         difference = snmpEngineTime - msgTime
                         if difference <= self.TIME_WINDOW_SIZE:
                             withinTimeWindow = True
+
+                if entry.snmpEngineBoots == self.MAX_ENGINE_BOOTS:
+                    withinTimeWindow = False
+
+            if auth:
+                entry.authenticated = True
+                return withinTimeWindow
+
+    # TODO: salvage this function
+    def verifyTimeliness(self, engineID, msgBoots, msgTime, timestamp=None):
+        if timestamp is None:
+            timestamp = time()
+
+        withinTimeWindow = False
+        with self.lock:
+            try:
+                entry = self.table[engineID]
+            except KeyError as err:
+                raise InvalidEngineID(engineID) from err
+
+            if msgBoots == entry.snmpEngineBoots:
+                difference = entry.snmpEngineTime(timestamp) - msgTime
+                if abs(difference) < self.TIME_WINDOW_SIZE:
+                    withinTimeWindow = True
 
             if entry.snmpEngineBoots == self.MAX_ENGINE_BOOTS:
                 withinTimeWindow = False
@@ -177,16 +197,16 @@ class SecurityParameters:
 class SecurityModule:
     MODEL = SecurityModel.USM
 
-    def __init__(self, lockType=DummyLock, engineID=None, *args, **kwargs):
+    def __init__(self, lockType=DummyLock, engineID=None):
         self.engineID = engineID
         self.timekeeper = TimeKeeper(lockType)
         self.users = UserTable(lockType)
 
         if self.engineID is not None:
-            self.addEngine(self.engineID, *args, **kwargs)
+            self.addEngine(self.engineID)
 
-    def addEngine(self, engineID, *args, **kwargs):
-        self.timekeeper.addEngine(engineID, *args, **kwargs)
+    def addEngine(self, engineID):
+        self.timekeeper.update(engineID)
         self.users.addEngine(engineID)
 
     def addUser(self, *args, **kwargs):
@@ -282,6 +302,13 @@ class SecurityModule:
         securityParameters = SecurityParameters(engineID, userName)
 
         if not securityLevel.auth:
+            self.timekeeper.update(
+                engineID,
+                msgAuthoritativeEngineBoots.value,
+                msgAuthoritativeEngineTime.value,
+                timestamp=timestamp
+            )
+
             return securityParameters, msgData[:]
 
         try:
@@ -310,12 +337,22 @@ class SecurityModule:
             raise WrongDigest("Invalid signature")
 
         try:
-            if not self.timekeeper.verifyTimeliness(
+            if engineID == self.engineID:
+                timely = self.timekeeper.verifyTimeliness(
                     engineID,
                     msgAuthoritativeEngineBoots.value,
                     msgAuthoritativeEngineTime.value,
-                    authoritative=(engineID == self.engineID),
-                    timestamp=timestamp):
+                    timestamp=timestamp,
+                )
+            else:
+                timely = self.timekeeper.updateAndVerify(
+                    engineID,
+                    msgAuthoritativeEngineBoots.value,
+                    msgAuthoritativeEngineTime.value,
+                    timestamp=timestamp,
+                )
+
+            if not timely:
                 raise NotInTimeWindow(
                     engineID,
                     msgAuthoritativeEngineBoots.value,
