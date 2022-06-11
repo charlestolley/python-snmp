@@ -66,11 +66,11 @@ class Dispatcher(Transport.Listener):
                     return
 
             try:
-                response, handle = mp.prepareDataElements(message)
+                message, handle = mp.prepareDataElements(message)
             except IncomingMessageError:
                 return
 
-            handle.push(response)
+            handle.push(message)
         except AssertionError:
             pass
         except Exception:

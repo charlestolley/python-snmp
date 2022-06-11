@@ -202,6 +202,14 @@ class CacheEntry:
         self.securityModel = securityModel
         self.securityLevel = securityLevel
 
+class Message:
+    def __init__(self, msgID, securityLevel, securityParameters, data):
+        self.id = msgID
+        self.securityLevel = securityLevel
+        self.securityEngineID = securityParameters.securityEngineID
+        self.securityName = securityParameters.securityName
+        self.data = data
+
 class MessageProcessor:
     VERSION = MessageProcessingModel.SNMPv3
 
@@ -263,14 +271,9 @@ class MessageProcessor:
         except ValueError as err:
             raise InvalidMessage(f"Invalid msgFlags: {err}") from err
 
-        secureData = securityModule.processIncoming(msg, securityLevel)
-        scopedPDU, _ = ScopedPDU.decode(
-            secureData.data,
-            types=pduTypes,
-            leftovers=True
-        )
+        security, data = securityModule.processIncoming(msg, securityLevel)
+        scopedPDU, _ = ScopedPDU.decode(data, types=pduTypes, leftovers=True)
 
-        secureData.data = scopedPDU
         if isinstance(scopedPDU.pdu, Response):
             try:
                 entry = self.retrieve(msgGlobalData.id)
@@ -279,13 +282,13 @@ class MessageProcessor:
                 raise ResponseMismatch(errmsg) from err
 
             if (entry.engineID
-            and entry.engineID != secureData.securityEngineID):
+            and entry.engineID != security.securityEngineID):
                 raise ResponseMismatch.byField("Security Engine ID")
 
-            if entry.securityName != secureData.securityName:
+            if entry.securityName != security.securityName:
                 raise ResponseMismatch.byField("Security Name")
 
-            if (entry.securityLevel < secureData.securityLevel
+            if (entry.securityLevel < securityLevel
             and not isinstance(scopedPDU.pdu, Internal)):
                 raise ResponseMismatch.byField("Security Level")
 
@@ -298,7 +301,8 @@ class MessageProcessor:
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
-        return secureData, entry.handle
+        message = Message(msgGlobalData.id, securityLevel, security, scopedPDU)
+        return message, handle
 
     def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
             securityLevel=noAuthNoPriv, securityModel=None, contextName=b''):

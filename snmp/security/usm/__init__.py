@@ -1,6 +1,6 @@
 __all__ = [
-    "InvalidEngineID", "InvalidUserName", "InvalidSecurityLevel",
-    "SecureData", "SecurityModule",
+    "InvalidEngineID", "InvalidUserName",
+    "InvalidSecurityLevel", "SecurityModule",
 ]
 
 from time import time
@@ -166,35 +166,13 @@ class UserTable:
             except KeyError as err:
                 raise InvalidUserName(userName) from err
 
-class SecureData:
-    def __init__(self, data, engineID, userName,
-            securityLevel=noAuthNoPriv, **kwargs):
-        self.data = data
-        self.engineParams = kwargs
+class SecurityParameters:
+    def __init__(self, engineID, userName):
         self.securityEngineID = engineID
-        self.securityLevel = securityLevel
         self.securityName = userName
 
     def __repr__(self):
-        args = [
-            repr(self.data),
-            repr(self.securityEngineID),
-            repr(self.securityName),
-            f"securityLevel={self.securityLevel}",
-        ]
-
-        return f"{typename(self)}({', '.join(args)})"
-
-    def __str__(self, depth=0, tab="    "):
-        indent = tab * depth
-        subindent = indent + tab
-        return "\n".join((
-            f"{indent}{typename(self)}:",
-            f"{subindent}User: {self.securityName.decode()}",
-            f"{subindent}Security Level: {self.securityLevel}",
-            f"{subindent}Security Engine ID: {self.securityEngineID}",
-            f"{self.data.__str__(depth=depth+1, tab=tab)}",
-        ))
+        return f"{typename(self)}({self.securityEngineID}, {self.securityName})"
 
 class SecurityModule:
     MODEL = SecurityModel.USM
@@ -301,14 +279,10 @@ class SecurityModule:
 
         engineID = msgAuthoritativeEngineID.data
         userName = msgUserName.data
-
-        kwargs = {
-            "engineBoots": msgAuthoritativeEngineBoots.value,
-            "bootTime": timestamp - msgAuthoritativeEngineTime.value,
-        }
+        securityParameters = SecurityParameters(engineID, userName)
 
         if not securityLevel.auth:
-            return SecureData(msgData[:], engineID, userName, **kwargs)
+            return securityParameters, msgData[:]
 
         try:
             user = self.users.getUser(engineID, userName)
@@ -363,4 +337,4 @@ class SecurityModule:
         else:
             payload = msgData[:]
 
-        return SecureData(payload, engineID, userName, securityLevel, **kwargs)
+        return securityParameters, payload

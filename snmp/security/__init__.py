@@ -57,5 +57,8 @@ class SecurityLevel:
         else:
             return b.auth
 
+    def __ge__(a, b):
+        return not a < b
+
 class SecurityModel(enum.IntEnum):
     USM = 3
