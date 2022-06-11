@@ -1,3 +1,5 @@
+import weakref
+
 from snmp.ber import ParseError, decode_identifier
 from snmp.exception import *
 from snmp.pdu.v2 import Confirmed, Response, pduTypes
@@ -281,6 +283,10 @@ class MessageProcessor:
                 errmsg = f"Unknown msgID: {msgGlobalData.id}"
                 raise ResponseMismatch(errmsg) from err
 
+            handle = entry.handle()
+            if handle is None:
+                raise ResponseMismatch("Handle has already been released")
+
             if (entry.engineID
             and entry.engineID != security.securityEngineID):
                 raise ResponseMismatch.byField("Security Engine ID")
@@ -320,7 +326,7 @@ class MessageProcessor:
         entry = CacheEntry(
             engineID,
             contextName,
-            handle,
+            weakref.ref(handle),
             securityName,
             securityModel,
             securityLevel)
