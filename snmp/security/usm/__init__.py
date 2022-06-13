@@ -334,22 +334,12 @@ class SecurityModule:
             raise WrongDigest("Invalid signature")
 
         try:
-            if engineID == self.engineID:
-                timely = self.timekeeper.verifyTimeliness(
-                    engineID,
-                    msgAuthoritativeEngineBoots.value,
-                    msgAuthoritativeEngineTime.value,
-                    timestamp=timestamp,
-                )
-            else:
-                timely = self.timekeeper.updateAndVerify(
-                    engineID,
-                    msgAuthoritativeEngineBoots.value,
-                    msgAuthoritativeEngineTime.value,
-                    timestamp=timestamp,
-                )
-
-            if not timely:
+            if not self.timekeeper.updateAndVerify(
+                engineID,
+                msgAuthoritativeEngineBoots.value,
+                msgAuthoritativeEngineTime.value,
+                timestamp=timestamp,
+            ):
                 raise NotInTimeWindow(
                     engineID,
                     msgAuthoritativeEngineBoots.value,
