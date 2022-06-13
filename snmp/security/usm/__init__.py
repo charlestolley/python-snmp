@@ -162,8 +162,9 @@ class UserTable:
         with self.lock:
             try:
                 users = self.engines[engineID]
-            except KeyError as err:
-                raise InvalidEngineID(engineID) from err
+            except KeyError:
+                users = {}
+                self.engines[engineID] = users
 
             if userName not in users:
                 kwargs = dict()
@@ -203,11 +204,7 @@ class SecurityModule:
         self.users = UserTable(lockType)
 
         if self.engineID is not None:
-            self.addEngine(self.engineID)
-
-    def addEngine(self, engineID):
-        self.timekeeper.update(engineID)
-        self.users.addEngine(engineID)
+            self.timekeeper.update(self.engineID)
 
     def addUser(self, *args, **kwargs):
         self.users.addUser(*args, **kwargs)
