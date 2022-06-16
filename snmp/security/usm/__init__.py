@@ -140,40 +140,28 @@ class TimeKeeper:
 
         return withinTimeWindow
 
-class UserEntry:
-    def __init__(self, name, auth=None, priv=None):
-        self.name = name
+class Credentials:
+    def __init__(self, auth, priv):
         self.auth = auth
         self.priv = priv
+
+class UserInfo:
+    def __init__(self, engineID, name, auth=None, priv=None):
+        self.engineID = engineID
+        self.name = name
+        self.credentials = Credentials(auth, priv)
 
 class UserTable:
     def __init__(self, lockType):
         self.engines = {}
         self.lock = lockType()
 
-    def addEngine(self, engineID):
+    def addUser(self, userInfo):
         with self.lock:
-            if engineID not in self.engines:
-                self.engines[engineID] = {}
-
-    def addUser(self, engineID, userName,
-            authProtocol=None, authKey=None,
-            privProtocol=None, privKey=None):
-        with self.lock:
-            try:
-                users = self.engines[engineID]
-            except KeyError:
-                users = {}
-                self.engines[engineID] = users
-
-            if userName not in users:
-                kwargs = dict()
-                if authProtocol is not None:
-                    kwargs["auth"] = authProtocol(authKey)
-                    if privProtocol is not None:
-                        kwargs["priv"] = privProtocol(privKey)
-
-                users[userName] = UserEntry(userName, **kwargs)
+            self.engines.setdefault(
+                userInfo.engineID,
+                dict()
+            )[userInfo.name] = userInfo.credentials
 
     def getUser(self, engineID, userName):
         with self.lock:
@@ -206,16 +194,31 @@ class SecurityModule:
         if self.engineID is not None:
             self.timekeeper.update(self.engineID)
 
-    def addUser(self, *args, **kwargs):
-        self.users.addUser(*args, **kwargs)
+    @staticmethod
+    def makeCredentials(engineID, userName,
+            authProtocol=None, authKey=None,
+            privProtocol=None, privKey=None):
+        kwargs = dict()
+        if authProtocol is not None:
+            kwargs["auth"] = authProtocol(authKey)
+            if privProtocol is not None:
+                kwargs["priv"] = privProtocol(privKey)
+
+        return UserInfo(engineID, userName, **kwargs)
 
     def prepareOutgoing(self, header, data, engineID,
-                        securityName, securityLevel):
+                        securityName, securityLevel, userInfo=None):
         if securityLevel.auth:
-            user = self.users.getUser(engineID, securityName)
+            try:
+                user = self.users.getUser(engineID, securityName)
+            except (InvalidEngineID, InvalidUserName):
+                if userInfo is None:
+                    raise
+                else:
+                    user = userInfo.credentials
 
             if not user.auth:
-                err = f"Authentication is disabled for user {user.name}"
+                err = f"Authentication is disabled for user {securityName}"
                 raise InvalidSecurityLevel(err)
 
             engineTimeParameters = self.timekeeper.getEngineTime(engineID)
@@ -225,7 +228,7 @@ class SecurityModule:
 
             if securityLevel.priv:
                 if not user.priv:
-                    err = f"Privacy is disabled for user {user.name}"
+                    err = f"Privacy is disabled for user {securityName}"
                     raise InvalidSecurityLevel(err)
 
                 msgPrivacyParameters, ciphertext = user.priv.encrypt(
@@ -276,7 +279,8 @@ class SecurityModule:
 
         return wholeMsg
 
-    def processIncoming(self, msg, securityLevel, timestamp=None):
+    def processIncoming(self, msg, securityLevel,
+                        userInfo=None, timestamp=None):
         if timestamp is None:
             timestamp = time()
 
@@ -308,16 +312,30 @@ class SecurityModule:
 
             return securityParameters, msgData[:]
 
+        addUser = False
+
         try:
             user = self.users.getUser(engineID, userName)
+        except InvalidEngineID as err:
+            if userInfo is None or engineID != userInfo.engineID:
+                raise UnknownEngineID(engineID) from err
+            elif userName != userInfo.name:
+                raise UnknownUserName(userName) from err
+            else:
+                user = userInfo.credentials
+                addUser = True
         except InvalidUserName as err:
-            raise UnknownUserName(userName) from err
+            if userInfo is None or userName != userInfo.name:
+                raise UnknownUserName(userName) from err
+            else:
+                user = userInfo.credentials
+                addUser = True
 
         if user.auth is None:
-            err = f"Authentication is disabled for user {user.name}"
+            err = f"Authentication is disabled for user {userName}"
             raise UnsupportedSecLevel(err)
         elif securityLevel.priv and user.priv is None:
-            err = f"Data privacy is disabled for user {user.name}"
+            err = f"Data privacy is disabled for user {userName}"
             raise UnsupportedSecLevel(err)
 
         padding = user.auth.msgAuthenticationParameters
@@ -360,5 +378,8 @@ class SecurityModule:
                 raise DecryptionError(str(err)) from err
         else:
             payload = msgData[:]
+
+        if addUser:
+            self.users.addUser(userInfo)
 
         return securityParameters, payload

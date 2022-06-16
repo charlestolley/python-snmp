@@ -217,6 +217,7 @@ class MessageProcessor:
 
     def __init__(self, lockType=DummyLock):
         self.cacheLock = lockType()
+        self.credentials = {}
         self.generator = NumberGenerator(31, signed=False)
         self.outstanding = {}
 
@@ -224,12 +225,15 @@ class MessageProcessor:
         self.defaultSecurityModel = None
         self.securityModules = {}
 
-    def cache(self, entry):
+    def cache(self, entry, credentials=None):
         retry = 0
         while retry < 10:
             with self.cacheLock:
                 msgID = next(self.generator)
                 if msgID not in self.outstanding:
+                    if credentials is not None:
+                        self.credentials[msgID] = credentials
+
                     self.outstanding[msgID] = entry
                     return msgID
 
@@ -273,7 +277,12 @@ class MessageProcessor:
         except ValueError as err:
             raise InvalidMessage(f"Invalid msgFlags: {err}") from err
 
-        security, data = securityModule.processIncoming(msg, securityLevel)
+        with self.cacheLock:
+            credentials = self.credentials.get(msgGlobalData.id)
+
+        security, data = \
+            securityModule.processIncoming(msg, securityLevel, credentials)
+
         scopedPDU, _ = ScopedPDU.decode(data, types=pduTypes, leftovers=True)
 
         if isinstance(scopedPDU.pdu, Response):
@@ -311,7 +320,8 @@ class MessageProcessor:
         return message, handle
 
     def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
-            securityLevel=noAuthNoPriv, securityModel=None, contextName=b''):
+            securityLevel=noAuthNoPriv, securityModel=None, credentials=None,
+            contextName=b''):
 
         with self.securityLock:
             if securityModel is None:
@@ -331,7 +341,7 @@ class MessageProcessor:
             securityModel,
             securityLevel)
 
-        msgID = self.cache(entry)
+        msgID = self.cache(entry, credentials=credentials)
         handle.addCallback(self.uncache, msgID)
 
         flags = MessageFlags()
@@ -349,4 +359,5 @@ class MessageProcessor:
             engineID,
             securityName,
             securityLevel,
+            credentials,
         )
