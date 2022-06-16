@@ -9,7 +9,7 @@ from snmp.exception import IncomingMessageError
 from snmp.types import *
 from snmp.security.levels import *
 from snmp.utils import DummyLock, typename
-from .. import SecurityModel
+from .. import SecurityModel, SecurityParameters
 
 class UsmStatsError(IncomingMessageError):
     USM_STATS = OID.parse(".1.3.6.1.6.3.15.1.1")
@@ -174,14 +174,6 @@ class UserTable:
                 return users[userName]
             except KeyError as err:
                 raise InvalidUserName(userName) from err
-
-class SecurityParameters:
-    def __init__(self, engineID, userName):
-        self.securityEngineID = engineID
-        self.securityName = userName
-
-    def __repr__(self):
-        return f"{typename(self)}({self.securityEngineID}, {self.securityName})"
 
 class SecurityModule:
     MODEL = SecurityModel.USM

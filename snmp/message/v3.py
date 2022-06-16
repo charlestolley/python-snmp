@@ -204,13 +204,35 @@ class CacheEntry:
         self.securityModel = securityModel
         self.securityLevel = securityLevel
 
-class Message:
+class SNMPv3Message:
     def __init__(self, msgID, securityLevel, securityParameters, data):
         self.id = msgID
         self.securityLevel = securityLevel
         self.securityEngineID = securityParameters.securityEngineID
         self.securityName = securityParameters.securityName
         self.data = data
+
+    def __repr__(self):
+        args = (repr(member) for member in (
+            self.id,
+            self.securityLevel,
+            SecurityParameters(self.securityEngineID, self.securityName),
+            self.data,
+        ))
+
+        return f"{typename(self)}({', '.join(args)})"
+
+    def __str__(self, depth=0, tab="    "):
+        indent = tab * depth
+        subindent = indent + tab
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            f"{subindent}Message ID: {self.id}",
+            f"{subindent}Security Engine ID: {self.securityEngineID}",
+            f"{subindent}Security Level: {self.securityLevel}",
+            f"{subindent}Security Name: {self.securityName}",
+            f"{self.data.__str__(depth+1, tab)}",
+        ))
 
 class MessageProcessor:
     VERSION = MessageProcessingModel.SNMPv3
@@ -316,7 +338,8 @@ class MessageProcessor:
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
-        message = Message(msgGlobalData.id, securityLevel, security, scopedPDU)
+        message = \
+            SNMPv3Message(msgGlobalData.id, securityLevel, security, scopedPDU)
         return message, handle
 
     def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,

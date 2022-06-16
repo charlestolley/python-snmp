@@ -1,4 +1,4 @@
-__all__ = ["SecurityLevel", "SecurityModel"]
+__all__ = ["SecurityLevel", "SecurityModel", "SecurityParameters"]
 
 import enum
 from snmp.utils import typename
@@ -62,3 +62,11 @@ class SecurityLevel:
 
 class SecurityModel(enum.IntEnum):
     USM = 3
+
+class SecurityParameters:
+    def __init__(self, engineID, userName):
+        self.securityEngineID = engineID
+        self.securityName = userName
+
+    def __repr__(self):
+        return f"{typename(self)}({self.securityEngineID}, {self.securityName})"
