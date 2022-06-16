@@ -2,7 +2,7 @@ import weakref
 
 from snmp.ber import ParseError, decode_identifier
 from snmp.exception import *
-from snmp.pdu.v2 import Confirmed, Response, pduTypes
+from snmp.pdu.v2 import *
 from snmp.security import *
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
@@ -10,6 +10,9 @@ from snmp.utils import *
 from . import MessageProcessingModel
 
 class InvalidMessage(IncomingMessageError):
+    pass
+
+class LateResponse(IncomingMessageError):
     pass
 
 class ResponseMismatch(IncomingMessageError):
@@ -316,21 +319,19 @@ class MessageProcessor:
 
             handle = entry.handle()
             if handle is None:
-                raise ResponseMismatch("Handle has already been released")
+                raise LateResponse("Handle has already been released")
 
-            if (entry.engineID
-            and entry.engineID != security.securityEngineID):
+            report = isinstance(scopedPDU.pdu, Internal)
+            if not report and entry.securityLevel < securityLevel:
+                raise ResponseMismatch.byField("Security Level")
+
+            if not report and entry.engineID != security.securityEngineID:
                 raise ResponseMismatch.byField("Security Engine ID")
 
             if entry.securityName != security.securityName:
                 raise ResponseMismatch.byField("Security Name")
 
-            if (entry.securityLevel < securityLevel
-            and not isinstance(scopedPDU.pdu, Internal)):
-                raise ResponseMismatch.byField("Security Level")
-
-            if (entry.engineID
-            and entry.engineID != scopedPDU.contextEngineID):
+            if not report and entry.engineID != scopedPDU.contextEngineID:
                 raise ResponseMismatch.byField("Context Engine ID")
 
             if entry.context != scopedPDU.contextName:
