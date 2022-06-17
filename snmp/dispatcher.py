@@ -17,10 +17,6 @@ class Dispatcher(Transport.Listener):
             errmsg = "{} does not implement push()".format(typename(self))
             raise IncompleteChildClass(errmsg)
 
-        def wait(self, timeout=None):
-            errmsg = "{} does not implement wait()".format(typename(self))
-            raise IncompleteChildClass(errmsg)
-
     def __init__(self, lockType=DummyLock):
         self.lock = lockType()
         self.msgProcessors = {}
@@ -76,7 +72,7 @@ class Dispatcher(Transport.Listener):
         except Exception:
             pass
 
-    def sendPdu(self, domain, address, mpm, pdu, *args, handle=None, **kwargs):
+    def sendPdu(self, domain, address, mpm, pdu, handle, *args, **kwargs):
         with self.lock:
             try:
                 transport = self.transports[domain]
@@ -89,9 +85,6 @@ class Dispatcher(Transport.Listener):
             except KeyError as err:
                 mpm = str(MessageProcessingModel(mpm))
                 raise ValueError("{} is not enabled".format(mpm)) from err
-
-        if handle is None:
-            handle = Handle()
 
         msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
         transport.send(address, msg)
@@ -110,26 +103,3 @@ class Dispatcher(Transport.Listener):
 
             self.transports.clear()
             self.threads.clear()
-
-class Handle(Dispatcher.Handle):
-    def __init__(self):
-        self.event = threading.Event()
-        self.callback = None
-        self.response = None
-
-    def addCallback(self, func, *args):
-        self.callback = func, args
-
-    def push(self, response):
-        if self.callback is not None:
-            func, args = self.callback
-            func(*args)
-
-        self.response = response
-        self.event.set()
-
-    def wait(self, timeout=None):
-        if self.event.wait(timeout=timeout):
-            return self.response
-        else:
-            return None
