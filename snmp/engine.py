@@ -473,6 +473,28 @@ class SNMPv3UsmManager:
         pdu = SetRequestPDU(*varbinds, requestID=next(self.generator))
         return self.sendRequest(pdu, **kwargs)
 
+class UserEntry:
+    def __init__(self, defaultSecurityLevel, credentials):
+        self.credentials = credentials
+        self.defaultSecurityLevel = defaultSecurityLevel
+
+class NameSpace:
+    def __init__(self, defaultUserName):
+        self.defaultUserName = defaultUserName
+        self.users = {}
+
+    def __iter__(self):
+        return self.users.items().__iter__()
+
+    def __contains__(self, key):
+        return self.users.__contains__(key)
+
+    def addUser(self, userName, *args, **kwargs):
+        self.users[userName] = UserEntry(*args, **kwargs)
+
+    def getUser(self, userName):
+        return self.users[userName]
+
 class Engine:
     TRANSPORTS = {
         cls.DOMAIN: cls for cls in [
@@ -497,9 +519,8 @@ class Engine:
         self.lock = lockType()
         self.lockType = lockType
 
-        self.defaultUserNames = {}
         self.engines = {}
-        self.userTables = {}
+        self.namespaces = {}
 
         self.transports = set()
         self.mpv3 = None
@@ -524,9 +545,9 @@ class Engine:
 
             acquired, initialized = guard.claim(namespace)
             if acquired and not initialized:
-                users = self.userTables[namespace]
-                for userName, (kwargs, _) in users.items():
-                    kwargs = self.localize(engineID, **kwargs)
+                space = self.namespaces[namespace]
+                for userName, userEntry in space:
+                    kwargs = self.localize(engineID, **userEntry.credentials)
                     self.usm.addUser(engineID, userName, **kwargs)
 
             return acquired
@@ -586,12 +607,12 @@ class Engine:
 
         with self.lock:
             try:
-                users = self.userTables[namespace]
+                space = self.namespaces[namespace]
             except KeyError:
-                users = {}
-                self.userTables[namespace] = users
+                space = NameSpace(userName)
+                self.namespaces[namespace] = space
             else:
-                if userName in users:
+                if userName in space:
                     errmsg = "User \"{}\" is already defined"
 
                     if namespace:
@@ -599,10 +620,10 @@ class Engine:
 
                     raise ValueError(errmsg.format(userName.decode()))
 
-            if default or (namespace not in self.defaultUserNames):
-                self.defaultUserNames[namespace] = userName
+            if default:
+                space.defaultUserName = userName
 
-            users[userName] = kwargs, defaultSecurityLevel
+            space.addUser(userName, defaultSecurityLevel, kwargs)
 
     def connectTransport(self, transport):
         if transport.DOMAIN in self.transports:
@@ -627,26 +648,22 @@ class Engine:
         elif not isinstance(securityModel, SecurityModel):
             securityModel = SecurityModel(securityModel)
 
-        if defaultUserName is None:
-            try:
-                defaultUserName = self.defaultUserNames[namespace]
-            except KeyError as err:
-                errmsg = "Cannot infer default user for namespace \"{}\""
-                raise ValueError(errmsg.format(namespace)) from err
-
         try:
-            users = self.userTables[namespace]
+            space = self.namespaces[namespace]
         except KeyError as err:
             errmsg = f"No users defined in namespace \"{namespace}\""
             raise ValueError(errmsg) from err
 
+        if defaultUserName is None:
+            defaultUserName = space.defaultUserName
+
         try:
-            defaultSecurityLevel = users[defaultUserName][1]
+            defaultUser = space.getUser(defaultUserName)
         except KeyError as err:
             errmsg = "No such user in namespace \"{}\": \"{}\""
             raise ValueError(errmsg.format(namespace, defaultUserName)) from err
-        except IndexError:
-            raise SNMPLibraryBug("Failed to determine defaultSecurityLevel")
+        else:
+            defaultSecurityLevel = defaultUser.defaultSecurityLevel
 
         if autowait is None:
             autowait = self.autowaitDefault
