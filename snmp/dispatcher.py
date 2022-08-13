@@ -1,3 +1,8 @@
+__all__ = ["Dispatcher"]
+
+# TODO: this module tightly depends on the threading module
+#       in order to support other concurrency models (e.g. async),
+#       this dependency will need to be broken
 import threading
 from snmp.ber import ParseError, decode
 from snmp.exception import *

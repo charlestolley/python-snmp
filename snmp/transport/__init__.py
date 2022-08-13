@@ -1,3 +1,5 @@
+__all__ = ["TransportDomain"]
+
 from collections import namedtuple
 import enum
 import os

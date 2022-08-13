@@ -236,6 +236,9 @@ class OID(Asn1Encodable):
     def __len__(self):
         return self.nums.__len__()
 
+    def __lt__(a, b):
+        return a.nums < b.nums
+
     def tryDecode(self, nums, cls):
         try:
             return cls.decodeFromOID(nums)

@@ -186,6 +186,9 @@ class SecurityModule:
         if self.engineID is not None:
             self.timekeeper.update(self.engineID)
 
+    def addUser(self, *args, **kwargs):
+        self.users.addUser(self.makeCredentials(*args, **kwargs))
+
     @staticmethod
     def makeCredentials(engineID, userName,
             authProtocol=None, authKey=None,
