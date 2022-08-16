@@ -557,9 +557,7 @@ class Engine:
             try:
                 guard = self.engines[engineID]
             except KeyError:
-                if __debug__:
-                    errmsg = f"Engine {engineID} was never registered"
-                    raise AssertionError(errmsg)
+                assert False, f"Engine {engineID} was never registered"
             else:
                 if guard.release(namespace):
                     del self.engines[engineID]
