@@ -654,6 +654,8 @@ class Engine:
 
         if defaultUserName is None:
             defaultUserName = space.defaultUserName
+        else:
+            defaultUserName = defaultUserName.encode()
 
         try:
             defaultUser = space.getUser(defaultUserName)
