@@ -23,7 +23,7 @@ void DES_cbc_encrypt(const unsigned char *input, unsigned char *output,
 """)
 
 ffi.set_source(
-    "snmp." + __name__,
+    "snmp.openssl.des",
     "#include <openssl/des.h>",
     libraries=["crypto"]
 )
