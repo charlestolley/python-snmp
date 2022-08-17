@@ -23,6 +23,8 @@ The output should look like this (assume interface 1 is named "loopback"):
 
 ## Working Example
 
+> **NOTE:** Privacy protection is not currently supported on Windows because it uses cffi to interface with OpenSSL, and I don't know how to make that work on Windows. If you know something about that, feel free to contact me.
+
     from snmp.engine import Engine
     from snmp.security.usm.auth import *
     from snmp.security.usm.priv import *

@@ -4,6 +4,7 @@ from collections import namedtuple
 import enum
 import os
 from snmp.exception import IncompleteChildClass
+from snmp.utils import typename
 
 class Transport:
     class Listener:
@@ -34,8 +35,9 @@ class Transport:
 TransportDomain = enum.Enum("TransportDomain", ("UDP",))
 TransportLocator = namedtuple("TransportLocator", ("domain", "address"))
 
-if os.name == "posix":
-    package = "posix"
+supported = ("nt", "posix")
+if os.name in supported:
+    package = os.name
 else:
     from platform import platform
     raise ImportError("Unsupported platform: \"{}\"".format(platform()))
