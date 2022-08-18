@@ -23,8 +23,6 @@ The output should look like this (assume interface 1 is named "loopback"):
 
 ## Working Example
 
-> **NOTE:** Privacy protection is not currently supported on Windows because it uses cffi to interface with OpenSSL, and I don't know how to make that work on Windows. If you know something about that, feel free to contact me.
-
     from snmp.engine import Engine
     from snmp.security.usm.auth import *
     from snmp.security.usm.priv import *
@@ -73,3 +71,10 @@ The output should look like this (assume interface 1 is named "loopback"):
                 continue
 
             break
+## Installation Notes
+The USM privacy module depends on OpenSSL. Windows wheels use statically linked libraries so you should be able to install `python-snmp` without the need to install OpenSSL. If a wheel is not available for your platform, you will need the following environment variables to allow pip to build the sdist:
+
+    set CL="-I<path-to-OpenSSL>\include"
+    set LINK="/LIBPATH:<path-to-OpenSSL>\lib"
+
+It is also possible to use `python-snmp` without OpenSSL if you do not need to use the USM privacy features. However, you will need to tweak setup.py to get it to install. Clone this directory, remove the `cffi_modules` argument to setup in `setup.py`, and then call `pip install <path-to-clone>`.

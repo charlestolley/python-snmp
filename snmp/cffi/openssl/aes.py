@@ -1,4 +1,10 @@
 import cffi
+import os
+
+if os.name == "nt":
+    libcrypto = "libcrypto_static"
+else:
+    libcrypto = "crypto"
 
 ffi = cffi.FFI()
 ffi.cdef("""
@@ -23,5 +29,5 @@ void AES_cfb128_encrypt(const unsigned char *in, unsigned char *out,
 ffi.set_source(
     "snmp.openssl.aes",
     "#include <openssl/aes.h>",
-    libraries=["crypto"]
+    libraries=[libcrypto]
 )
