@@ -1,9 +1,11 @@
 import threading
 
 from snmp.dispatcher import *
+from snmp.manager.v2c import *
 from snmp.manager.v3 import *
 from snmp.message import *
-from snmp.message.v3 import *
+import snmp.message.v2c
+import snmp.message.v3
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm import *
@@ -89,6 +91,7 @@ class Engine:
         self.namespaces = {}
 
         self.transports = set()
+        self.mpv2c = None
         self.mpv3 = None
         self.usm = None
 
@@ -202,8 +205,20 @@ class Engine:
     def v1Manager(self, locator):
         pass
 
-    def v2cManager(self, locator, community=b"public"):
-        pass
+    def v2cManager(self, locator, community, autowait=None):
+        if autowait is None:
+            autowait = self.autowaitDefault
+
+        if locator.domain not in self.transports:
+            transportClass = self.TRANSPORTS[locator.domain]
+            self.dispatcher.connectTransport(transportClass())
+            self.transports.add(locator.domain)
+
+        if self.mpv2c is None:
+            self.mpv2c = snmp.message.v2c.MessageProcessor(self.lockType)
+            self.dispatcher.addMessageProcessor(self.mpv2c)
+
+        return SNMPv2cManager(self, locator, community, autowait)
 
     def v3Manager(self, locator, securityModel=None, engineID=None,
             defaultUserName=None, namespace="", autowait=None):
@@ -240,7 +255,7 @@ class Engine:
             self.transports.add(locator.domain)
 
         if self.mpv3 is None:
-            self.mpv3 = MessageProcessor(lockType=self.lockType)
+            self.mpv3 = snmp.message.v3.MessageProcessor(self.lockType)
             self.dispatcher.addMessageProcessor(self.mpv3)
 
         if securityModel == SecurityModel.USM:
@@ -276,8 +291,8 @@ class Engine:
 
         if version == MessageProcessingModel.SNMPv3:
             return self.v3Manager(locator, **kwargs)
-        elif version == MessageProcessingModel.SNMPv2:
-            return self.v2Manager(locator, **kwargs)
+        elif version == MessageProcessingModel.SNMPv2c:
+            return self.v2cManager(locator, **kwargs)
         elif version == MessageProcessingModel.SNMPv1:
             return self.v1Manager(locator, **kwargs)
         else:
