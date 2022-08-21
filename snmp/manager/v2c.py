@@ -109,6 +109,7 @@ class SNMPv2cManager:
 
         with self.lock:
             heapq.heappush(self.requests, Repeater(request))
+            request.send()
 
         if wait:
             return request.wait()
