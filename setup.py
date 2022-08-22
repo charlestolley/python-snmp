@@ -15,7 +15,7 @@ class build_openssl(build_ext):
         sys.path.insert(0, os.path.dirname(__file__))
 
         if not os.path.exists(self.build_temp):
-            os.mkdir(self.build_temp)
+            os.makedirs(self.build_temp)
 
         indices = []
         for index, ext in enumerate(self.extensions):
