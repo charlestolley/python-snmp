@@ -1,10 +1,5 @@
 import cffi
-import os
-
-if os.name == "nt":
-    libcrypto = "libcrypto_static"
-else:
-    libcrypto = "crypto"
+from . import libcrypto
 
 ffi = cffi.FFI()
 ffi.cdef("""
@@ -31,5 +26,5 @@ void DES_cbc_encrypt(const unsigned char *input, unsigned char *output,
 ffi.set_source(
     "snmp.openssl.des",
     "#include <openssl/des.h>",
-    libraries=[libcrypto]
+    libraries=[libcrypto],
 )

@@ -1,5 +1,6 @@
 ## Introduction
 I have rewritten this library entirely since version 0.1.7, the last published version. The idea behind versions 0.1.x was to support SNMPv1 first, and then add support for SNMPv2c and SNMPv3 later. I decided some time ago that it would probably be better to take the opposite approach. The v0.2.0 release supported only SNMPv3, but soon after, I added support for SNMPv2c as well. I plan to also add support for SNMPv1, which should be pretty straightforward. This library is only suited to perform the role of a "manager" (more specifically, it can act as a Command Generator, not a Notification Receiver). One day it may support other roles.
+
 ## Usage Overview
 The conceptual model for using this library is to create a single Engine instance, and then call the Engine.Manager() factory function to instantiate a manager object for each remote SNMP engine. Each manager object defines methods for each type of request (Get, GetNext, Set, and GetBulk). By default, each request will block until a response has been received, in which case the return value will be a ResponsePDU instance. The manager can also be configured to return a request handle object without blocking (or it can be configured for a single request). This allows multiple requests to be in-flight at once. To access the response, call the wait() method of the request handle, which may block, and which returns a ResponsePDU.
 
@@ -71,10 +72,16 @@ The output should look like this (assume interface 1 is named "loopback"):
                 continue
 
             break
+
 ## Installation Notes
-The USM privacy module depends on OpenSSL. Windows wheels use statically linked libraries so you should be able to install `python-snmp` without the need to install OpenSSL. If a wheel is not available for your platform, you will need the following environment variables to allow pip to build the sdist:
+The `snmp.security.usm.priv` module, which provides the USM privacy algorithms, depends on OpenSSL. As it is very common to use SNMP without privacy (encryption), this module is optional. All other code is pure-Python, and depends only on the standard library. `pip install snmp` will attempt to compile against OpenSSL, but if that fails, then it will complete the installation without building the `snmp.openssl` module. If you install OpenSSL at a later time, you will need to uninstall and reinstall it (assuming you are using pip).
 
-    set CL="-I<path-to-OpenSSL>\include"
-    set LINK="/LIBPATH:<path-to-OpenSSL>\lib"
+If you aren't using pip, or just want to do things your own way, you can also navigate to the site-packages directory where `snmp` is installed, and execute the following code in the interactive shell:
 
-It is also possible to use `python-snmp` without OpenSSL if you do not need to use the USM privacy features. However, you will need to tweak setup.py to get it to install. Clone this directory, remove the `cffi_modules` argument to setup in `setup.py`, and then call `pip install <path-to-clone>`.
+    from snmp.cffi.openssl.aes import ffi as aes
+    from snmp.cffi.openssl.des import ffi as des
+    aes.compile()
+    des.compile()
+
+If you have OpenSSL installed in a non-standard location, set `CPPFLAGS="-isystem <path-to-openssl>/include"` and `LDFLAGS="-Wl,-rpath,<path-to-openssl>/lib"` before invoking Python to run these commands. I will also note that if you choose the non-reinstall route, and later choose to uninstall (using pip), it will leave these files behind.
+I will also mention that for Windows I'm providing statically-linked wheels, so that you can install and use the `priv` module without installing OpenSSL. I got the idea from the `cryptography` library, which apparently does the same thing.
