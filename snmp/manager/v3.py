@@ -346,7 +346,7 @@ class SNMPv3UsmManager:
                 return True
 
     def sendPdu(self, pdu, handle, engineID, user, securityLevel):
-        return self.localEngine.dispatcher.sendPdu(
+        return self.localEngine.sendPdu(
             self.locator.domain,
             self.locator.address,
             MessageProcessingModel.SNMPv3,

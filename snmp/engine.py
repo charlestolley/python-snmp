@@ -200,6 +200,9 @@ class Engine:
         self.dispatcher.connectTransport(transport)
         self.transports.add(transport.DOMAIN)
 
+    def sendPdu(self, *args, **kwargs):
+        return self.dispatcher.sendPdu(*args, **kwargs)
+
     def v1Manager(self, locator):
         pass
 

@@ -90,7 +90,7 @@ class SNMPv2cManager:
                     return result
 
     def sendPdu(self, pdu, handle, community):
-        return self.localEngine.dispatcher.sendPdu(
+        return self.localEngine.sendPdu(
             self.locator.domain,
             self.locator.address,
             MessageProcessingModel.SNMPv2c,
