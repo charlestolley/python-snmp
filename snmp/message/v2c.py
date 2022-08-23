@@ -1,3 +1,4 @@
+import threading
 import weakref
 
 from snmp.ber import *
@@ -50,8 +51,8 @@ class SNMPv2cMessage(Sequence):
 class MessageProcessor:
     VERSION = SNMPv2cMessage.VERSION
 
-    def __init__(self, lockType=DummyLock):
-        self.cacheLock = lockType()
+    def __init__(self):
+        self.cacheLock = threading.Lock()
         self.generator = NumberGenerator(32)
         self.outstanding = {}
 

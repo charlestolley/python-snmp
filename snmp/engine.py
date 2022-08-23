@@ -72,7 +72,7 @@ class Engine:
 
     UNSUPPORTED = "{} is not supported at this time"
 
-    def __init__(self, lockType=threading.Lock,
+    def __init__(self,
             defaultDomain=TransportDomain.UDP,
             defaultVersion=MessageProcessingModel.SNMPv3,
             defaultSecurityModel=SecurityModel.USM,
@@ -82,11 +82,9 @@ class Engine:
         self.defaultVersion = defaultVersion
         self.defaultSecurityModel = defaultSecurityModel
         self.autowaitDefault = autowait
-        self.dispatcher = Dispatcher(lockType=lockType)
+        self.dispatcher = Dispatcher()
 
-        self.lock = lockType()
-        self.lockType = lockType
-
+        self.lock = threading.Lock()
         self.engines = {}
         self.namespaces = {}
 
@@ -215,7 +213,7 @@ class Engine:
             self.transports.add(locator.domain)
 
         if self.mpv2c is None:
-            self.mpv2c = snmp.message.v2c.MessageProcessor(self.lockType)
+            self.mpv2c = snmp.message.v2c.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv2c)
 
         return SNMPv2cManager(self, locator, community, autowait)
@@ -255,12 +253,12 @@ class Engine:
             self.transports.add(locator.domain)
 
         if self.mpv3 is None:
-            self.mpv3 = snmp.message.v3.MessageProcessor(self.lockType)
+            self.mpv3 = snmp.message.v3.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv3)
 
         if securityModel == SecurityModel.USM:
             if self.usm is None:
-                self.usm = SecurityModule(lockType=self.lockType)
+                self.usm = SecurityModule()
                 self.mpv3.secure(self.usm)
 
             return SNMPv3UsmManager(

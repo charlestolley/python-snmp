@@ -1,3 +1,4 @@
+import threading
 import weakref
 
 from snmp.ber import ParseError, decode_identifier
@@ -240,13 +241,13 @@ class SNMPv3Message:
 class MessageProcessor:
     VERSION = MessageProcessingModel.SNMPv3
 
-    def __init__(self, lockType=DummyLock):
-        self.cacheLock = lockType()
+    def __init__(self):
+        self.cacheLock = threading.Lock()
         self.credentials = {}
         self.generator = NumberGenerator(31, signed=False)
         self.outstanding = {}
 
-        self.securityLock = lockType()
+        self.securityLock = threading.Lock()
         self.defaultSecurityModel = None
         self.securityModules = {}
 

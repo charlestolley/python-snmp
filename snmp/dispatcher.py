@@ -1,16 +1,14 @@
 __all__ = ["Dispatcher"]
 
-# TODO: this module tightly depends on the threading module
-#       in order to support other concurrency models (e.g. async),
-#       this dependency will need to be broken
 import threading
+
 from snmp.ber import ParseError, decode
 from snmp.exception import *
 from snmp.message import MessageProcessingModel
 from snmp.security.levels import noAuthNoPriv
 from snmp.transport import Transport, TransportDomain
 from snmp.types import SEQUENCE, Integer
-from snmp.utils import DummyLock, typename
+from snmp.utils import typename
 
 class Dispatcher(Transport.Listener):
     class Handle:
@@ -22,8 +20,8 @@ class Dispatcher(Transport.Listener):
             errmsg = "{} does not implement push()".format(typename(self))
             raise IncompleteChildClass(errmsg)
 
-    def __init__(self, lockType=DummyLock):
-        self.lock = lockType()
+    def __init__(self):
+        self.lock = threading.Lock()
         self.msgProcessors = {}
         self.threads = {}
         self.transports = {}

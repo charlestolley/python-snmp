@@ -3,12 +3,14 @@ __all__ = [
     "InvalidSecurityLevel", "SecurityModule",
 ]
 
+import threading
+
 from time import time
 from snmp.ber import decode, encode
 from snmp.exception import IncomingMessageError
 from snmp.types import *
 from snmp.security.levels import *
-from snmp.utils import DummyLock, typename
+from snmp.utils import typename
 from .. import SecurityModel, SecurityParameters
 
 class UsmStatsError(IncomingMessageError):
@@ -62,8 +64,8 @@ class TimeKeeper:
     MAX_ENGINE_BOOTS = (1 << 31) - 1
     TIME_WINDOW_SIZE = 150
 
-    def __init__(self, lockType):
-        self.lock = lockType()
+    def __init__(self):
+        self.lock = threading.Lock()
         self.table = {}
 
     def getEngineTime(self, engineID, timestamp=None):
@@ -152,9 +154,9 @@ class UserInfo:
         self.credentials = Credentials(auth, priv)
 
 class UserTable:
-    def __init__(self, lockType):
+    def __init__(self):
         self.engines = {}
-        self.lock = lockType()
+        self.lock = threading.Lock()
 
     def addUser(self, userInfo):
         with self.lock:
@@ -178,10 +180,10 @@ class UserTable:
 class SecurityModule:
     MODEL = SecurityModel.USM
 
-    def __init__(self, lockType=DummyLock, engineID=None):
+    def __init__(self, engineID=None):
         self.engineID = engineID
-        self.timekeeper = TimeKeeper(lockType)
-        self.users = UserTable(lockType)
+        self.timekeeper = TimeKeeper()
+        self.users = UserTable()
 
         if self.engineID is not None:
             self.timekeeper.update(self.engineID)
