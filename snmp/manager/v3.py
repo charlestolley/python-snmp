@@ -4,6 +4,7 @@ import heapq
 import threading
 import weakref
 
+from snmp.dispatcher import *
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu.v2 import *
@@ -171,7 +172,7 @@ class RequireAuthentication(State):
             if response.securityEngineID != self.manager.engineID:
                 self.manager.engineID = response.securityEngineID
 
-class Request:
+class Request(Dispatcher.Handle):
     def __init__(self, pdu, manager, userName, securityLevel):
         self._engineID = None
 
@@ -230,7 +231,7 @@ class Request:
         assert self.callback == callback
         self.messages.add(msgID)
 
-    def push(self, response, depth=0):
+    def push(self, response):
         #if random.randint(1, 3) % 3 != 0:
         #    return
 

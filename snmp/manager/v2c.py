@@ -1,11 +1,12 @@
 import heapq
 import threading
 
+from snmp.dispatcher import *
 from snmp.message import *
 from snmp.pdu.v2 import *
 from . import *
 
-class Request:
+class Request(Dispatcher.Handle):
     def __init__(self, pdu, manager, community):
         self.community = community
         self.manager = manager
@@ -37,7 +38,7 @@ class Request:
         assert self.callback == callback
         self.messages.add(msgID)
 
-    def push(self, response, depth=0):
+    def push(self, response):
         self.response = response
         self.event.set()
 
