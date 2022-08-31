@@ -75,12 +75,12 @@ class Dispatcher(Transport.Listener):
         except Exception:
             pass
 
-    def sendPdu(self, domain, address, mpm, pdu, handle, *args, **kwargs):
+    def sendPdu(self, locator, mpm, pdu, handle, *args, **kwargs):
         with self.lock:
             try:
-                transport = self.transports[domain]
+                transport = self.transports[locator.domain]
             except KeyError as err:
-                domain = str(TransportDomain(domain))
+                domain = str(TransportDomain(locator.domain))
                 raise ValueError("{} is not enabled".format(domain)) from err
 
             try:
@@ -90,7 +90,7 @@ class Dispatcher(Transport.Listener):
                 raise ValueError("{} is not enabled".format(mpm)) from err
 
         msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
-        transport.send(address, msg)
+        transport.send(locator.address, msg)
         return handle
 
     def shutdown(self):

@@ -352,8 +352,7 @@ class SNMPv3UsmManager:
 
     def sendPdu(self, pdu, handle, engineID, user, securityLevel):
         return self.localEngine.sendPdu(
-            self.locator.domain,
-            self.locator.address,
+            self.locator,
             MessageProcessingModel.SNMPv3,
             pdu,
             handle,
