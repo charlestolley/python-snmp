@@ -277,19 +277,24 @@ class SNMPv3UsmManager:
     def __init__(self, engine, locator, namespace,
             defaultUserName, defaultSecurityLevel,
             engineID=None, autowait=True):
+
+        # Used by @property
         self._engineID = None
 
-        self.autowait = autowait
-        self.generator = NumberGenerator(32)
-        self.localEngine = engine
+        # Read-only fields
         self.locator = locator
         self.namespace = namespace
-
         self.defaultUserName = defaultUserName
         self.defaultSecurityLevel = defaultSecurityLevel
+        self.autowait = autowait
 
+        self.generator = NumberGenerator(32)
+        self.localEngine = engine
+
+        # protects self.requests, self.state, and (implicitly) self.engineID
         self.lock = threading.Lock()
         self.requests = []
+
         if engineID is None:
             self.state = Inactive(self)
         else:

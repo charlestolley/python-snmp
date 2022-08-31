@@ -78,10 +78,12 @@ class Engine:
             defaultSecurityModel=SecurityModel.USM,
             autowait=True):
 
+        # Read-only variables
         self.defaultDomain = defaultDomain
         self.defaultVersion = defaultVersion
         self.defaultSecurityModel = defaultSecurityModel
         self.autowaitDefault = autowait
+
         self.dispatcher = Dispatcher()
 
         self.lock = threading.Lock()
