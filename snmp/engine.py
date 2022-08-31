@@ -228,53 +228,55 @@ class Engine:
         elif not isinstance(securityModel, SecurityModel):
             securityModel = SecurityModel(securityModel)
 
-        try:
-            space = self.namespaces[namespace]
-        except KeyError as err:
-            errmsg = f"No users defined in namespace \"{namespace}\""
-            raise ValueError(errmsg) from err
+        if securityModel != SecurityModel.USM:
+            raise ValueError(self.UNSUPPORTED.format(str(securityModel)))
 
-        if defaultUserName is None:
-            defaultUserName = space.defaultUserName
-        else:
-            defaultUserName = defaultUserName.encode()
+        with self.lock:
+            try:
+                space = self.namespaces[namespace]
+            except KeyError as err:
+                errmsg = f"No users defined in namespace \"{namespace}\""
+                raise ValueError(errmsg) from err
 
-        try:
-            defaultUser = space.getUser(defaultUserName)
-        except KeyError as err:
-            errmsg = "No such user in namespace \"{}\": \"{}\""
-            raise ValueError(errmsg.format(namespace, defaultUserName)) from err
-        else:
-            defaultSecurityLevel = defaultUser.defaultSecurityLevel
+            if defaultUserName is None:
+                defaultUserName = space.defaultUserName
+            else:
+                defaultUserName = defaultUserName.encode()
+
+            try:
+                defaultUser = space.getUser(defaultUserName)
+            except KeyError as err:
+                errmsg = "No such user in namespace \"{}\": \"{}\""
+                raise ValueError(errmsg.format(namespace, defaultUserName)) from err
+            else:
+                defaultSecurityLevel = defaultUser.defaultSecurityLevel
 
         if autowait is None:
             autowait = self.autowaitDefault
 
-        if locator.domain not in self.transports:
-            transportClass = self.TRANSPORTS[locator.domain]
-            self.dispatcher.connectTransport(transportClass())
-            self.transports.add(locator.domain)
+        with self.lock:
+            if locator.domain not in self.transports:
+                transportClass = self.TRANSPORTS[locator.domain]
+                self.dispatcher.connectTransport(transportClass())
+                self.transports.add(locator.domain)
 
-        if self.mpv3 is None:
-            self.mpv3 = snmp.message.v3.MessageProcessor()
-            self.dispatcher.addMessageProcessor(self.mpv3)
+            if self.mpv3 is None:
+                self.mpv3 = snmp.message.v3.MessageProcessor()
+                self.dispatcher.addMessageProcessor(self.mpv3)
 
-        if securityModel == SecurityModel.USM:
             if self.usm is None:
                 self.usm = SecurityModule()
                 self.mpv3.secure(self.usm)
 
-            return SNMPv3UsmManager(
-                self,
-                locator,
-                namespace,
-                defaultUserName,
-                defaultSecurityLevel,
-                engineID=engineID,
-                autowait=autowait,
-            )
-        else:
-            raise ValueError(self.UNSUPPORTED.format(str(securityModel)))
+        return SNMPv3UsmManager(
+            self,
+            locator,
+            namespace,
+            defaultUserName,
+            defaultSecurityLevel,
+            engineID=engineID,
+            autowait=autowait,
+        )
 
     def Manager(self, address, domain=None, version=None, **kwargs):
         if domain is None:
