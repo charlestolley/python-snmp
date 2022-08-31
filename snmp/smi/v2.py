@@ -55,7 +55,7 @@ class Opaque(OctetString):
     TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 4)
 
 class Counter64(Unsigned):
-    SIZE = 8
+    BITS = 64
     TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 6)
 
 zeroDotZero = OID(0, 0)

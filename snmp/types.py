@@ -55,9 +55,9 @@ class Asn1Encodable:
         raise IncompleteChildClass(errmsg.format(typename(self, True)))
 
 class Integer(Asn1Encodable):
+    BITS = 32
     BYTEORDER = "big"
     SIGNED = True
-    SIZE = 4
     TYPE = INTEGER
 
     def __init__(self, value):
@@ -73,46 +73,36 @@ class Integer(Asn1Encodable):
         return oid.extend(self.value)
 
     @classmethod
+    def inRange(cls, value):
+        assert isinstance(cls.SIGNED, bool)
+        return value.bit_length() <= cls.BITS - cls.SIGNED + (value < 0)
+
+    @classmethod
     def decodeFromOID(cls, nums):
         value = next(nums)
 
-        try:
-            value.to_bytes(cls.SIZE, cls.BYTEORDER, signed=cls.SIGNED)
-        except OverflowError as err:
+        if not cls.inRange(value):
             errmsg = f"{typename(cls)} value out of range: {value}"
-            raise OID.IndexDecodeError(errmsg) from err
+            raise OID.IndexDecodeError(errmsg)
 
         return cls(value)
 
     @classmethod
     def deserialize(cls, data):
-        for i in range(len(data) - cls.SIZE):
-            if data[i] != 0:
-                msg = f"Encoding too large for {typename(cls)}"
-                raise ParseError(msg)
+        value = int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED)
 
-        return cls(int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED))
+        if not cls.inRange(value):
+            raise ParseError(f"Encoding too large for {typename(cls)}")
+
+        return cls(value)
 
     def serialize(self):
-        try:
-            encoding = self.value.to_bytes(
-                self.SIZE,
-                self.BYTEORDER,
-                signed=self.SIGNED
-            )
-        except OverflowError as err:
-            raise ValueError(err) from err
+        assert self.inRange(self.value)
 
-        if encoding[0]:
-            return encoding
-
-        for index in range(1, len(encoding)):
-            if encoding[index]:
-                if self.SIGNED and encoding[index] & 0x80:
-                    index -= 1
-                break
-
-        return encoding[index:]
+        # equivalent to (N + 8) // 8
+        # the reason it's not (N + 7) is that ASN.1 always includes a sign bit
+        nbytes = (self.value.bit_length() // 8) + 1
+        return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
 
 class OctetString(Asn1Encodable):
     TYPE = OCTET_STRING
