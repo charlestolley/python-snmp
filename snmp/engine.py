@@ -30,15 +30,14 @@ class DiscoveryGuard:
 
         if acquired:
             self.refCount += 1
-            #print(f"claim  (\"{self.namespace}\"): refCount = {self.refCount}")
 
         return acquired, initialized
 
     def release(self, namespace):
         assert self.namespace == namespace
         assert self.refCount > 0
+
         self.refCount -= 1
-        #print(f"release(\"{self.namespace}\"): refCount = {self.refCount}")
         return self.refCount == 0
 
 class UserEntry:
@@ -130,7 +129,6 @@ class Engine:
             else:
                 if guard.release(namespace):
                     del self.engines[engineID]
-                    #print(list(self.engines.keys()))
 
     @staticmethod
     def localize(engineID, authProtocol=None, authSecret=None,

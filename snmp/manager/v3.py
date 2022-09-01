@@ -264,7 +264,6 @@ class Request(Dispatcher.Handle):
         pdu = None
         while not self.expired:
             timeout = self.manager.refresh()
-            #print(f"Waiting for {timeout} seconds")
             if self.event.wait(timeout=timeout):
                 pdu = self.response.data.pdu
                 break
@@ -334,8 +333,6 @@ class SNMPv3UsmManager:
                 if result is None:
                     heapq.heappop(self.requests)
                     continue
-
-                #print(f"Result = {result}")
 
                 if result < 0:
                     heapq.heapreplace(self.requests, entry)

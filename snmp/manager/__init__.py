@@ -35,7 +35,6 @@ class Repeater:
 
         if delta < 0:
             self.nextRefresh += math.ceil(-delta / self.period) * self.period
-            #print(f"Refreshing {id(self)} @ {now} ; nextRefresh = {self.nextRefresh} ; expiration = {self.expiration}")
             request.send()
 
         return delta
