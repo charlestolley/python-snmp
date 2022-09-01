@@ -186,7 +186,6 @@ class Request(Dispatcher.Handle):
 
         self.event = threading.Event()
         self.expired = False
-        self.fulfilled = False
         self.response = None
 
     def __del__(self):
@@ -257,6 +256,10 @@ class Request(Dispatcher.Handle):
 
         return self.manager.sendPdu(pdu, self, engineID, user, securityLevel)
 
+    @property
+    def fulfilled(self):
+        return self.event.is_set()
+
     def wait(self):
         pdu = None
         while not self.expired:
@@ -264,7 +267,6 @@ class Request(Dispatcher.Handle):
             #print(f"Waiting for {timeout} seconds")
             if self.event.wait(timeout=timeout):
                 pdu = self.response.data.pdu
-                self.fulfilled = True
                 break
 
         self.close()
@@ -324,15 +326,14 @@ class SNMPv3UsmManager:
         self._engineID = engineID
 
     def refresh(self):
-        while True:
+        while self.requests:
             with self.lock:
                 entry = self.requests[0]
                 result = entry.refresh()
 
-                while result is None:
+                if result is None:
                     heapq.heappop(self.requests)
-                    entry = self.requests[0]
-                    result = entry.refresh()
+                    continue
 
                 #print(f"Result = {result}")
 
@@ -340,6 +341,8 @@ class SNMPv3UsmManager:
                     heapq.heapreplace(self.requests, entry)
                 else:
                     return result
+
+        return None
 
     def processResponse(self, request, response):
         with self.lock:
