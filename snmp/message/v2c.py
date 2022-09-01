@@ -67,15 +67,21 @@ class MessageProcessor:
 
     def __init__(self):
         self.cacheLock = threading.Lock()
-        self.generator = NumberGenerator(32)
+        self.generator = self.newGenerator()
         self.outstanding = {}
+
+    @staticmethod
+    def newGenerator():
+        return NumberGenerator(32)
 
     def cache(self, entry, credentials=None):
         retry = 0
         while retry < 10:
             with self.cacheLock:
                 requestID = next(self.generator)
-                if requestID not in self.outstanding:
+                if requestID == 0:
+                    self.generator = self.newGenerator()
+                elif requestID not in self.outstanding:
                     self.outstanding[requestID] = entry
                     return requestID
 
@@ -123,7 +129,9 @@ class MessageProcessor:
         return SNMPv2cMessage(community, pdu), handle
 
     def prepareOutgoingMessage(self, pdu, handle, community):
-        pdu.requestID = self.cache(CacheEntry(weakref.ref(handle), community))
-        handle.addCallback(self.uncache, pdu.requestID)
+        if pdu.requestID == 0:
+            cacheEntry = CacheEntry(weakref.ref(handle), community)
+            pdu.requestID = self.cache(cacheEntry)
+            handle.addCallback(self.uncache, pdu.requestID)
 
         return SNMPv2cMessage(community, pdu).encode()

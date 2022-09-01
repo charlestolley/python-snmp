@@ -256,20 +256,26 @@ class MessageProcessor:
 
     def __init__(self):
         self.cacheLock = threading.Lock()
+        self.generator = self.newGenerator()
         self.credentials = {}
-        self.generator = NumberGenerator(31, signed=False)
         self.outstanding = {}
 
         self.securityLock = threading.Lock()
         self.defaultSecurityModel = None
         self.securityModules = {}
 
+    @staticmethod
+    def newGenerator():
+        return NumberGenerator(31, signed=False)
+
     def cache(self, entry, credentials=None):
         retry = 0
         while retry < 10:
             with self.cacheLock:
                 msgID = next(self.generator)
-                if msgID not in self.outstanding:
+                if msgID == 0:
+                    self.generator = self.newGenerator()
+                elif msgID not in self.outstanding:
                     if credentials is not None:
                         self.credentials[msgID] = credentials
 

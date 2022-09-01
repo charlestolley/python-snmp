@@ -40,9 +40,7 @@ class Request(Dispatcher.Handle):
         self.event.set()
 
     def send(self):
-        pdu = self.pdu
-        community = self.community
-        return self.manager.sendPdu(pdu, self, community)
+        return self.manager.sendPdu(self.pdu, self, self.community)
 
     def wait(self):
         pdu = None
