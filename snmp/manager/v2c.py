@@ -3,7 +3,7 @@ import threading
 
 from snmp.dispatcher import *
 from snmp.message import *
-from snmp.pdu.v2 import *
+from snmp.pdu import *
 from . import *
 
 class Request(Dispatcher.Handle):

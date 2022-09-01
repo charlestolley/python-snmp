@@ -7,7 +7,7 @@ import weakref
 from snmp.dispatcher import *
 from snmp.exception import *
 from snmp.message import *
-from snmp.pdu.v2 import *
+from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.types import *

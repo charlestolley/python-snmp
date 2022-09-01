@@ -5,7 +5,7 @@ from snmp.ber import *
 from snmp.ber import ParseError, decode_identifier
 from snmp.exception import *
 from snmp.message import *
-from snmp.pdu.v2 import *
+from snmp.pdu import *
 from snmp.types import *
 from snmp.utils import *
 from . import *

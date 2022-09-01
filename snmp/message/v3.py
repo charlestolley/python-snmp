@@ -3,7 +3,7 @@ import weakref
 
 from snmp.ber import ParseError, decode_identifier
 from snmp.exception import *
-from snmp.pdu.v2 import *
+from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import noAuthNoPriv
 from snmp.types import *
