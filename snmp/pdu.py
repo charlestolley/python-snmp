@@ -1,8 +1,8 @@
 __all__ = [
     "NoSuchObject", "NoSuchInstance", "EndOfMibView",
-    "VarBind", "VarBindList", "PDU", "pduTypes",
-    "GetRequestPDU", "GetNextRequestPDU", "ResponsePDU", "SetRequestPDU",
-    "GetBulkRequestPDU", "InformRequestPDU", "TrapPDU", "ReportPDU",
+    "VarBind", "VarBindList", "PDU", "GetRequestPDU", "GetNextRequestPDU",
+    "ResponsePDU", "SetRequestPDU", "TrapPDU", "GetBulkRequestPDU",
+    "InformRequestPDU", "SNMPv2TrapPDU", "ReportPDU",
     "Read", "Write", "Response", "Internal", "Notification", "Confirmed",
 ]
 
@@ -328,27 +328,17 @@ class ResponsePDU(PDU, Response):
 class SetRequestPDU(PDU, Write, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 3)
 
+class TrapPDU(PDU, Notification):
+    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 4)
+
 class GetBulkRequestPDU(BulkPDU, Read, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 5)
 
 class InformRequestPDU(PDU, Notification, Confirmed):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 6)
 
-class TrapPDU(PDU, Notification):
+class SNMPv2TrapPDU(PDU, Notification):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 7)
 
 class ReportPDU(PDU, Response, Internal):
     TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 8)
-
-pduTypes = {
-    cls.TYPE: cls for cls in (
-        GetRequestPDU,
-        GetNextRequestPDU,
-        ResponsePDU,
-        SetRequestPDU,
-        GetBulkRequestPDU,
-        InformRequestPDU,
-        TrapPDU,
-        ReportPDU,
-    )
-}

@@ -10,6 +10,20 @@ from snmp.types import *
 from snmp.utils import *
 from . import *
 
+pduTypes = {
+    cls.TYPE: cls for cls in (
+        GetRequestPDU,
+        GetNextRequestPDU,
+        ResponsePDU,
+        SetRequestPDU,
+        TrapPDU,
+        GetBulkRequestPDU,
+        InformRequestPDU,
+        SNMPv2TrapPDU,
+        ReportPDU,
+    )
+}
+
 class LateResponse(IncomingMessageError):
     pass
 

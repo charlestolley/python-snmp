@@ -10,6 +10,19 @@ from snmp.types import *
 from snmp.utils import *
 from . import MessageProcessingModel
 
+pduTypes = {
+    cls.TYPE: cls for cls in (
+        GetRequestPDU,
+        GetNextRequestPDU,
+        ResponsePDU,
+        SetRequestPDU,
+        GetBulkRequestPDU,
+        InformRequestPDU,
+        SNMPv2TrapPDU,
+        ReportPDU,
+    )
+}
+
 class InvalidMessage(IncomingMessageError):
     pass
 
