@@ -9,9 +9,9 @@ from time import time
 from snmp.ber import decode, encode
 from snmp.exception import IncomingMessageError
 from snmp.types import *
+from snmp.security import SecurityModel, SecurityParameters
 from snmp.security.levels import *
 from snmp.utils import typename
-from .. import SecurityModel, SecurityParameters
 
 class UsmStatsError(IncomingMessageError):
     USM_STATS = OID.parse(".1.3.6.1.6.3.15.1.1")

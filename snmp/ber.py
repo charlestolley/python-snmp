@@ -7,8 +7,8 @@ __all__ = [
 ]
 
 from collections import namedtuple
-from .exception import *
-from .utils import subbytes
+from snmp.exception import *
+from snmp.utils import subbytes
 
 class EncodeError(SNMPException):
     pass

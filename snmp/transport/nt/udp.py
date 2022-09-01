@@ -4,7 +4,7 @@ import os
 import select
 import socket
 
-from ..udp import UdpTransportBase
+from snmp.transport.udp import UdpTransportBase
 from snmp.utils import typename
 
 RECV_SIZE = 65507

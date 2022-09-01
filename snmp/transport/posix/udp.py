@@ -3,7 +3,7 @@ __all__ = ["UdpTransport"]
 import os
 import select
 import socket
-from ..udp import UdpTransportBase
+from snmp.transport.udp import UdpTransportBase
 
 RECV_SIZE = 65507
 
