@@ -214,6 +214,10 @@ class Request(Dispatcher.Handle):
 
         self._engineID = engineID
 
+    @property
+    def fulfilled(self):
+        return self.event.is_set()
+
     def close(self):
         for message in self.messages:
             self.callback(message)
@@ -255,10 +259,6 @@ class Request(Dispatcher.Handle):
             self.engineID = engineID
 
         return self.manager.sendPdu(pdu, self, engineID, user, securityLevel)
-
-    @property
-    def fulfilled(self):
-        return self.event.is_set()
 
     def wait(self):
         pdu = None

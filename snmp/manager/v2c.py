@@ -13,30 +13,27 @@ class Request(Dispatcher.Handle):
         self.pdu = pdu
 
         self.callback = None
-        self.messages = set()
-
         self.event = threading.Event()
         self.expired = False
-        self.fulfilled = False
         self.response = None
 
     def __del__(self):
         if self.callback is not None:
             self.close()
 
+    @property
+    def fulfilled(self):
+        return self.event.is_set()
+
     def close(self):
-        for message in self.messages:
-            self.callback(message)
-
+        self.callback(self.pdu.requestID)
         self.callback = None
-        self.messages.clear()
 
-    def addCallback(self, callback, msgID):
-        if self.callback is None:
-            self.callback = callback
+    def addCallback(self, callback, requestID):
+        assert requestID == self.pdu.requestID
+        assert self.callback is None
 
-        assert self.callback == callback
-        self.messages.add(msgID)
+        self.callback = callback
 
     def push(self, response):
         self.response = response
@@ -53,7 +50,6 @@ class Request(Dispatcher.Handle):
             timeout = self.manager.refresh()
             if self.event.wait(timeout=timeout):
                 pdu = self.response.pdu
-                self.fulfilled = True
                 break
 
         self.close()
@@ -74,20 +70,21 @@ class SNMPv2cManager:
         self.requests = []
 
     def refresh(self):
-        while True:
+        while self.requests:
             with self.lock:
                 entry = self.requests[0]
                 result = entry.refresh()
 
-                while result is None:
+                if result is None:
                     heapq.heappop(self.requests)
-                    entry = self.requests[0]
-                    result = entry.refresh()
+                    continue
 
                 if result < 0:
                     heapq.heapreplace(self.requests, entry)
                 else:
                     return result
+
+        return None
 
     def sendPdu(self, pdu, handle, community):
         return self.localEngine.sendPdu(
