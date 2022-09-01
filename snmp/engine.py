@@ -1,9 +1,11 @@
 import threading
 
 from snmp.dispatcher import *
+from snmp.manager.v1 import *
 from snmp.manager.v2c import *
 from snmp.manager.v3 import *
 from snmp.message import *
+import snmp.message.v1
 import snmp.message.v2c
 import snmp.message.v3
 from snmp.security import *
@@ -90,6 +92,7 @@ class Engine:
         self.namespaces = {}
 
         self.transports = set()
+        self.mpv1 = None
         self.mpv2c = None
         self.mpv3 = None
         self.usm = None
@@ -203,8 +206,20 @@ class Engine:
     def sendPdu(self, *args, **kwargs):
         return self.dispatcher.sendPdu(*args, **kwargs)
 
-    def v1Manager(self, locator):
-        pass
+    def v1Manager(self, locator, community, autowait=None):
+        if autowait is None:
+            autowait = self.autowaitDefault
+
+        if locator.domain not in self.transports:
+            transportClass = self.TRANSPORTS[locator.domain]
+            self.dispatcher.connectTransport(transportClass())
+            self.transports.add(locator.domain)
+
+        if self.mpv1 is None:
+            self.mpv1 = snmp.message.v1.MessageProcessor()
+            self.dispatcher.addMessageProcessor(self.mpv1)
+
+        return SNMPv1Manager(self, locator, community, autowait)
 
     def v2cManager(self, locator, community, autowait=None):
         if autowait is None:
