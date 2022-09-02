@@ -6,7 +6,7 @@ from snmp.message import *
 from snmp.pdu import *
 from . import *
 
-class Request(Dispatcher.Handle):
+class Request(RequestHandle):
     def __init__(self, pdu, manager, community):
         self.community = community
         self.manager = manager

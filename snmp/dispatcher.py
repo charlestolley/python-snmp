@@ -12,15 +12,6 @@ from snmp.types import SEQUENCE, Integer
 from snmp.utils import typename
 
 class Dispatcher(TransportListener):
-    class Handle:
-        @abstractmethod
-        def addCallback(self, func, *args):
-            ...
-
-        @abstractmethod
-        def push(self, response):
-            ...
-
     def __init__(self):
         self.lock = threading.Lock()
         self.msgProcessors = {}

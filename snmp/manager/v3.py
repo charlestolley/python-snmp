@@ -172,7 +172,7 @@ class RequireAuthentication(State):
             if response.securityEngineID != self.manager.engineID:
                 self.manager.engineID = response.securityEngineID
 
-class Request(Dispatcher.Handle):
+class Request(RequestHandle):
     def __init__(self, pdu, manager, userName, securityLevel):
         self._engineID = None
 
