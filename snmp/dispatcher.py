@@ -7,11 +7,11 @@ from snmp.ber import ParseError, decode
 from snmp.exception import *
 from snmp.message import MessageProcessingModel
 from snmp.security.levels import noAuthNoPriv
-from snmp.transport import Transport, TransportDomain
+from snmp.transport import *
 from snmp.types import SEQUENCE, Integer
 from snmp.utils import typename
 
-class Dispatcher(Transport.Listener):
+class Dispatcher(TransportListener):
     class Handle:
         @abstractmethod
         def addCallback(self, func, *args):

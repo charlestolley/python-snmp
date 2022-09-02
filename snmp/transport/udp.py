@@ -22,7 +22,7 @@ class UdpTransportBase(Transport):
 
         if port <= 0 or port > 0xffff:
             errmsg = "Invalid UDP port number: {}"
-            raise ValueError(errmsg.format(port)) from err
+            raise ValueError(errmsg.format(port))
 
         return ip, port
 

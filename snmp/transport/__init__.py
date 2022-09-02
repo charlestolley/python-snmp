@@ -1,4 +1,4 @@
-__all__ = ["TransportDomain"]
+__all__ = ["TransportDomain", "TransportListener"]
 
 from abc import abstractmethod
 from collections import namedtuple
@@ -6,34 +6,38 @@ import enum
 import os
 from snmp.utils import typename
 
-class Transport:
-    class Listener:
-        def hear(self, transport, address, data):
-            pass
+TransportDomain = enum.Enum("TransportDomain", ("UDP",))
+TransportLocator = namedtuple("TransportLocator", ("domain", "address"))
 
+class TransportListener:
+    @abstractmethod
+    def hear(self, transport, address, data):
+        ...
+
+class Transport:
     @classmethod
     def Locator(cls, address):
         return TransportLocator(cls.DOMAIN, cls.normalizeAddress(address))
 
-    @classmethod
+    @staticmethod
     def normalizeAddress(cls, address):
         return address
 
+    @abstractmethod
     def close(self):
-        pass
+        ...
 
+    @abstractmethod
     def listen(self, listener):
-        pass
+        ...
 
     @abstractmethod
     def send(self, address, data):
         ...
 
+    @abstractmethod
     def stop(self):
-        pass
-
-TransportDomain = enum.Enum("TransportDomain", ("UDP",))
-TransportLocator = namedtuple("TransportLocator", ("domain", "address"))
+        ...
 
 supported = ("nt", "posix")
 if os.name in supported:
