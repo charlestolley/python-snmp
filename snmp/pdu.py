@@ -8,7 +8,7 @@ __all__ = [
 
 import enum
 from snmp.ber import *
-from snmp.smi.v2 import *
+from snmp.smi import *
 from snmp.types import *
 from snmp.utils import subbytes, typename
 
