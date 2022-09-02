@@ -44,13 +44,18 @@ class subbytes:
     def __bool__(self):
         return self.stop > self.start
 
-    def __eq__(a, b):
-        if len(a) != len(b):
-            return False
-
-        for left, right in zip(a, b):
-            if left != right:
+    def __eq__(self, other):
+        try:
+            # TypeError if other is not Sized
+            if len(self) != len(other):
                 return False
+
+            # TypeError if other is not Iterable
+            for left, right in zip(self, other):
+                if left != right:
+                    return False
+        except TypeError:
+            return NotImplemented
 
         return True
 
