@@ -1,9 +1,9 @@
 __all__ = ["TransportDomain"]
 
+from abc import abstractmethod
 from collections import namedtuple
 import enum
 import os
-from snmp.exception import IncompleteChildClass
 from snmp.utils import typename
 
 class Transport:
@@ -25,9 +25,9 @@ class Transport:
     def listen(self, listener):
         pass
 
+    @abstractmethod
     def send(self, address, data):
-        errmsg = "{} does not implement send()".format(typename(self))
-        raise IncompleteChildClass(errmsg)
+        ...
 
     def stop(self):
         pass

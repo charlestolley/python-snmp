@@ -4,6 +4,7 @@ __all__ = [
     "Constructed", "Sequence",
 ]
 
+from abc import abstractmethod
 import re
 from snmp.ber import *
 from snmp.exception import *
@@ -32,29 +33,30 @@ class Asn1Encodable:
     def encode(self):
         return encode(self.TYPE, self.serialize())
 
+    @abstractmethod
     def equals(a, b):
-        errmsg = "{} does not implement equals()"
-        raise IncompleteChildClass(errmsg.format(typename(a, True)))
-
-    def appendToOID(self, oid):
-        errmsg = "{} does not implement appendToOID()"
-        raise IncompleteChildClass(errmsg.format(typename(self, True)))
+        ...
 
     @classmethod
-    def decodeFromOID(cls, nums):
-        errmsg = "{} does not implement decodeFromOID()"
-        raise IncompleteChildClass(errmsg.format(typename(cls, True)))
-
-    @classmethod
+    @abstractmethod
     def deserialize(cls, data):
-        errmsg = "{} does not implement deserialize()"
-        raise IncompleteChildClass(errmsg.format(typename(cls, True)))
+        ...
 
+    @abstractmethod
     def serialize(self):
-        errmsg = "{} does not implement serialize()"
-        raise IncompleteChildClass(errmsg.format(typename(self, True)))
+        ...
 
-class Integer(Asn1Encodable):
+class Primitive(Asn1Encodable):
+    @abstractmethod
+    def appendToOID(self, oid):
+        ...
+
+    @classmethod
+    @abstractmethod
+    def decodeFromOID(cls, nums):
+        ...
+
+class Integer(Primitive):
     BITS = 32
     BYTEORDER = "big"
     SIGNED = True
@@ -104,7 +106,7 @@ class Integer(Asn1Encodable):
         nbytes = (self.value.bit_length() // 8) + 1
         return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
 
-class OctetString(Asn1Encodable):
+class OctetString(Primitive):
     TYPE = OCTET_STRING
 
     MIN_SIZE = 0
@@ -171,7 +173,7 @@ class OctetString(Asn1Encodable):
 
         return data
 
-class Null(Asn1Encodable):
+class Null(Primitive):
     TYPE = NULL
 
     def __repr__(self):
@@ -194,7 +196,7 @@ class Null(Asn1Encodable):
     def serialize(self):
         return b''
 
-class OID(Asn1Encodable):
+class OID(Primitive):
     DOT = '.'
     MULT = 40
     MAXLEN = 128
@@ -399,14 +401,14 @@ class Constructed(Asn1Encodable):
 
         return True
 
+    @abstractmethod
     def __len__(self):
-        errmsg = "{} does not implement __len__"
-        raise IncompleteChildClass(errmsg.format(typename(self, True)))
+        ...
 
     @property
+    @abstractmethod
     def objects(self):
-        errmsg = "{} does not implement .objects"
-        raise IncompleteChildClass(errmsg.format(typename(self, True)))
+        ...
 
     def serialize(self):
         return b''.join([item.encode() for item in self.objects])

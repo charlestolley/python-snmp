@@ -2,6 +2,7 @@ __all__ = ["Dispatcher"]
 
 import threading
 
+from abc import abstractmethod
 from snmp.ber import ParseError, decode
 from snmp.exception import *
 from snmp.message import MessageProcessingModel
@@ -12,13 +13,13 @@ from snmp.utils import typename
 
 class Dispatcher(Transport.Listener):
     class Handle:
+        @abstractmethod
         def addCallback(self, func, *args):
-            errmsg = "{} does not support callbacks".format(typename(self))
-            raise IncompleteChildClass(errmsg)
+            ...
 
+        @abstractmethod
         def push(self, response):
-            errmsg = "{} does not implement push()".format(typename(self))
-            raise IncompleteChildClass(errmsg)
+            ...
 
     def __init__(self):
         self.lock = threading.Lock()

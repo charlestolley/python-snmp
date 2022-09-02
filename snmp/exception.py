@@ -4,9 +4,6 @@ class SNMPException(Exception):
 class SNMPLibraryBug(AssertionError):
     pass
 
-class IncompleteChildClass(SNMPLibraryBug):
-    pass
-
 class UnsupportedFeature(SNMPLibraryBug):
     pass
 
