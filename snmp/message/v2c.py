@@ -52,7 +52,7 @@ class SNMPv2cMessage(Sequence):
         subindent = indent + tab
         return "\n".join((
             f"{indent}{typename(self)}:",
-            f"{subindent}Community: {self.community.pdu}",
+            f"{subindent}Community: {self.community}",
             f"{self.pdu.__str__(depth+1, tab)}",
         ))
 
