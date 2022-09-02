@@ -10,7 +10,7 @@ class MessageProcessingModel(enum.IntEnum):
 
 class RequestHandle:
     @abstractmethod
-    def addCallback(self, func, *args):
+    def addCallback(self, func, idNum):
         ...
 
     @abstractmethod
