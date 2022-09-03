@@ -143,27 +143,24 @@ class TimeKeeper:
         return withinTimeWindow
 
 class Credentials:
-    def __init__(self, auth, priv):
+    def __init__(self, auth=None, priv=None):
         self.auth = auth
         self.priv = priv
-
-class UserInfo:
-    def __init__(self, engineID, name, auth=None, priv=None):
-        self.engineID = engineID
-        self.name = name
-        self.credentials = Credentials(auth, priv)
 
 class UserTable:
     def __init__(self):
         self.engines = {}
         self.lock = threading.Lock()
 
-    def addUser(self, userInfo):
+    def addUser(self, engineID, userName, credentials):
         with self.lock:
-            self.engines.setdefault(
-                userInfo.engineID,
-                dict()
-            )[userInfo.name] = userInfo.credentials
+            try:
+                users = self.engines[engineID]
+            except KeyError:
+                users = dict()
+                self.engines[engineID] = users
+
+            users[userName] = credentials
 
     def getUser(self, engineID, userName):
         with self.lock:
@@ -188,31 +185,21 @@ class SecurityModule:
         if self.engineID is not None:
             self.timekeeper.update(self.engineID)
 
-    def addUser(self, *args, **kwargs):
-        self.users.addUser(self.makeCredentials(*args, **kwargs))
-
-    @staticmethod
-    def makeCredentials(engineID, userName,
-            authProtocol=None, authKey=None,
-            privProtocol=None, privKey=None):
+    def addUser(self, engineID, userName,
+                authProtocol=None, authKey=None,
+                privProtocol=None, privKey=None):
         kwargs = dict()
         if authProtocol is not None:
             kwargs["auth"] = authProtocol(authKey)
             if privProtocol is not None:
                 kwargs["priv"] = privProtocol(privKey)
 
-        return UserInfo(engineID, userName, **kwargs)
+        self.users.addUser(engineID, userName, Credentials(**kwargs))
 
     def prepareOutgoing(self, header, data, engineID,
-                        securityName, securityLevel, userInfo=None):
+                        securityName, securityLevel):
         if securityLevel.auth:
-            try:
-                user = self.users.getUser(engineID, securityName)
-            except (InvalidEngineID, InvalidUserName):
-                if userInfo is None:
-                    raise
-                else:
-                    user = userInfo.credentials
+            user = self.users.getUser(engineID, securityName)
 
             if not user.auth:
                 err = f"Authentication is disabled for user {securityName}"
@@ -276,8 +263,7 @@ class SecurityModule:
 
         return wholeMsg
 
-    def processIncoming(self, msg, securityLevel,
-                        userInfo=None, timestamp=None):
+    def processIncoming(self, msg, securityLevel, timestamp=None):
         if timestamp is None:
             timestamp = time()
 
@@ -309,24 +295,12 @@ class SecurityModule:
 
             return securityParameters, msgData[:]
 
-        addUser = False
-
         try:
             user = self.users.getUser(engineID, userName)
         except InvalidEngineID as err:
-            if userInfo is None or engineID != userInfo.engineID:
-                raise UnknownEngineID(engineID) from err
-            elif userName != userInfo.name:
-                raise UnknownUserName(userName) from err
-            else:
-                user = userInfo.credentials
-                addUser = True
+            raise UnknownEngineID(engineID) from err
         except InvalidUserName as err:
-            if userInfo is None or userName != userInfo.name:
-                raise UnknownUserName(userName) from err
-            else:
-                user = userInfo.credentials
-                addUser = True
+            raise UnknownUserName(userName) from err
 
         if user.auth is None:
             err = f"Authentication is disabled for user {userName}"
@@ -375,8 +349,5 @@ class SecurityModule:
                 raise DecryptionError(str(err)) from err
         else:
             payload = msgData[:]
-
-        if addUser:
-            self.users.addUser(userInfo)
 
         return securityParameters, payload

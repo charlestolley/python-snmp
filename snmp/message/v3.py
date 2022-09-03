@@ -257,7 +257,6 @@ class MessageProcessor:
     def __init__(self):
         self.cacheLock = threading.Lock()
         self.generator = self.newGenerator()
-        self.credentials = {}
         self.outstanding = {}
 
         self.securityLock = threading.Lock()
@@ -268,7 +267,7 @@ class MessageProcessor:
     def newGenerator():
         return NumberGenerator(31, signed=False)
 
-    def cache(self, entry, credentials=None):
+    def cache(self, entry):
         retry = 0
         while retry < 10:
             with self.cacheLock:
@@ -276,9 +275,6 @@ class MessageProcessor:
                 if msgID == 0:
                     self.generator = self.newGenerator()
                 elif msgID not in self.outstanding:
-                    if credentials is not None:
-                        self.credentials[msgID] = credentials
-
                     self.outstanding[msgID] = entry
                     return msgID
 
@@ -322,12 +318,7 @@ class MessageProcessor:
         except ValueError as err:
             raise InvalidMessage(f"Invalid msgFlags: {err}") from err
 
-        with self.cacheLock:
-            credentials = self.credentials.get(msgGlobalData.id)
-
-        security, data = \
-            securityModule.processIncoming(msg, securityLevel, credentials)
-
+        security, data = securityModule.processIncoming(msg, securityLevel)
         scopedPDU, _ = ScopedPDU.decode(data, types=pduTypes, leftovers=True)
 
         if isinstance(scopedPDU.pdu, Response):
@@ -364,8 +355,7 @@ class MessageProcessor:
         return message, handle
 
     def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
-            securityLevel=noAuthNoPriv, securityModel=None, credentials=None,
-            contextName=b''):
+            securityLevel=noAuthNoPriv, securityModel=None, contextName=b''):
 
         with self.securityLock:
             if securityModel is None:
@@ -385,7 +375,7 @@ class MessageProcessor:
             securityModel,
             securityLevel)
 
-        msgID = self.cache(entry, credentials=credentials)
+        msgID = self.cache(entry)
         handle.addCallback(self.uncache, msgID)
 
         flags = MessageFlags()
@@ -403,5 +393,4 @@ class MessageProcessor:
             engineID,
             securityName,
             securityLevel,
-            credentials,
         )
