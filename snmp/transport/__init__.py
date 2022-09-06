@@ -39,11 +39,10 @@ class Transport:
     def stop(self):
         ...
 
-supported = ("nt", "posix")
+supported = ("posix")
 if os.name in supported:
     package = os.name
 else:
-    from platform import platform
-    raise ImportError("Unsupported platform: \"{}\"".format(platform()))
+    package = "generic"
 
 package = "{}.{}".format(__name__, package)
