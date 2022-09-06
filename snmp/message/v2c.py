@@ -35,7 +35,7 @@ class ResponseMismatch(IncomingMessageError):
 class CacheEntry:
     def __init__(self, handle, community):
         self.community = community
-        self.handle = handle
+        self.handle = weakref.ref(handle)
 
 class MessageProcessor:
     VERSION = MessageProcessingModel.SNMPv2c
@@ -105,7 +105,7 @@ class MessageProcessor:
 
     def prepareOutgoingMessage(self, pdu, handle, community):
         if pdu.requestID == 0:
-            cacheEntry = CacheEntry(weakref.ref(handle), community)
+            cacheEntry = CacheEntry(handle, community)
             pdu.requestID = self.cache(cacheEntry)
             handle.addCallback(self.uncache, pdu.requestID)
 

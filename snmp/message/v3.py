@@ -220,7 +220,7 @@ class CacheEntry:
             securityName, securityModel, securityLevel):
         self.context = contextName
         self.engineID = engineID
-        self.handle = handle
+        self.handle = weakref.ref(handle)
         self.securityName = securityName
         self.securityModel = securityModel
         self.securityLevel = securityLevel
@@ -374,7 +374,7 @@ class MessageProcessor:
         entry = CacheEntry(
             engineID,
             contextName,
-            weakref.ref(handle),
+            handle,
             securityName,
             securityModel,
             securityLevel)
