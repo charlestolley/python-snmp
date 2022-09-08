@@ -395,23 +395,22 @@ class OID(Primitive):
 class Constructed(Asn1Encodable):
     def equals(a, b):
         if len(a) == len(b):
-            for left, right in zip(a.objects, b.objects):
+            for left, right in zip(a, b):
                 if left != right:
                     return False
 
         return True
 
     @abstractmethod
+    def __iter__(self):
+        ...
+
+    @abstractmethod
     def __len__(self):
         ...
 
-    @property
-    @abstractmethod
-    def objects(self):
-        ...
-
     def serialize(self):
-        return b''.join([item.encode() for item in self.objects])
+        return b"".join([item.encode() for item in self])
 
 class Sequence(Constructed):
     TYPE = SEQUENCE

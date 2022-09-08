@@ -33,33 +33,8 @@ class CacheEntry:
         self.community = community
         self.handle = handle
 
-class SNMPv1Message(Sequence):
-    VERSION = MessageProcessingModel.SNMPv1
-
-    def __init__(self, community, pdu):
-        self.community = community
-        self.pdu = pdu
-
-    def __repr__(self):
-        return f"{typename(self)}({self.community}, {repr(self.pdu)})"
-
-    def __str__(self, depth=0, tab="    "):
-        indent = tab * depth
-        subindent = indent + tab
-        return "\n".join((
-            f"{indent}{typename(self)}:",
-            f"{subindent}Community: {self.community}",
-            f"{self.pdu.__str__(depth+1, tab)}",
-        ))
-
-    @property
-    def objects(self):
-        yield Integer(self.VERSION)
-        yield OctetString(self.community)
-        yield self.pdu
-
 class MessageProcessor:
-    VERSION = SNMPv1Message.VERSION
+    VERSION = MessageProcessingModel.SNMPv1
 
     def __init__(self):
         self.cacheLock = threading.Lock()
@@ -122,7 +97,7 @@ class MessageProcessor:
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
-        return SNMPv1Message(community, pdu), handle
+        return Message(self.VERSION, community, pdu), handle
 
     def prepareOutgoingMessage(self, pdu, handle, community):
         if pdu.requestID == 0:
@@ -130,4 +105,4 @@ class MessageProcessor:
             pdu.requestID = self.cache(cacheEntry)
             handle.addCallback(self.uncache, pdu.requestID)
 
-        return SNMPv1Message(community, pdu).encode()
+        return Message(self.VERSION, community, pdu).encode()

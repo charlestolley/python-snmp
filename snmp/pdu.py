@@ -51,7 +51,8 @@ class VarBind(Sequence):
         self.value = value
 
     def __iter__(self):
-        return self.objects
+        yield self.name
+        yield self.value
 
     def __len__(self):
         return 2
@@ -62,11 +63,6 @@ class VarBind(Sequence):
 
     def __str__(self):
         return "{}: {}".format(self.name, self.value)
-
-    @property
-    def objects(self):
-        yield self.name
-        yield self.value
 
     @classmethod
     def deserialize(cls, data):
@@ -107,10 +103,6 @@ class VarBindList(Sequence):
 
     def __str__(self, indent=""):
         return "\n".join("{}{}".format(indent, var) for var in self.variables)
-
-    @property
-    def objects(self):
-        return self.variables
 
     @classmethod
     def deserialize(cls, data):
@@ -155,6 +147,12 @@ class PDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
+    def __iter__(self):
+        yield Integer(self.requestID)
+        yield Integer(self.errorStatus)
+        yield Integer(self.errorIndex)
+        yield self.variableBindings
+
     def __len__(self):
         return 4
 
@@ -189,13 +187,6 @@ class PDU(Constructed):
             subindent, self.errorIndex,
             subindent, self.variableBindings.__str__(subindent + tab)
         )
-
-    @property
-    def objects(self):
-        yield Integer(self.requestID)
-        yield Integer(self.errorStatus)
-        yield Integer(self.errorIndex)
-        yield self.variableBindings
 
     @classmethod
     def deserialize(cls, data):
@@ -238,6 +229,12 @@ class BulkPDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
+    def __iter__(self):
+        yield Integer(self.requestID)
+        yield Integer(self.nonRepeaters)
+        yield Integer(self.maxRepetitions)
+        yield self.variableBindings
+
     def __len__(self):
         return 4
 
@@ -271,13 +268,6 @@ class BulkPDU(Constructed):
             indent, self.maxRepetitions,
             indent, self.variableBindings.__str__(tab * (depth + 2))
         )
-
-    @property
-    def objects(self):
-        yield Integer(self.requestID)
-        yield Integer(self.nonRepeaters)
-        yield Integer(self.maxRepetitions)
-        yield self.variableBindings
 
     @classmethod
     def deserialize(cls, data):

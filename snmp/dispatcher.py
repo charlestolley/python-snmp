@@ -5,7 +5,7 @@ import threading
 from abc import abstractmethod
 from snmp.ber import ParseError, decode
 from snmp.exception import *
-from snmp.message import MessageProcessingModel
+from snmp.message import *
 from snmp.security.levels import noAuthNoPriv
 from snmp.transport import *
 from snmp.types import SEQUENCE, Integer
@@ -45,14 +45,13 @@ class Dispatcher(TransportListener):
     def hear(self, transport, address, data):
         try:
             try:
-                message = decode(data, expected=SEQUENCE, copy=False)
-                msgVersion, message = Integer.decode(message, leftovers=True)
+                msgVersion, message = BaseMessage.decodeVersion(data)
             except ParseError:
                 return
 
             with self.lock:
                 try:
-                    mp = self.msgProcessors[msgVersion.value]
+                    mp = self.msgProcessors[msgVersion]
                 except KeyError:
                     return
 

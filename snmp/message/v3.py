@@ -112,6 +112,15 @@ class HeaderData(Sequence):
         self.flags = flags
         self.securityModel = securityModel
 
+    def __iter__(self):
+        yield Integer(self.id)
+        yield Integer(self.maxSize)
+        yield self.flags
+        yield Integer(self.securityModel)
+
+    def __len__(self):
+        return 4
+
     def __repr__(self):
         args = (
             str(self.id),
@@ -133,13 +142,6 @@ class HeaderData(Sequence):
             f"{subindent}Flags: {self.flags}",
             f"{subindent}Security Model: {securityModel.name}"
         ))
-
-    @property
-    def objects(self):
-        yield Integer(self.id)
-        yield Integer(self.maxSize)
-        yield self.flags
-        yield Integer(self.securityModel)
 
     @classmethod
     def deserialize(cls, data):
@@ -168,6 +170,14 @@ class ScopedPDU(Sequence):
         self.contextName = contextName
         self.pdu = pdu
 
+    def __iter__(self):
+        yield OctetString(self.contextEngineID)
+        yield OctetString(self.contextName)
+        yield self.pdu
+
+    def __len__(self):
+        return 3
+
     def __repr__(self):
         args = (
             repr(self.pdu),
@@ -186,12 +196,6 @@ class ScopedPDU(Sequence):
             f"{subindent}Context Name: {self.contextName}",
             f"{self.pdu.__str__(depth=depth+1, tab=tab)}"
         ))
-
-    @property
-    def objects(self):
-        yield OctetString(self.contextEngineID)
-        yield OctetString(self.contextName)
-        yield self.pdu
 
     @classmethod
     def deserialize(cls, data, types={}):
