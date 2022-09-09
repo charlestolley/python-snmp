@@ -29,14 +29,15 @@ class subbytes:
     def __init__(self, data, start=None, stop=None):
         if isinstance(data, subbytes):
             self.data = data.data
+            base = data
         else:
             self.data = data
             self.start = 0
             self.stop = len(data)
-            data = self
+            base = self
 
-        new_start = data.start if start is None else data.translate(start, True)
-        new_stop  = data.stop  if stop  is None else data.translate(stop,  True)
+        new_start = base.start if start is None else base.translate(start, True)
+        new_stop  = base.stop  if stop  is None else base.translate(stop,  True)
 
         self.start = new_start
         self.stop  = new_stop
