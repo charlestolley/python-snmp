@@ -8,7 +8,7 @@ from abc import abstractmethod
 import re
 from snmp.ber import *
 from snmp.exception import *
-from snmp.utils import typename
+from snmp.utils import *
 
 INTEGER             = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 2)
 OCTET_STRING        = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
@@ -171,7 +171,7 @@ class OctetString(Primitive):
             msg = "Encoded {} not permitted to be {} bytes long"
             raise ValueError(msg.format(typename(self), len(data)))
 
-        return data
+        return data[:] if isinstance(data, subbytes) else data
 
 class Null(Primitive):
     TYPE = NULL
