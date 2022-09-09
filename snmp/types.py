@@ -17,8 +17,8 @@ OBJECT_IDENTIFIER   = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 6)
 SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
 
 class Asn1Encodable:
-    def __eq__(a, b):
-        return type(a) is type(b) and a.equals(b)
+    def __eq__(self, other):
+        return type(self) is type(other) and self.equals(other)
 
     @classmethod
     def decode(cls, data, leftovers=False, copy=True, **kwargs):
@@ -34,7 +34,7 @@ class Asn1Encodable:
         return encode(self.TYPE, self.serialize())
 
     @abstractmethod
-    def equals(a, b):
+    def equals(self, other):
         ...
 
     @classmethod
@@ -68,8 +68,8 @@ class Integer(Primitive):
     def __repr__(self):
         return f"{typename(self)}({self.value})"
 
-    def equals(a, b):
-        return a.value == b.value
+    def equals(self, other):
+        return self.value == other.value
 
     def appendToOID(self, oid):
         return oid.extend(self.value)
@@ -119,8 +119,8 @@ class OctetString(Primitive):
     def __repr__(self):
         return f"{typename(self)}({self.data})"
 
-    def equals(a, b):
-        return a.data == b.data
+    def equals(self, other):
+        return self.data == other.data
 
     def appendToOID(self, oid):
         return oid.extend(len(self.data), *self.data)
@@ -179,8 +179,8 @@ class Null(Primitive):
     def __repr__(self):
         return f"{typename(self)}()"
 
-    def equals(a, b):
-        return isinstance(b, Null)
+    def equals(self, other):
+        return isinstance(other, Null)
 
     def appendToOID(self, oid):
         return oid
@@ -194,7 +194,7 @@ class Null(Primitive):
         return cls()
 
     def serialize(self):
-        return b''
+        return b""
 
 class OID(Primitive):
     DOT = '.'
@@ -228,8 +228,8 @@ class OID(Primitive):
     def __len__(self):
         return self.nums.__len__()
 
-    def __lt__(a, b):
-        return a.nums < b.nums
+    def __lt__(self, other):
+        return self.nums < other.nums
 
     def tryDecode(self, nums, cls):
         try:
@@ -318,8 +318,8 @@ class OID(Primitive):
         else:
             raise self.IndexDecodeError("Not all sub-identifiers were consumed")
 
-    def equals(a, b):
-        return a.nums == b.nums
+    def equals(self, other):
+        return self.nums == other.nums
 
     def appendToOID(self, oid):
         return oid.extend(len(self.nums), *self.nums)
@@ -393,9 +393,9 @@ class OID(Primitive):
         return bytes(encoding)
 
 class Constructed(Asn1Encodable):
-    def equals(a, b):
-        if len(a) == len(b):
-            for left, right in zip(a, b):
+    def equals(self, other):
+        if len(self) == len(other):
+            for left, right in zip(self, other):
                 if left != right:
                     return False
 
