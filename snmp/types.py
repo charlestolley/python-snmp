@@ -225,6 +225,9 @@ class OID(Primitive):
     def __getitem__(self, idx):
         return self.nums.__getitem__(idx)
 
+    def __iter__(self):
+        return self.nums.__iter__()
+
     def __len__(self):
         return self.nums.__len__()
 
