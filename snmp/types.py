@@ -362,21 +362,23 @@ class OID(Primitive):
 
         return cls(*oid)
 
+    @staticmethod
+    def serializeSubIdentifier(bytearr, num):
+        if num < 0x80:
+            bytearr.append(num)
+        else:
+            flag = 0
+            tmp = bytearray()
+
+            while num:
+                tmp.append((num & 0x7f) | flag)
+                flag = 0x80
+                num >>= 7
+
+            tmp.reverse()
+            bytearr.extend(tmp)
+
     def serialize(self):
-        def append(bytearr, num):
-            if num < 0x80:
-                bytearr.append(num)
-            else:
-                flag = 0
-                tmp = bytearray()
-
-                while num:
-                    tmp.append((num & 0x7f) | flag)
-                    flag = 0x80
-                    num >>= 7
-
-                tmp.reverse()
-                bytearr.extend(tmp)
 
         try:
             first = self.nums[0]
@@ -389,9 +391,9 @@ class OID(Primitive):
             second = 0
 
         encoding = bytearray()
-        append(encoding, first * self.MULT | second)
+        self.serializeSubIdentifier(encoding, first * self.MULT | second)
         for number in self.nums[2:]:
-            append(encoding, number)
+            self.serializeSubIdentifier(encoding, number)
 
         return bytes(encoding)
 
