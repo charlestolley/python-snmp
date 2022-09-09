@@ -48,17 +48,20 @@ class SecurityLevel:
 
         self._priv = bool(value)
 
-    def __eq__(a, b):
-        return a.auth == b.auth and a.priv == b.priv
+    def __eq__(self, other):
+        try:
+            return self.auth == other.auth and self.priv == other.priv
+        except AttributeError:
+            return NotImplemented
 
-    def __lt__(a, b):
-        if a.auth:
-            return b.priv and not a.priv
+    def __lt__(self, other):
+        if self.auth:
+            return other.priv and not self.priv
         else:
-            return b.auth
+            return other.auth
 
-    def __ge__(a, b):
-        return not a < b
+    def __ge__(self, other):
+        return not self < other
 
 class SecurityModel(enum.IntEnum):
     USM = 3
