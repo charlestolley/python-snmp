@@ -112,32 +112,29 @@ def decode(data, expected=None, leftovers=False, copy=True):
     data = subbytes(data)
     identifier = decode_identifier(data)
 
-    result = []
-    if expected is None:
-        result.append(identifier)
-    elif identifier != expected:
+    if expected is not None and identifier != expected:
         raise ParseError("Identifier does not match expected type")
 
     length = decode_length(data)
-    pruned = data.prune(length)
+    tail = data.prune(length)
 
     if len(data) < length:
         raise ParseError("Incomplete value")
-
-    if copy:
-        result.append(data[:])
-    else:
-        result.append(data)
-
-    if leftovers:
-        result.append(pruned)
-    elif pruned:
+    elif not leftovers and tail:
         raise ParseError("Trailing bytes")
 
-    if len(result) == 1:
-        return result[0]
+    body = data[:] if copy else data
+
+    if expected is None:
+        if leftovers:
+            return identifier, body, tail
+        else:
+            return identifier, body
     else:
-        return tuple(result)
+        if leftovers:
+            return body, tail
+        else:
+            return body
 
 def encode(identifier, data):
     return encode_identifier(identifier) + encode_length(len(data)) + data
