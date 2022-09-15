@@ -67,7 +67,7 @@ class VarBind(Sequence):
     @classmethod
     def deserialize(cls, data):
         name, data = OID.decode(data, leftovers=True)
-        identifier, data = decode(subbytes(data))
+        identifier, data = decode(data)
 
         try:
             valueType = cls.TYPES[identifier]
@@ -79,11 +79,9 @@ class VarBind(Sequence):
 
 class VarBindList(Sequence):
     def __init__(self, *args):
-        self.variables = [None] * len(args)
-        for i, var in enumerate(args):
-            if not isinstance(var, VarBind):
-                var = VarBind(var)
-            self.variables[i] = var
+        self.variables = tuple(
+            var if isinstance(var, VarBind) else VarBind(var) for var in args
+        )
 
     def __bool__(self):
         return bool(self.variables)

@@ -5,8 +5,8 @@ import select
 import socket
 
 from snmp.transport.udp import UdpTransportBase
-from snmp.utils import typename
 
+STOPMSG = bytes(1)
 RECV_SIZE = 65507
 
 class UdpTransport(UdpTransportBase):
@@ -39,12 +39,12 @@ class UdpTransport(UdpTransportBase):
                     data, addr = self.socket.recvfrom(RECV_SIZE)
                     listener.hear(self, addr, data)
                 elif fd == stop:
-                    data, addr = self.r.recvfrom(1)
-                    if data == b"\0" and addr == self.w.getsockname():
+                    data, addr = self.r.recvfrom(len(STOPMSG))
+                    if addr == self.w.getsockname() and data == STOPMSG:
                         done = True
 
     def send(self, addr, packet):
         self.socket.sendto(packet, addr)
 
     def stop(self):
-        self.w.sendto(b"\0", self.r.getsockname())
+        self.w.sendto(STOPMSG, self.r.getsockname())

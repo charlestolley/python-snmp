@@ -4,7 +4,6 @@ from abc import abstractmethod
 from collections import namedtuple
 import enum
 import os
-from snmp.utils import typename
 
 TransportDomain = enum.Enum("TransportDomain", ("UDP",))
 TransportLocator = namedtuple("TransportLocator", ("domain", "address"))

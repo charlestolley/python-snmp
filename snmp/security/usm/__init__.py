@@ -118,29 +118,8 @@ class TimeKeeper:
 
             if auth:
                 entry.authenticated = True
-                return withinTimeWindow
 
-    # TODO: salvage this function
-    def verifyTimeliness(self, engineID, msgBoots, msgTime, timestamp=None):
-        if timestamp is None:
-            timestamp = time()
-
-        withinTimeWindow = False
-        with self.lock:
-            try:
-                entry = self.table[engineID]
-            except KeyError as err:
-                raise InvalidEngineID(engineID) from err
-
-            if msgBoots == entry.snmpEngineBoots:
-                difference = entry.snmpEngineTime(timestamp) - msgTime
-                if abs(difference) < self.TIME_WINDOW_SIZE:
-                    withinTimeWindow = True
-
-            if entry.snmpEngineBoots == self.MAX_ENGINE_BOOTS:
-                withinTimeWindow = False
-
-        return withinTimeWindow
+            return withinTimeWindow
 
 class Credentials:
     def __init__(self, auth=None, priv=None):
@@ -188,13 +167,21 @@ class SecurityModule:
     def addUser(self, engineID, userName,
                 authProtocol=None, authKey=None,
                 privProtocol=None, privKey=None):
-        kwargs = dict()
-        if authProtocol is not None:
-            kwargs["auth"] = authProtocol(authKey)
-            if privProtocol is not None:
-                kwargs["priv"] = privProtocol(privKey)
+        if authProtocol is None:
+            credentials = Credentials()
+        else:
+            assert authKey is not None
+            auth = authProtocol(authKey)
 
-        self.users.addUser(engineID, userName, Credentials(**kwargs))
+            if privProtocol is None:
+                credentials = Credentials(auth)
+            else:
+                assert privKey is not None
+                priv = privProtocol(privKey)
+
+                credentials = Credentials(auth, priv)
+
+        self.users.addUser(engineID, userName, credentials)
 
     def prepareOutgoing(self, header, data, engineID,
                         securityName, securityLevel):
@@ -202,8 +189,9 @@ class SecurityModule:
             user = self.users.getUser(engineID, securityName)
 
             if not user.auth:
-                err = f"Authentication is disabled for user {securityName}"
-                raise InvalidSecurityLevel(err)
+                userName = securityName.decode
+                errmsg = f"Authentication is disabled for user \"{userName}\""
+                raise InvalidSecurityLevel(errmsg)
 
             engineTimeParameters = self.timekeeper.getEngineTime(engineID)
             snmpEngineBoots, snmpEngineTime = engineTimeParameters
@@ -212,8 +200,9 @@ class SecurityModule:
 
             if securityLevel.priv:
                 if not user.priv:
-                    err = f"Privacy is disabled for user {securityName}"
-                    raise InvalidSecurityLevel(err)
+                    userName = securityName.decode
+                    errmsg = f"Privacy is disabled for user \"{userName}\""
+                    raise InvalidSecurityLevel(errmsg)
 
                 msgPrivacyParameters, ciphertext = user.priv.encrypt(
                     data,
@@ -303,11 +292,13 @@ class SecurityModule:
             raise UnknownUserName(userName) from err
 
         if user.auth is None:
-            err = f"Authentication is disabled for user {userName}"
-            raise UnsupportedSecLevel(err)
+            userName = userName.decode()
+            errmsg = f"Authentication is disabled for user \"{userName}\""
+            raise UnsupportedSecLevel(errmsg)
         elif securityLevel.priv and user.priv is None:
-            err = f"Data privacy is disabled for user {userName}"
-            raise UnsupportedSecLevel(err)
+            userName = userName.decode()
+            errmsg = f"Data privacy is disabled for user \"{userName}\""
+            raise UnsupportedSecLevel(errmsg)
 
         padding = user.auth.msgAuthenticationParameters
         if len(msgAuthenticationParameters.data) != len(padding):

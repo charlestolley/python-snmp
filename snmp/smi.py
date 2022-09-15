@@ -7,7 +7,7 @@ __all__ = [
 from socket import inet_aton, inet_ntoa
 from snmp.ber import *
 from snmp.types import *
-from snmp.utils import typename
+from snmp.utils import *
 
 class Unsigned(Integer):
     SIGNED = False
@@ -26,8 +26,8 @@ class IpAddress(OctetString):
     def __repr__(self):
         return f"{typename(self)}({repr(self.addr)})"
 
-    def equals(a, b):
-        return a.data == b.data
+    def equals(self, other):
+        return self.data == other.data
 
     @property
     def data(self):
@@ -38,7 +38,8 @@ class IpAddress(OctetString):
 
     @classmethod
     def parse(cls, data):
-        return cls(inet_ntoa(data))
+        addr = data[:] if isinstance(data, subbytes) else data
+        return cls(inet_ntoa(addr))
 
 class Counter32(Unsigned):
     TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 1)

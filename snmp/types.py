@@ -18,7 +18,10 @@ SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
 
 class Asn1Encodable:
     def __eq__(self, other):
-        return type(self) is type(other) and self.equals(other)
+        if type(self) == type(other):
+            return self.equals(other)
+        else:
+            return NotImplemented
 
     @classmethod
     def decode(cls, data, leftovers=False, copy=True, **kwargs):
@@ -114,10 +117,14 @@ class OctetString(Primitive):
     INVALID_SIZES = ()
 
     def __init__(self, data=b""):
-        self.data = data
+        self._data = data
 
     def __repr__(self):
         return f"{typename(self)}({self.data})"
+
+    @property
+    def data(self):
+        return self._data
 
     def equals(self, other):
         return self.data == other.data
@@ -180,7 +187,7 @@ class Null(Primitive):
         return f"{typename(self)}()"
 
     def equals(self, other):
-        return isinstance(other, Null)
+        return True
 
     def appendToOID(self, oid):
         return oid
@@ -304,22 +311,22 @@ class OID(Primitive):
                 errmsg = "\"{}\" does not begin with \"{}\""
                 raise self.BadPrefix(errmsg.format(self, prefix))
 
-        index = None
-        if len(types) == 1:
-            index = self.tryDecode(nums, types[0])
-        elif types:
-            index = [None] * len(types)
-            for i, cls in enumerate(types):
-                index[i] = self.tryDecode(nums, cls)
-
-            index = tuple(index)
+        index = tuple(self.tryDecode(nums, cls) for cls in types)
 
         try:
             next(nums)
         except StopIteration:
-            return index
+            pass
         else:
             raise self.IndexDecodeError("Not all sub-identifiers were consumed")
+
+        if index:
+            if len(index) == 1:
+                return index[0]
+            else:
+                return index
+        else:
+            return None
 
     def equals(self, other):
         return self.nums == other.nums
@@ -379,7 +386,6 @@ class OID(Primitive):
             bytearr.extend(tmp)
 
     def serialize(self):
-
         try:
             first = self.nums[0]
         except IndexError:

@@ -34,19 +34,21 @@ class SecurityLevel:
 
     @auth.setter
     def auth(self, value):
-        if not value and self.priv:
+        _value = bool(value)
+        if not _value and self.priv:
             msg = "Cannot disable authentication while privacy is enabled"
             raise ValueError(msg)
 
-        self._auth = bool(value)
+        self._auth = _value
 
     @priv.setter
     def priv(self, value):
-        if value and not self.auth:
+        _value = bool(value)
+        if _value and not self.auth:
             msg = "Cannot enable privacy while authentication is disabled"
             raise ValueError(msg)
 
-        self._priv = bool(value)
+        self._priv = _value
 
     def __eq__(self, other):
         try:

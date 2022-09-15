@@ -28,7 +28,7 @@ class AuthProtocol:
 
     @property
     def msgAuthenticationParameters(self):
-        return b'\0' * self.N
+        return bytes(self.N)
 
     def sign(self, data):
         context = hmac.new(self.key, digestmod=self.ALGORITHM)

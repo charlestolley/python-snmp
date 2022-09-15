@@ -7,8 +7,8 @@ from . import Transport, TransportDomain, package
 class UdpTransportBase(Transport):
     DEFAULT_PORT = 161
 
-    @staticmethod
-    def normalizeAddress(address):
+    @classmethod
+    def normalizeAddress(cls, address):
         if isinstance(address, tuple):
             ip, port = address
         else:
