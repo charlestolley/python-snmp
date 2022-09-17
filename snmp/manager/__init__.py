@@ -21,6 +21,11 @@ class Repeater:
     def __lt__(a, b):
         return a.target < b.target
 
+    def start(self):
+        now = time.time()
+        self.nextRefresh = now + self.period
+        return self.request()
+
     def refresh(self):
         request = self.request()
         if request is None or request.fulfilled:

@@ -1,5 +1,6 @@
 __all__ = ["SNMPv3UsmManager"]
 
+from collections import deque
 import heapq
 import threading
 import weakref
@@ -33,144 +34,87 @@ class State:
 # User did not provide an engine ID, and
 # has not yet attempted to send any requests
 class Inactive(State):
-    def onRequest(self, request):
-        request.send()
+    def onRequest(self, auth):
         self.manager.state = WaitForDiscovery(self)
+        return True
 
-    def onReport(self, request, response):
+    def onReport(self, engineID):
         errmsg = "Received a report where no request should have been sent"
         raise SNMPLibraryBug(errmsg)
 
-    def onResponse(self, request, response):
+    def onResponse(self, engineID, auth):
         errmsg = "Received a response where no request should have been sent"
         raise SNMPLibraryBug(errmsg)
 
 # User provided an engine ID, but has not yet sent any requests
 class Unsynchronized(State):
-    def onRequest(self, request):
-        request.send(self.manager.engineID)
+    def onRequest(self, auth):
         self.manager.state = Synchronizing(self)
+        return True
 
-    def onReport(self, request, response):
+    def onReport(self, engineID):
         errmsg = "Received a report where no request should have been sent"
         raise SNMPLibraryBug(errmsg)
 
-    def onResponse(self, request, response):
+    def onResponse(self, engineID, auth):
         errmsg = "Received a response where no request should have been sent"
         raise SNMPLibraryBug(errmsg)
 
 # User did not provide an engine ID, and the Manager has not
 # yet received any communication from the remote engine.
 class WaitForDiscovery(State):
-    def onRequest(self, request):
-        pass
+    def onRequest(self, auth):
+        return False
 
-    def onReport(self, request, response):
-        engineID = response.securityEngineID
-
-        try:
-            self.manager.engineID = engineID
-        except ValueError as err:
-            print(err)
-            return
-
-        for entry in self.manager.requests:
-            request = entry.request()
-            if request is not None:
-                request.send(engineID)
-
+    def onReport(self, engineID):
         self.manager.state = TrustEveryResponse(self)
+        return True
 
-    def onResponse(self, request, response):
+    def onResponse(self, engineID, auth):
         pass
 
 # User provided and engineID and has sent at least one request, but the
 # Manager has not yet received any communication from the remote engine.
 class Synchronizing(State):
-    def onRequest(self, request):
-        if not request.securityLevel.auth:
-            request.send(self.manager.engineID)
+    def onRequest(self, auth):
+        return not auth
 
-    def onReport(self, request, response):
-        oid = response.data.pdu.variableBindings[0].name
-        if oid == usmStatsUnknownEngineIDsInstance:
-            try:
-                request.send(response.securityEngineID)
-            except ValueError:
-                return
-        elif response.securityLevel.auth:
-            if response.securityEngineID != self.manager.engineID:
-                self.manager.engineID = response.securityEngineID
-
-            for entry in self.manager.requests:
-                request = entry.request()
-                if request is not None and request.securityLevel.auth:
-                    request.send(self.manager.engineID)
-
+    def onReport(self, engineID):
+        if self.manager.engineID == engineID:
             self.manager.state = RequireAuthentication(self)
+            return True
+        else:
+            return False
 
-    def onResponse(self, request, response):
-        if response.securityLevel.auth:
-            if response.securityEngineID != self.manager.engineID:
-                self.manager.engineID = response.securityEngineID
-
-        answered = request
-        for entry in self.manager.requests:
-            r = entry.request()
-            if r is not None and r is not request and r.securityLevel.auth:
-                r.send(self.manager.engineID)
-
-        self.manager.state = RequireAuthentication(self)
+    def onResponse(self, engineID, auth):
+        if auth or self.manager.engineID == engineID:
+            self.manager.state = RequireAuthentication(self)
+            return True
+        else:
+            return False
 
 class TrustEveryResponse(State):
-    def onRequest(self, request):
-        request.send(self.manager.engineID)
+    def onRequest(self, auth):
+        return True
 
-    def onReport(self, request, response):
-        oid = response.data.pdu.variableBindings[0].name
-        if oid == usmStatsUnknownEngineIDsInstance:
-            try:
-                request.send(response.securityEngineID)
-            except ValueError:
-                return
+    def onReport(self, engineID):
+        return False
 
-        if response.securityLevel.auth:
-            if response.securityEngineID != self.manager.engineID:
-                self.manager.engineID = response.securityEngineID
+    def onResponse(self, engineID, auth):
+        if auth:
             self.manager.state = RequireAuthentication(self)
 
-    def onResponse(self, request, response):
-        if response.securityEngineID != self.manager.engineID:
-            try:
-                self.manager.engineID = response.securityEngineID
-            except ValueError:
-                return
-
-        if response.securityLevel.auth:
-            self.manager.state = RequireAuthentication(self)
+        return True
 
 class RequireAuthentication(State):
-    def onRequest(self, request):
-        request.send(self.manager.engineID)
+    def onRequest(self, auth):
+        return True
 
-    def onReport(self, request, response):
-        oid = response.data.pdu.variableBindings[0].name
-        if oid == usmStatsUnknownEngineIDsInstance:
-            try:
-                request.send(response.securityEngineID)
-            except ValueError:
-                return
-        elif response.securityLevel.auth:
-            if response.securityEngineID != self.manager.engineID:
-                self.manager.engineID = response.securityEngineID
+    def onReport(self, engineID):
+        return False
 
-            if oid == usmStatsNotInTimeWindowsInstance:
-                request.send(self.manager.engineID)
-
-    def onResponse(self, request, response):
-        if response.securityLevel.auth:
-            if response.securityEngineID != self.manager.engineID:
-                self.manager.engineID = response.securityEngineID
+    def onResponse(self, engineID, auth):
+        return auth
 
 class Request(RequestHandle):
     def __init__(self, pdu, manager, userName, securityLevel):
@@ -292,9 +236,10 @@ class SNMPv3UsmManager:
         self.generator = NumberGenerator(32)
         self.localEngine = engine
 
-        # protects self.requests, self.state, and (implicitly) self.engineID
+        # protects self.active, self.unsent, self.state, and self.engineID
         self.lock = threading.Lock()
-        self.requests = []
+        self.active = []
+        self.unsent = deque()
 
         if engineID is None:
             self.state = Inactive(self)
@@ -325,17 +270,17 @@ class SNMPv3UsmManager:
         self._engineID = engineID
 
     def refresh(self):
-        while self.requests:
+        while self.active:
             with self.lock:
-                entry = self.requests[0]
+                entry = self.active[0]
                 result = entry.refresh()
 
                 if result is None:
-                    heapq.heappop(self.requests)
+                    heapq.heappop(self.active)
                     continue
 
-                if result < 0:
-                    heapq.heapreplace(self.requests, entry)
+                if result < 0.0:
+                    heapq.heapreplace(self.active, entry)
                 else:
                     return result
 
@@ -343,11 +288,24 @@ class SNMPv3UsmManager:
 
     def processResponse(self, request, response):
         with self.lock:
+            engineID = response.securityEngineID
             if isinstance(response.data.pdu, ReportPDU):
-                self.state.onReport(request, response)
+                request.send(engineID)
+                if self.state.onReport(engineID):
+                    while self.unsent:
+                        repeater = self.unsent.popleft()
+                        request = repeater.start()
+
+                        if request is not None:
+                            request.send(engineID)
+                            heapq.heappush(self.active, repeater)
+
                 return False
             else:
-                self.state.onResponse(request, response)
+                auth = response.securityLevel.auth
+                if self.state.onResponse(engineID, auth):
+                    self.engineID = engineID
+
                 return True
 
     def sendPdu(self, pdu, handle, engineID, user, securityLevel):
@@ -376,8 +334,12 @@ class SNMPv3UsmManager:
         request = Request(pdu, self, user, securityLevel, **kwargs)
 
         with self.lock:
-            heapq.heappush(self.requests, Repeater(request))
-            self.state.onRequest(request)
+            repeater = Repeater(request)
+            if self.state.onRequest(securityLevel.auth):
+                heapq.heappush(self.active, repeater)
+                request.send(self.engineID)
+            else:
+                self.unsent.append(repeater)
 
         if wait:
             return request.wait()
