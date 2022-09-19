@@ -1,6 +1,25 @@
-__all__ = ["NumberGenerator", "subbytes", "typename"]
+__all__ = ["ComparableWeakReference", "NumberGenerator", "subbytes", "typename"]
 
 from random import randint
+import weakref
+
+class ComparableWeakReference:
+    def __init__(self, obj):
+        self.ref = weakref.ref(obj)
+
+    def __call__(self):
+        return self.ref()
+
+    def __lt__(self, other):
+        a = self()
+        b = other()
+
+        if a is None:
+            return True
+        elif b is None:
+            return False
+        else:
+            return a < b
 
 class NumberGenerator:
     def __init__(self, nbits, signed=True):

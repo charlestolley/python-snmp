@@ -313,8 +313,13 @@ class SNMPv3UsmManager:
     def refresh(self):
         while self.active:
             with self.lock:
-                request = self.active[0]
-                wait = request.refresh()
+                reference = self.active[0]
+                request = reference()
+
+                if request is None:
+                    wait = None
+                else:
+                    wait = request.refresh()
 
                 if wait is None:
                     heapq.heappop(self.active)
@@ -322,7 +327,7 @@ class SNMPv3UsmManager:
                 elif wait > 0.0:
                     return wait
                 else:
-                    heapq.heapreplace(self.active, request)
+                    heapq.heapreplace(self.active, reference)
 
         return None
 
@@ -335,10 +340,12 @@ class SNMPv3UsmManager:
 
                 if sendAll:
                     while self.unsent:
-                        request = self.unsent.pop()
+                        reference = self.unsent.pop()
+                        request = reference()
+
                         if request is not None:
                             request.send(engineID)
-                            heapq.heappush(self.active, request)
+                            heapq.heappush(self.active, reference)
 
                 return False
             else:
@@ -374,11 +381,12 @@ class SNMPv3UsmManager:
         request = Request(pdu, self, user, securityLevel, **kwargs)
 
         with self.lock:
+            reference = ComparableWeakReference(request)
             if self.state.onRequest(securityLevel.auth):
-                heapq.heappush(self.active, request)
+                heapq.heappush(self.active, reference)
                 request.send(self.engineID)
             else:
-                self.unsent.appendleft(request)
+                self.unsent.appendleft(reference)
 
         if wait:
             return request.wait()
