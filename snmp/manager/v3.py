@@ -2,7 +2,9 @@ __all__ = ["SNMPv3UsmManager"]
 
 from collections import deque
 import heapq
+import math
 import threading
+import time
 import weakref
 
 from snmp.dispatcher import *
@@ -117,7 +119,10 @@ class RequireAuthentication(State):
         return auth
 
 class Request(RequestHandle):
-    def __init__(self, pdu, manager, userName, securityLevel):
+    def __init__(self, pdu, manager, userName, securityLevel,
+                            timeout=10.0, refreshPeriod=1.0):
+        now = time.time()
+
         self._engineID = None
 
         self.manager = manager
@@ -129,12 +134,21 @@ class Request(RequestHandle):
         self.messages = set()
 
         self.event = threading.Event()
+        self.expiration = now + timeout
+        self.nextRefresh = float("inf")
+        self.period = refreshPeriod
+
         self.expired = False
         self.response = None
 
     def __del__(self):
         if self.callback is not None:
             self.close()
+
+    def __lt__(self, other):
+        a = min(self .expiration, self .nextRefresh)
+        b = min(other.expiration, other.nextRefresh)
+        return a < b
 
     @property
     def engineID(self):
@@ -186,7 +200,7 @@ class Request(RequestHandle):
             self.response = response
             self.event.set()
 
-    def send(self, engineID=None):
+    def reallySend(self, engineID=None):
         pdu = self.pdu
         user = self.userName
         securityLevel = self.securityLevel
@@ -203,6 +217,31 @@ class Request(RequestHandle):
             self.engineID = engineID
 
         return self.manager.sendPdu(pdu, self, engineID, user, securityLevel)
+
+    def refresh(self):
+        if self.fulfilled or self.expired:
+            return None
+
+        now = time.time()
+        expireTime = self.expiration - now
+        if expireTime <= 0.0:
+            self.expired = True
+            return None
+
+        refreshTime = self.nextRefresh - now
+        delta = min(expireTime, refreshTime)
+
+        if delta < 0.0:
+            self.nextRefresh += math.ceil(-delta / self.period) * self.period
+            self.reallySend()
+            return 0.0
+        else:
+            return delta
+
+    def send(self, engineID=None):
+        now = time.time()
+        self.nextRefresh = now + self.period
+        self.reallySend(engineID)
 
     def wait(self):
         pdu = None
@@ -272,17 +311,16 @@ class SNMPv3UsmManager:
     def refresh(self):
         while self.active:
             with self.lock:
-                entry = self.active[0]
-                result = entry.refresh()
+                request = self.active[0]
+                wait = request.refresh()
 
-                if result is None:
+                if wait is None:
                     heapq.heappop(self.active)
                     continue
-
-                if result < 0.0:
-                    heapq.heapreplace(self.active, entry)
+                elif wait > 0.0:
+                    return wait
                 else:
-                    return result
+                    heapq.heapreplace(self.active, request)
 
         return None
 
@@ -290,15 +328,15 @@ class SNMPv3UsmManager:
         with self.lock:
             engineID = response.securityEngineID
             if isinstance(response.data.pdu, ReportPDU):
+                sendAll = self.state.onReport(engineID)
                 request.send(engineID)
-                if self.state.onReport(engineID):
-                    while self.unsent:
-                        repeater = self.unsent.popleft()
-                        request = repeater.start()
 
+                if sendAll:
+                    while self.unsent:
+                        request = self.unsent.pop()
                         if request is not None:
                             request.send(engineID)
-                            heapq.heappush(self.active, repeater)
+                            heapq.heappush(self.active, request)
 
                 return False
             else:
@@ -334,12 +372,11 @@ class SNMPv3UsmManager:
         request = Request(pdu, self, user, securityLevel, **kwargs)
 
         with self.lock:
-            repeater = Repeater(request)
             if self.state.onRequest(securityLevel.auth):
-                heapq.heappush(self.active, repeater)
+                heapq.heappush(self.active, request)
                 request.send(self.engineID)
             else:
-                self.unsent.append(repeater)
+                self.unsent.appendleft(request)
 
         if wait:
             return request.wait()
