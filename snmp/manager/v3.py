@@ -36,6 +36,9 @@ class State:
 # User did not provide an engine ID, and
 # has not yet attempted to send any requests
 class Inactive(State):
+    def onInactive(self):
+        pass
+
     def onRequest(self, auth):
         self.manager.state = WaitForDiscovery(self)
         return True
@@ -50,6 +53,9 @@ class Inactive(State):
 
 # User provided an engine ID, but has not yet sent any requests
 class Unsynchronized(State):
+    def onInactive(self):
+        pass
+
     def onRequest(self, auth):
         self.manager.state = Synchronizing(self)
         return True
@@ -65,6 +71,9 @@ class Unsynchronized(State):
 # User did not provide an engine ID, and the Manager has not
 # yet received any communication from the remote engine.
 class WaitForDiscovery(State):
+    def onInactive(self):
+        self.manager.state = Inactive(self)
+
     def onRequest(self, auth):
         return False
 
@@ -78,6 +87,9 @@ class WaitForDiscovery(State):
 # User provided and engineID and has sent at least one request, but the
 # Manager has not yet received any communication from the remote engine.
 class Synchronizing(State):
+    def onInactive(self):
+        self.manager.state = Unsynchronized(self)
+
     def onRequest(self, auth):
         return not auth
 
@@ -96,6 +108,9 @@ class Synchronizing(State):
             return False
 
 class TrustEveryResponse(State):
+    def onInactive(self):
+        pass
+
     def onRequest(self, auth):
         return True
 
@@ -109,6 +124,9 @@ class TrustEveryResponse(State):
         return True
 
 class RequireAuthentication(State):
+    def onInactive(self):
+        pass
+
     def onRequest(self, auth):
         return True
 
@@ -310,8 +328,27 @@ class SNMPv3UsmManager:
 
         self._engineID = engineID
 
+    def poke(self):
+        with self.lock:
+            self.state.onInactive()
+
+            unsent = self.unsent
+            self.unsent = deque()
+            while unsent:
+                reference = unsent.pop()
+                request = reference()
+
+                if request is not None:
+                    if self.state.onRequest(request.securityLevel.auth):
+                        heapq.heappush(self.active, reference)
+                        request.send(self.engineID)
+                    else:
+                        self.unsent.appendleft(reference)
+
+        return bool(self.active)
+
     def refresh(self):
-        while self.active:
+        while self.active or self.poke():
             with self.lock:
                 reference = self.active[0]
                 request = reference()
@@ -337,6 +374,7 @@ class SNMPv3UsmManager:
             if isinstance(response.data.pdu, ReportPDU):
                 sendAll = self.state.onReport(engineID)
                 request.send(engineID)
+                heapq.heapify(self.active)
 
                 if sendAll:
                     while self.unsent:
