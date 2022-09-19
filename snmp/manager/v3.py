@@ -23,15 +23,9 @@ usmStatsUnknownEngineIDsInstance = OID.parse("1.3.6.1.6.3.15.1.1.4.0")
 class State:
     def __init__(self, arg):
         if isinstance(arg, State):
-            self._manager = arg._manager
+            self.manager = arg.manager
         else:
-            self._manager = weakref.ref(arg)
-
-    @property
-    def manager(self):
-        manager = self._manager()
-        assert manager is not None
-        return manager
+            self.manager = weakref.proxy(arg)
 
 # User did not provide an engine ID, and
 # has not yet attempted to send any requests
