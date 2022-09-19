@@ -133,12 +133,11 @@ class Request(RequestHandle):
         self.callback = None
         self.messages = set()
 
-        self.event = threading.Event()
         self.expiration = now + timeout
         self.nextRefresh = float("inf")
         self.period = refreshPeriod
 
-        self.expired = False
+        self.event = threading.Event()
         self.response = None
 
     def __del__(self):
@@ -171,6 +170,10 @@ class Request(RequestHandle):
             localEngine.unregisterRemoteEngine(self._engineID, namespace)
 
         self._engineID = engineID
+
+    @property
+    def expired(self):
+        return self.expiration <= time.time()
 
     @property
     def fulfilled(self):
@@ -219,13 +222,12 @@ class Request(RequestHandle):
         return self.manager.sendPdu(pdu, self, engineID, user, securityLevel)
 
     def refresh(self):
-        if self.fulfilled or self.expired:
+        if self.fulfilled:
             return None
 
         now = time.time()
         expireTime = self.expiration - now
         if expireTime <= 0.0:
-            self.expired = True
             return None
 
         refreshTime = self.nextRefresh - now
