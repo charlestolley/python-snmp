@@ -4,6 +4,7 @@ from abc import abstractmethod
 import enum
 from snmp.ber import decode
 from snmp.types import *
+from snmp.utils import *
 
 class MessageProcessingModel(enum.IntEnum):
     SNMPv1  = 0
