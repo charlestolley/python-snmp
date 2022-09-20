@@ -289,9 +289,12 @@ class SNMPv3UsmManager:
         self.generator = NumberGenerator(32)
         self.localEngine = engine
 
-        # protects self.active, self.unsent, self.state, and self.engineID
-        self.lock = threading.Lock()
+        # protects self.active
+        self.activeLock = threading.Lock()
         self.active = []
+
+        # protects self.unsent, self.state, and self.engineID
+        self.lock = threading.Lock()
         self.unsent = deque()
 
         if engineID is None:
@@ -334,31 +337,41 @@ class SNMPv3UsmManager:
 
                 if request is not None:
                     if self.state.onRequest(request.securityLevel.auth):
-                        heapq.heappush(self.active, reference)
-                        request.send(self.engineID)
+                        with self.activeLock:
+                            request.send(self.engineID)
+                            heapq.heappush(self.active, reference)
                     else:
                         self.unsent.appendleft(reference)
 
         return bool(self.active)
 
     def refresh(self):
-        while self.active or self.poke():
-            with self.lock:
-                reference = self.active[0]
-                request = reference()
+        active = True
+        while active:
+            with self.activeLock:
+                if self.active:
+                    reference = self.active[0]
+                    request = reference()
 
-                if request is None:
-                    wait = None
-                else:
-                    wait = request.refresh()
+                    if request is None:
+                        wait = None
+                    else:
+                        wait = request.refresh()
 
-                if wait is None:
-                    heapq.heappop(self.active)
-                    continue
-                elif wait > 0.0:
-                    return wait
+                    if wait is None:
+                        heapq.heappop(self.active)
+                        continue
+                    elif wait > 0.0:
+                        return wait
+                    else:
+                        heapq.heapreplace(self.active, reference)
+
+                    active = True
                 else:
-                    heapq.heapreplace(self.active, reference)
+                    active = False
+
+            if not active:
+                active = self.poke()
 
         return None
 
@@ -367,8 +380,10 @@ class SNMPv3UsmManager:
             engineID = response.securityEngineID
             if isinstance(response.data.pdu, ReportPDU):
                 sendAll = self.state.onReport(engineID)
-                request.send(engineID)
-                heapq.heapify(self.active)
+
+                with self.activeLock:
+                    request.send(engineID)
+                    heapq.heapify(self.active)
 
                 if sendAll:
                     while self.unsent:
@@ -376,8 +391,9 @@ class SNMPv3UsmManager:
                         request = reference()
 
                         if request is not None:
-                            request.send(engineID)
-                            heapq.heappush(self.active, reference)
+                            with self.activeLock:
+                                request.send(engineID)
+                                heapq.heappush(self.active, reference)
 
                 return False
             else:
@@ -415,8 +431,9 @@ class SNMPv3UsmManager:
         with self.lock:
             reference = ComparableWeakReference(request)
             if self.state.onRequest(securityLevel.auth):
-                heapq.heappush(self.active, reference)
-                request.send(self.engineID)
+                with self.activeLock:
+                    request.send(self.engineID)
+                    heapq.heappush(self.active, reference)
             else:
                 self.unsent.appendleft(reference)
 
