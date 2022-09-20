@@ -2,26 +2,41 @@ __all__ = ["SNMPv1Manager"]
 
 import heapq
 import threading
+import time
 
-from snmp.dispatcher import *
 from snmp.message import *
 from snmp.pdu import *
-from . import *
+from snmp.utils import *
 
 class Request(RequestHandle):
-    def __init__(self, pdu, manager, community):
+    def __init__(self, pdu, manager, community,
+                timeout=10.0, refreshPeriod=1.0):
+        now = time.time()
+
         self.community = community
         self.manager = manager
         self.pdu = pdu
 
         self.callback = None
         self.event = threading.Event()
-        self.expired = False
         self.response = None
+
+        self.expiration = now + timeout
+        self.nextRefresh = float("inf")
+        self.period = refreshPeriod
 
     def __del__(self):
         if self.callback is not None:
             self.close()
+
+    def __lt__(self, other):
+        a = min(self .expiration, self .nextRefresh)
+        b = min(other.expiration, other.nextRefresh)
+        return a < b
+
+    @property
+    def expired(self):
+        return self.expiration <= time.time()
 
     @property
     def fulfilled(self):
@@ -41,8 +56,32 @@ class Request(RequestHandle):
         self.response = response
         self.event.set()
 
-    def send(self):
+    def reallySend(self):
         return self.manager.sendPdu(self.pdu, self, self.community)
+
+    def refresh(self):
+        if self.fulfilled:
+            return None
+
+        now = time.time()
+        expireTime = self.expiration - now
+        if expireTime <= 0.0:
+            return None
+
+        refreshTime = self.nextRefresh - now
+        delta = min(expireTime, refreshTime)
+
+        if delta < 0.0:
+            self.nextRefresh += math.ceil(-delta / self.period) * self.period
+            self.reallySend()
+            return 0.0
+        else:
+            return delta
+
+    def send(self):
+        now = time.time()
+        self.nextRefresh = now + self.period
+        self.reallySend()
 
     def wait(self):
         pdu = None
@@ -72,17 +111,21 @@ class SNMPv1Manager:
     def refresh(self):
         while self.requests:
             with self.lock:
-                entry = self.requests[0]
-                result = entry.refresh()
+                reference = self.requests[0]
+                request = reference()
 
-                if result is None:
+                if request is None:
+                    wait = None
+                else:
+                    wait = request.refresh()
+
+                if wait is None:
                     heapq.heappop(self.requests)
                     continue
-
-                if result < 0:
-                    heapq.heapreplace(self.requests, entry)
+                elif wait > 0.0:
+                    return wait
                 else:
-                    return result
+                    heapq.heapreplace(self.requests, reference)
 
         return None
 
@@ -105,7 +148,7 @@ class SNMPv1Manager:
         request = Request(pdu, self, community, **kwargs)
 
         with self.lock:
-            heapq.heappush(self.requests, Repeater(request))
+            heapq.heappush(self.requests, ComparableWeakReference(request))
             request.send()
 
         if wait:

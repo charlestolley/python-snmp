@@ -145,12 +145,12 @@ class Request(RequestHandle):
         self.callback = None
         self.messages = set()
 
+        self.event = threading.Event()
+        self.response = None
+
         self.expiration = now + timeout
         self.nextRefresh = float("inf")
         self.period = refreshPeriod
-
-        self.event = threading.Event()
-        self.response = None
 
     def __del__(self):
         if self.callback is not None:
