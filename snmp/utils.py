@@ -4,8 +4,12 @@ from random import randint
 import weakref
 
 class ComparableWeakReference:
-    def __init__(self, obj):
-        self.ref = weakref.ref(obj)
+    def __init__(self, obj, callback=None):
+        self.__callback__ = callback
+        self.ref = weakref.ref(obj, None if callback is None else self.notify)
+
+    def notify(self, ref):
+        self.__callback__(self)
 
     def __call__(self):
         return self.ref()

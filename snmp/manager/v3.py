@@ -325,6 +325,14 @@ class SNMPv3UsmManager:
 
         self._engineID = engineID
 
+    def drop(self, reference):
+        with self.activeLock:
+            for i, item in enumerate(self.active):
+                if item is reference:
+                    self.active.pop(i)
+                    heapq.heapify(self.active)
+                    break
+
     def poke(self):
         with self.lock:
             self.state.onInactive()
@@ -429,7 +437,7 @@ class SNMPv3UsmManager:
         request = Request(pdu, self, user, securityLevel, **kwargs)
 
         with self.lock:
-            reference = ComparableWeakReference(request)
+            reference = ComparableWeakReference(request, self.drop)
             if self.state.onRequest(securityLevel.auth):
                 with self.activeLock:
                     request.send(self.engineID)
