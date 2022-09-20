@@ -7,6 +7,7 @@ import time
 from snmp.message import *
 from snmp.pdu import *
 from snmp.utils import *
+from . import *
 
 class Request(RequestHandle):
     def __init__(self, pdu, manager, community,
