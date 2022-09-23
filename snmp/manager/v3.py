@@ -264,6 +264,9 @@ class Request(RequestHandle):
             if self.event.wait(timeout=timeout):
                 pdu = self.response.data.pdu
                 break
+        else:
+            if self.fulfilled:
+                pdu = self.response.data.pdu
 
         self.close()
         if pdu is None:
