@@ -178,7 +178,7 @@ class Request(RequestHandle):
                 errmsg = "Failed to register engineID {} under namespace \"{}\""
                 raise ValueError(errmsg.format(engineID, namespace))
 
-        if self._engineID != None:
+        if self._engineID is not None:
             localEngine.unregisterRemoteEngine(self._engineID, namespace)
 
         self._engineID = engineID
