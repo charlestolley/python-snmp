@@ -387,21 +387,24 @@ class SNMPv3UsmManager:
         with self.lock:
             engineID = response.securityEngineID
             if isinstance(response.data.pdu, ReportPDU):
-                sendAll = self.state.onReport(engineID)
+                oid = response.data.pdu.variableBindings[0].name
+                if (oid == usmStatsUnknownEngineIDsInstance
+                or  oid == usmStatsNotInTimeWindowsInstance):
+                    sendAll = self.state.onReport(engineID)
 
-                with self.activeLock:
-                    request.send(engineID)
-                    heapq.heapify(self.active)
+                    with self.activeLock:
+                        request.send(engineID)
+                        heapq.heapify(self.active)
 
-                if sendAll:
-                    while self.unsent:
-                        reference = self.unsent.pop()
-                        request = reference()
+                    if sendAll:
+                        while self.unsent:
+                            reference = self.unsent.pop()
+                            request = reference()
 
-                        if request is not None:
-                            with self.activeLock:
-                                request.send(engineID)
-                                heapq.heappush(self.active, reference)
+                            if request is not None:
+                                with self.activeLock:
+                                    request.send(engineID)
+                                    heapq.heappush(self.active, reference)
 
                 return False
             else:
