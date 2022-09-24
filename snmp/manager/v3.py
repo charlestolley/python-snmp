@@ -319,12 +319,18 @@ class SNMPv3UsmManager:
             return
 
         if engineID is not None:
-            if not self.localEngine.registerRemoteEngine(engineID, self.namespace):
+            if not self.localEngine.registerRemoteEngine(
+                    engineID,
+                    self.namespace,
+            ):
                 errmsg = "Failed to register engineID {} under namespace \"{}\""
                 raise ValueError(errmsg.format(engineID, self.namespace))
 
         if self._engineID != None:
-            self.localEngine.unregisterRemoteEngine(self._engineID, self.namespace)
+            self.localEngine.unregisterRemoteEngine(
+                self._engineID,
+                self.namespace,
+            )
 
         self._engineID = engineID
 
@@ -337,6 +343,7 @@ class SNMPv3UsmManager:
                     break
 
     def poke(self):
+        active = False
         with self.lock:
             self.state.onInactive()
 
@@ -351,10 +358,11 @@ class SNMPv3UsmManager:
                         with self.activeLock:
                             request.send(self.engineID)
                             heapq.heappush(self.active, reference)
+                            active = True
                     else:
                         self.unsent.appendleft(reference)
 
-        return bool(self.active)
+        return active
 
     def refresh(self):
         active = True
@@ -441,9 +449,9 @@ class SNMPv3UsmManager:
             wait = self.autowait
 
         request = Request(pdu, self, user, securityLevel, **kwargs)
+        reference = ComparableWeakReference(request, self.drop)
 
         with self.lock:
-            reference = ComparableWeakReference(request, self.drop)
             if self.state.onRequest(securityLevel.auth):
                 with self.activeLock:
                     request.send(self.engineID)
