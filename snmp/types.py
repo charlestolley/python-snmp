@@ -320,13 +320,10 @@ class OID(Primitive):
         else:
             raise self.IndexDecodeError("Not all sub-identifiers were consumed")
 
-        if index:
-            if len(index) == 1:
-                return index[0]
-            else:
-                return index
-        else:
-            return None
+        return index
+
+    def getIndex(self, prefix, cls):
+        return self.extractIndex(prefix, cls)[0]
 
     def equals(self, other):
         return self.nums == other.nums
