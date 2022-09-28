@@ -160,10 +160,10 @@ class OctetString(Primitive):
             msg = "Encoded {} not permitted to be {} bytes long"
             raise ParseError(msg.format(typename(cls), len(data)))
 
-        return cls.parse(data)
+        return cls.interpret(data)
 
     @classmethod
-    def parse(cls, data):
+    def interpret(cls, data):
         return cls(data)
 
     def serialize(self):

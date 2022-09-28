@@ -37,7 +37,7 @@ class IpAddress(OctetString):
             raise ValueError(f"Invalid IPv4 address: \"{self.addr}\"") from err
 
     @classmethod
-    def parse(cls, data):
+    def interpret(cls, data):
         addr = data[:] if isinstance(data, subbytes) else data
         return cls(inet_ntoa(addr))
 

@@ -65,7 +65,7 @@ class MessageFlags(OctetString):
         return f"<{','.join(flags)}>"
 
     @classmethod
-    def parse(cls, data=b''):
+    def interpret(cls, data=b''):
         return cls(byte=data[0])
 
     @property
