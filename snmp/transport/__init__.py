@@ -18,7 +18,7 @@ class Transport:
     def Locator(cls, address):
         return TransportLocator(cls.DOMAIN, cls.normalizeAddress(address))
 
-    @staticmethod
+    @classmethod
     def normalizeAddress(cls, address):
         return address
 

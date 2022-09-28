@@ -13,7 +13,7 @@ class UdpTransportBase(Transport):
             ip, port = address
         else:
             ip = address
-            port = UdpTransportBase.DEFAULT_PORT
+            port = cls.DEFAULT_PORT
 
         try:
             inet_pton(AF_INET, ip)
