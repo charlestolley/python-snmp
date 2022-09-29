@@ -115,7 +115,10 @@ class VarBindList(Sequence):
 
         return cls(*objects)
 
-class PDU(Constructed):
+class PDUBase(Constructed):
+    pass
+
+class PDU(PDUBase):
     class ErrorStatus(enum.IntEnum):
         noError             = 0
         tooBig              = enum.auto()
@@ -221,7 +224,7 @@ class PDU(Constructed):
             variableBindings=variableBindings,
         )
 
-class BulkPDU(Constructed):
+class BulkPDU(PDUBase):
     def __init__(self, *args, requestID=0, nonRepeaters=0,
                     maxRepetitions=0, variableBindings=None):
         self.requestID = requestID
