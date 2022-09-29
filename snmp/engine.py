@@ -118,8 +118,12 @@ class Engine:
             if acquired and not initialized:
                 space = self.namespaces[namespace]
                 for userName, userEntry in space:
-                    kwargs = self.localize(engineID, **userEntry.credentials)
-                    self.usm.addUser(engineID, userName, **kwargs)
+                    auth, priv = self.localize(
+                        engineID,
+                        **userEntry.credentials,
+                    )
+
+                    self.usm.addUser(engineID, userName, auth, priv)
 
             return acquired
 
@@ -136,16 +140,16 @@ class Engine:
     @staticmethod
     def localize(engineID, authProtocol=None, authSecret=None,
                            privProtocol=None, privSecret=None):
-        kwargs = dict()
+        auth = None
+        priv = None
+
         if authProtocol is not None:
-            kwargs["authProtocol"] = authProtocol
-            kwargs["authKey"] = authProtocol.localize(authSecret, engineID)
+            auth = authProtocol(authProtocol.localize(authSecret, engineID))
 
             if privProtocol is not None:
-                kwargs["privProtocol"] = privProtocol
-                kwargs["privKey"] = authProtocol.localize(privSecret, engineID)
+                priv = privProtocol(authProtocol.localize(privSecret, engineID))
 
-        return kwargs
+        return auth, priv
 
     def addUser(self, userName, authProtocol=None, authSecret=None,
             privProtocol=None, privSecret=None, secret=b"",

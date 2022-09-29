@@ -164,24 +164,11 @@ class SecurityModule:
         if self.engineID is not None:
             self.timekeeper.update(self.engineID)
 
-    def addUser(self, engineID, userName,
-                authProtocol=None, authKey=None,
-                privProtocol=None, privKey=None):
-        if authProtocol is None:
-            credentials = Credentials()
-        else:
-            assert authKey is not None
-            auth = authProtocol(authKey)
+    def addUser(self, engineID, userName, auth=None, priv=None):
+        if auth is None and priv is not None:
+            priv = None
 
-            if privProtocol is None:
-                credentials = Credentials(auth)
-            else:
-                assert privKey is not None
-                priv = privProtocol(privKey)
-
-                credentials = Credentials(auth, priv)
-
-        self.users.addUser(engineID, userName, credentials)
+        self.users.addUser(engineID, userName, Credentials(auth, priv))
 
     def prepareOutgoing(self, header, data, engineID,
                         securityName, securityLevel):
