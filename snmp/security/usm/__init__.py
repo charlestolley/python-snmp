@@ -320,11 +320,11 @@ class SecurityModule:
                 msgAuthoritativeEngineTime.value,
                 timestamp=timestamp,
             ):
-                raise NotInTimeWindow(
+                raise NotInTimeWindow((
                     engineID,
                     msgAuthoritativeEngineBoots.value,
                     msgAuthoritativeEngineTime.value,
-                )
+                ))
         except InvalidEngineID as err:
             raise UnknownEngineID(engineID) from err
 
