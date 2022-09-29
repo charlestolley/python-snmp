@@ -99,7 +99,10 @@ class VarBindList(Sequence):
         args = ", ".join(repr(var) for var in self.variables)
         return "{}({})".format(typename(self), args)
 
-    def __str__(self, indent=""):
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, indent=""):
         return "\n".join("{}{}".format(indent, var) for var in self.variables)
 
     @classmethod
@@ -168,7 +171,10 @@ class PDU(Constructed):
         args.append("variableBindings={}".format(repr(self.variableBindings)))
         return "{}({})".format(typename(self), ", ".join(args))
 
-    def __str__(self, depth=0, tab="    "):
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, depth=0, tab="    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
@@ -183,7 +189,7 @@ class PDU(Constructed):
             subindent, self.requestID,
             subindent, self.errorStatus,
             subindent, self.errorIndex,
-            subindent, self.variableBindings.__str__(subindent + tab)
+            subindent, self.variableBindings.toString(subindent + tab)
         )
 
     @classmethod
@@ -250,7 +256,10 @@ class BulkPDU(Constructed):
         args.append("variableBindings={}".format(repr(self.variableBindings)))
         return "{}({})".format(typename(self), ", ".join(args))
 
-    def __str__(self, depth=0, tab="    "):
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, depth=0, tab="    "):
         indent = tab * (depth + 1)
         return "\n".join((
             "{}:",
@@ -264,7 +273,7 @@ class BulkPDU(Constructed):
             indent, self.requestID,
             indent, self.nonRepeaters,
             indent, self.maxRepetitions,
-            indent, self.variableBindings.__str__(tab * (depth + 2))
+            indent, self.variableBindings.toString(tab * (depth + 2))
         )
 
     @classmethod

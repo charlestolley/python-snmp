@@ -131,7 +131,10 @@ class HeaderData(Sequence):
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self, depth=0, tab="    "):
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, depth=0, tab="    "):
         indent = tab * depth
         subindent = indent + tab
         securityModel = SecurityModel(self.securityModel)
@@ -187,14 +190,17 @@ class ScopedPDU(Sequence):
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self, depth=0, tab="    "):
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, depth=0, tab="    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
             f"{indent}{typename(self)}:",
             f"{subindent}Context Engine ID: {self.contextEngineID}",
             f"{subindent}Context Name: {self.contextName}",
-            f"{self.pdu.__str__(depth=depth+1, tab=tab)}"
+            f"{self.pdu.toString(depth=depth+1, tab=tab)}"
         ))
 
     @classmethod
@@ -243,7 +249,10 @@ class SNMPv3Message:
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self, depth=0, tab="    "):
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, depth=0, tab="    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
@@ -252,7 +261,7 @@ class SNMPv3Message:
             f"{subindent}Security Engine ID: {self.securityEngineID}",
             f"{subindent}Security Level: {self.securityLevel}",
             f"{subindent}Security Name: {self.securityName}",
-            f"{self.data.__str__(depth+1, tab)}",
+            f"{self.data.toString(depth+1, tab)}",
         ))
 
 class MessageProcessor:

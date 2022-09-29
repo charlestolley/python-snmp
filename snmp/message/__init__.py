@@ -35,13 +35,16 @@ class Message(BaseMessage, Sequence):
     def __repr__(self):
         return f"{typename(self)}({self.community!r}, {repr(self.pdu)})"
 
-    def __str__(self, depth=0, tab="    "):
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, depth=0, tab="    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
             f"{indent}{typename(self)}:",
             f"{subindent}Community: {self.community!r}",
-            f"{self.pdu.__str__(depth+1, tab)}",
+            f"{self.pdu.toString(depth+1, tab)}",
         ))
 
 class RequestHandle:
