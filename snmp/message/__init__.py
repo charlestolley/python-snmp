@@ -52,12 +52,3 @@ class RequestHandle:
     @abstractmethod
     def push(self, response):
         ...
-
-class MessageProcessor:
-    @abstractmethod
-    def prepareDataElements(self, msg):
-        ...
-
-    @abstractmethod
-    def prepareOutgoingMessage(self, pdu, handle, *args, **kwargs):
-        ...
