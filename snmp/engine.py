@@ -284,7 +284,7 @@ class Engine:
                 self.dispatcher.addMessageProcessor(self.mpv3)
 
             if self.usm is None:
-                self.usm = SecurityModule()
+                self.usm = UserBasedSecurityModule()
                 self.mpv3.secure(self.usm)
 
         return SNMPv3UsmManager(

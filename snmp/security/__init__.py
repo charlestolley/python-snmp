@@ -1,6 +1,10 @@
-__all__ = ["SecurityLevel", "SecurityModel", "SecurityParameters"]
+__all__ = [
+    "SecurityLevel", "SecurityModel", "SecurityModule", "SecurityParameters",
+]
 
+from abc import abstractmethod
 import enum
+
 from snmp.utils import typename
 
 class SecurityLevel:
@@ -75,3 +79,13 @@ class SecurityParameters:
 
     def __repr__(self):
         return f"{typename(self)}({self.securityEngineID}, {self.securityName})"
+
+class SecurityModule:
+    @abstractmethod
+    def processIncoming(self, msg, securityLevel, timestamp=None):
+        ...
+
+    @abstractmethod
+    def prepareOutgoing(self, header, data, engineID,
+                            securityName, securityLevel):
+        ...

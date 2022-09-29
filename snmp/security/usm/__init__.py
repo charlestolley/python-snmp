@@ -1,6 +1,6 @@
 __all__ = [
     "InvalidEngineID", "InvalidUserName",
-    "InvalidSecurityLevel", "SecurityModule",
+    "InvalidSecurityLevel", "UserBasedSecurityModule",
 ]
 
 import threading
@@ -9,7 +9,7 @@ from time import time
 from snmp.ber import decode, encode
 from snmp.exception import IncomingMessageError
 from snmp.types import *
-from snmp.security import SecurityModel, SecurityParameters
+from snmp.security import *
 from snmp.security.levels import *
 from snmp.utils import typename
 
@@ -153,7 +153,7 @@ class UserTable:
             except KeyError as err:
                 raise InvalidUserName(userName) from err
 
-class SecurityModule:
+class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM
 
     def __init__(self, engineID=None):
