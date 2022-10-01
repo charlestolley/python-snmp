@@ -1,4 +1,4 @@
-__all__ = ["BaseMessage", "Message", "MessageProcessingModel", "RequestHandle"]
+__all__ = ["Message", "MessageBase", "MessageProcessingModel", "RequestHandle"]
 
 from abc import abstractmethod
 import enum
@@ -11,14 +11,14 @@ class MessageProcessingModel(enum.IntEnum):
     SNMPv2c = 1
     SNMPv3  = 3
 
-class BaseMessage:
+class MessageBase(Sequence):
     @staticmethod
     def decodeVersion(data):
         ptr = decode(data, expected=SEQUENCE, copy=False)
         version, ptr = Integer.decode(ptr, leftovers=True)
         return version.value, ptr
 
-class Message(BaseMessage, Sequence):
+class Message(MessageBase):
     def __init__(self, version, community, pdu):
         self.version = version
         self.community = community
