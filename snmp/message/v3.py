@@ -65,7 +65,7 @@ class MessageFlags(OctetString):
         return f"<{','.join(flags)}>"
 
     @classmethod
-    def interpret(cls, data=b''):
+    def interpret(cls, data=b""):
         return cls(byte=data[0])
 
     @property
@@ -168,7 +168,7 @@ class HeaderData(Sequence):
         )
 
 class ScopedPDU(Sequence):
-    def __init__(self, pdu, contextEngineID, contextName=b''):
+    def __init__(self, pdu, contextEngineID, contextName=b""):
         self.contextEngineID = contextEngineID
         self.contextName = contextName
         self.pdu = pdu
@@ -204,10 +204,12 @@ class ScopedPDU(Sequence):
         ))
 
     @classmethod
-    def deserialize(cls, data, types={}):
+    def deserialize(cls, data, types=None):
+        if types is None:
+            types = dict()
+
         contextEngineID, data = OctetString.decode(data, leftovers=True)
         contextName,     data = OctetString.decode(data, leftovers=True)
-
         identifier = decode_identifier(subbytes(data))
 
         try:
@@ -217,8 +219,8 @@ class ScopedPDU(Sequence):
 
         return cls(
             pduType.decode(data),
-            contextEngineID=contextEngineID.data,
-            contextName=contextName.data,
+            contextEngineID = contextEngineID.data,
+            contextName     = contextName.data,
         )
 
 class CacheEntry:

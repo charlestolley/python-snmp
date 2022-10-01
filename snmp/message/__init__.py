@@ -44,7 +44,7 @@ class Message(MessageBase):
         return 3
 
     def __repr__(self):
-        return f"{typename(self)}({self.community!r}, {repr(self.pdu)})"
+        return f"{typename(self)}({self.community}, {repr(self.pdu)})"
 
     def __str__(self):
         return self.toString()
@@ -54,7 +54,7 @@ class Message(MessageBase):
         subindent = indent + tab
         return "\n".join((
             f"{indent}{typename(self)}:",
-            f"{subindent}Community: {self.community!r}",
+            f"{subindent}Community: {self.community}",
             f"{self.pdu.toString(depth+1, tab)}",
         ))
 

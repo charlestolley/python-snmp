@@ -48,7 +48,7 @@ class MessageProcessor:
     def newGenerator():
         return NumberGenerator(32)
 
-    def cache(self, entry, credentials=None):
+    def cache(self, entry):
         retry = 0
         while retry < 10:
             with self.cacheLock:

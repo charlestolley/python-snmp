@@ -279,12 +279,12 @@ class UserBasedSecurityModule(SecurityModule):
             raise UnknownUserName(userName) from err
 
         if user.auth is None:
-            userName = userName.decode()
-            errmsg = f"Authentication is disabled for user \"{userName}\""
+            username = userName.decode()
+            errmsg = f"Authentication is disabled for user \"{username}\""
             raise UnsupportedSecLevel(errmsg)
         elif securityLevel.priv and user.priv is None:
-            userName = userName.decode()
-            errmsg = f"Data privacy is disabled for user \"{userName}\""
+            username = userName.decode()
+            errmsg = f"Data privacy is disabled for user \"{username}\""
             raise UnsupportedSecLevel(errmsg)
 
         padding = user.auth.msgAuthenticationParameters
