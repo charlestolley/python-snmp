@@ -2,7 +2,8 @@ __all__ = ["Message", "MessageBase", "MessageProcessingModel", "RequestHandle"]
 
 from abc import abstractmethod
 import enum
-from snmp.ber import decode
+
+from snmp.ber import *
 from snmp.types import *
 from snmp.utils import *
 
@@ -17,6 +18,16 @@ class MessageBase(Sequence):
         ptr = decode(data, expected=SEQUENCE, copy=False)
         version, ptr = Integer.decode(ptr, leftovers=True)
         return version.value, ptr
+
+    @classmethod
+    @abstractmethod
+    def decodeBody(cls, data, types, version=MessageProcessingModel.SNMPv1):
+        ...
+
+    @classmethod
+    def deserialize(cls, data, types):
+        version, ptr = cls.decodeVersion(data)
+        return cls.decodeBody(ptr, types, version)
 
 class Message(MessageBase):
     def __init__(self, version, community, pdu):
@@ -46,6 +57,21 @@ class Message(MessageBase):
             f"{subindent}Community: {self.community!r}",
             f"{self.pdu.toString(depth+1, tab)}",
         ))
+
+    @classmethod
+    def decodeBody(cls, data, types, version=MessageProcessingModel.SNMPv1):
+        if types is None:
+            types = dict()
+
+        community, data = OctetString.decode(data, leftovers=True)
+        identifier = decode_identifier(subbytes(data))
+
+        try:
+            pduType = types[identifier]
+        except KeyError as err:
+            raise ParseError(f"Invalid PDU type: {identifier}") from err
+
+        return cls(version, community.data, pduType.decode(data))
 
 class RequestHandle:
     @abstractmethod

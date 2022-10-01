@@ -2,7 +2,6 @@ import threading
 import weakref
 
 from snmp.ber import *
-from snmp.ber import ParseError, decode_identifier
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
@@ -72,32 +71,25 @@ class MessageProcessor:
                 pass
 
     def prepareDataElements(self, msg):
-        community, msg = OctetString.decode(msg, leftovers=True)
-        identifier = decode_identifier(subbytes(msg))
+        message = Message.decodeBody(msg, pduTypes)
 
-        try:
-            pduType = pduTypes[identifier]
-        except KeyError as err:
-            raise ParseError(f"Invalid PDU type: {identifier}") from err
-
-        pdu = pduType.decode(msg)
-        if isinstance(pdu, ResponsePDU):
+        if isinstance(message.pdu, ResponsePDU):
             try:
-                entry = self.retrieve(pdu.requestID)
+                entry = self.retrieve(message.pdu.requestID)
             except KeyError as err:
-                errmsg = f"Unknown requestID: {pdu.requestID}"
+                errmsg = f"Unknown requestID: {message.pdu.requestID}"
                 raise ResponseMismatch(errmsg) from err
 
             handle = entry.handle()
             if handle is None:
                 raise LateResponse("Handle has already been released")
 
-            if entry.community != community.data:
+            if entry.community != message.community:
                 raise ResponseMismatch.byField("Community")
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
-        return Message(self.VERSION, community, pdu), handle
+        return message, handle
 
     def prepareOutgoingMessage(self, pdu, handle, community):
         if pdu.requestID == 0:

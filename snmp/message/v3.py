@@ -1,7 +1,7 @@
 import threading
 import weakref
 
-from snmp.ber import ParseError, decode_identifier
+from snmp.ber import *
 from snmp.exception import *
 from snmp.pdu import *
 from snmp.security import *
