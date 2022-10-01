@@ -1,6 +1,7 @@
 __all__ = ["SNMPv1Manager"]
 
 import heapq
+import math
 import threading
 import time
 
