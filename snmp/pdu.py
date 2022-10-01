@@ -1,12 +1,16 @@
 __all__ = [
     "NoSuchObject", "NoSuchInstance", "EndOfMibView",
-    "VarBind", "VarBindList", "PDU", "GetRequestPDU", "GetNextRequestPDU",
-    "ResponsePDU", "SetRequestPDU", "TrapPDU", "GetBulkRequestPDU",
-    "InformRequestPDU", "SNMPv2TrapPDU", "ReportPDU",
+    "VarBind", "VarBindList",
+    "PDU", "BulkPDU",
+    "GetRequestPDU", "GetNextRequestPDU", "GetBulkRequestPDU",
+    "SetRequestPDU",
+    "ResponsePDU", "ReportPDU",
+    "InformRequestPDU", "TrapPDU", "SNMPv2TrapPDU",
     "Read", "Write", "Response", "Internal", "Notification", "Confirmed",
 ]
 
 import enum
+
 from snmp.ber import *
 from snmp.smi import *
 from snmp.types import *
@@ -115,10 +119,7 @@ class VarBindList(Sequence):
 
         return cls(*objects)
 
-class PDUBase(Constructed):
-    pass
-
-class PDU(PDUBase):
+class PDU(Constructed):
     class ErrorStatus(enum.IntEnum):
         noError             = 0
         tooBig              = enum.auto()
@@ -224,7 +225,7 @@ class PDU(PDUBase):
             variableBindings=variableBindings,
         )
 
-class BulkPDU(PDUBase):
+class BulkPDU(Constructed):
     def __init__(self, *args, requestID=0, nonRepeaters=0,
                     maxRepetitions=0, variableBindings=None):
         self.requestID = requestID
