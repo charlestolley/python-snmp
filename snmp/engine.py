@@ -19,21 +19,21 @@ class DiscoveryGuard:
         self.namespace = None
         self.refCount = 0
 
-    def claim(self, namespace):
-        acquired = True
+    def assign(self, namespace):
+        assigned = True
         initialized = True
 
         if namespace != self.namespace:
             if self.refCount:
-                acquired = False
+                assigned = False
             else:
                 self.namespace = namespace
                 initialized = False
 
-        if acquired:
+        if assigned:
             self.refCount += 1
 
-        return acquired, initialized
+        return assigned, initialized
 
     def release(self, namespace):
         assert self.namespace == namespace
@@ -74,11 +74,11 @@ class Engine:
     UNSUPPORTED = "{} is not supported at this time"
 
     def __init__(self,
-            defaultDomain=TransportDomain.UDP,
-            defaultVersion=MessageProcessingModel.SNMPv3,
-            defaultSecurityModel=SecurityModel.USM,
-            autowait=True):
-
+        defaultDomain=TransportDomain.UDP,
+        defaultVersion=MessageProcessingModel.SNMPv3,
+        defaultSecurityModel=SecurityModel.USM,
+        autowait=True
+    ):
         # Read-only variables
         self.defaultDomain = defaultDomain
         self.defaultVersion = defaultVersion
@@ -114,18 +114,14 @@ class Engine:
                 guard = DiscoveryGuard()
                 self.engines[engineID] = guard
 
-            acquired, initialized = guard.claim(namespace)
-            if acquired and not initialized:
-                space = self.namespaces[namespace]
-                for userName, userEntry in space:
-                    auth, priv = self.localize(
-                        engineID,
-                        **userEntry.credentials,
-                    )
-
+            assigned, initialized = guard.assign(namespace)
+            if assigned and not initialized:
+                ns = self.namespaces[namespace]
+                for userName, entry in ns:
+                    auth, priv = self.localize(engineID, **entry.credentials)
                     self.usm.addUser(engineID, userName, auth, priv)
 
-            return acquired
+            return assigned
 
     def unregisterRemoteEngine(self, engineID, namespace):
         with self.lock:
