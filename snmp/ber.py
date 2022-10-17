@@ -137,4 +137,4 @@ def decode(data, expected=None, leftovers=False, copy=True):
             return body
 
 def encode(identifier, data):
-    return encode_identifier(identifier) + encode_length(len(data)) + data
+    return encode_identifier(identifier) + encode_length(len(data)) + (data if isinstance(data,bytes) else bytes(data, "latin_1"))
