@@ -33,7 +33,7 @@ class ResponseMismatch(IncomingMessageError):
 
 class CacheEntry:
     def __init__(self, handle, community):
-        self.community = community
+        self.community = community if isinstance (community, bytes) else bytes (community, "latin_1")
         self.handle = weakref.ref(handle)
 
 class MessageProcessor:
