@@ -347,7 +347,10 @@ class Engine:
         the management operations defined for a particular version of SNMP.
 
         :param address:
-            Address of the remote engine within the transport domain
+            Address of the remote engine within the transport domain. For the
+            UDP domain, the address may either be a :class:`str` containing an
+            IPv4 address, or a tuple of (:class:`str`, :class:`int`), containnig
+            the IPv4 address and UDP port.
         :param Optional[snmp.transport.TransportDomain] domain:
             Transport domain, (i.e. the medium for transmitting messages) that
             the Manager will use. If *domain* is :const:`None`, then the
