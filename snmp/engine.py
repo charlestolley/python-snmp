@@ -64,6 +64,133 @@ class NameSpace:
     def getUser(self, userName):
         return self.users[userName]
 
+class UserBasedSecurityAdministration:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.engines    = {}
+        self.namespaces = {}
+
+        self.securityModule = UserBasedSecurityModule()
+
+    @staticmethod
+    def localize(engineID, authProtocol=None, authSecret=None,
+                           privProtocol=None, privSecret=None):
+        auth = None
+        priv = None
+
+        if authProtocol is not None:
+            auth = authProtocol(authProtocol.localize(authSecret, engineID))
+
+            if privProtocol is not None:
+                priv = privProtocol(authProtocol.localize(privSecret, engineID))
+
+        return auth, priv
+
+    def addUser(self, userName, authProtocol=None, authSecret=None,
+            privProtocol=None, privSecret=None, secret=b"",
+            default=False, defaultSecurityLevel=None, namespace=""):
+        credentials = dict()
+        if authProtocol is None:
+            maxSecurityLevel = noAuthNoPriv
+        else:
+            if privProtocol is None:
+                maxSecurityLevel = authNoPriv
+            else:
+                maxSecurityLevel = authPriv
+                credentials["privProtocol"] = privProtocol
+                credentials["privSecret"] = privSecret or secret
+
+            credentials["authProtocol"] = authProtocol
+            credentials["authSecret"] = authSecret or secret
+
+        if defaultSecurityLevel is None:
+            defaultSecurityLevel = maxSecurityLevel
+        elif defaultSecurityLevel > maxSecurityLevel:
+            errmsg = "{} is required in order to support {}"
+            param = "privProtocol" if maxSecurityLevel.auth else "authProtocol"
+            raise ValueError(errmsg.format(param, defaultSecurityLevel))
+
+        with self.lock:
+            try:
+                space = self.namespaces[namespace]
+            except KeyError:
+                space = NameSpace(userName)
+                self.namespaces[namespace] = space
+            else:
+                if userName in space:
+                    errmsg = f"User \"{userName}\" is already defined"
+
+                    if namespace:
+                        errmsg += f" in namespace \"{namespace}\""
+
+                    raise ValueError(errmsg)
+
+                if default:
+                    space.defaultUserName = userName
+
+            space.addUser(userName, defaultSecurityLevel, credentials)
+
+    def getDefaultSecurityLevel(self, userName, namespace=""):
+        space = self.getNameSpace(namespace)
+
+        try:
+            user = space.getUser(userName)
+        except KeyError as err:
+            errmsg = f"No user \"{userName}\""
+
+            if namespace:
+                errmsg += f" in namespace \"{namespace}\""
+
+            raise ValueError(errmsg) from err
+
+        return user.defaultSecurityLevel
+
+    def getDefaultUser(self, namespace=""):
+        return self.getNameSpace(namespace).defaultUserName
+
+    def getNameSpace(self, namespace=""):
+        try:
+            return self.namespaces[namespace]
+        except KeyError as err:
+            errmsg = "No users defined"
+
+            if namespace:
+                errmsg += f" in namespace \"{namespace}\""
+
+            raise ValueError(errmsg) from err
+
+    def registerRemoteEngine(self, engineID, namespace):
+        with self.lock:
+            try:
+                guard = self.engines[engineID]
+            except KeyError:
+                guard = DiscoveryGuard()
+                self.engines[engineID] = guard
+
+            assigned, initialized = guard.assign(namespace)
+            if assigned and not initialized:
+                ns = self.namespaces[namespace]
+                for userName, entry in ns:
+                    auth, priv = self.localize(engineID, **entry.credentials)
+                    self.securityModule.addUser(
+                        engineID,
+                        userName.encode(),
+                        auth,
+                        priv,
+                    )
+
+            return assigned
+
+    def unregisterRemoteEngine(self, engineID, namespace):
+        with self.lock:
+            try:
+                guard = self.engines[engineID]
+            except KeyError:
+                assert False, f"Engine {engineID} was never registered"
+            else:
+                if guard.release(namespace):
+                    del self.engines[engineID]
+
 class Engine:
     TRANSPORTS = {
         cls.DOMAIN: cls for cls in [
@@ -86,16 +213,20 @@ class Engine:
         self.autowaitDefault        = autowait
 
         self.dispatcher = Dispatcher()
-
         self.lock = threading.Lock()
-        self.engines = {}
-        self.namespaces = {}
 
         self.transports = set()
         self.mpv1 = None
         self.mpv2c = None
         self.mpv3 = None
-        self.usm = None
+
+        self._usm = None
+
+    @property
+    def usm(self):
+        if self._usm is None:
+            self._usm = UserBasedSecurityAdministration()
+        return self._usm
 
     def __enter__(self):
         return self
@@ -106,93 +237,6 @@ class Engine:
     def shutdown(self):
         self.dispatcher.shutdown()
 
-    def registerRemoteEngine(self, engineID, namespace):
-        with self.lock:
-            try:
-                guard = self.engines[engineID]
-            except KeyError:
-                guard = DiscoveryGuard()
-                self.engines[engineID] = guard
-
-            assigned, initialized = guard.assign(namespace)
-            if assigned and not initialized:
-                ns = self.namespaces[namespace]
-                for userName, entry in ns:
-                    auth, priv = self.localize(engineID, **entry.credentials)
-                    self.usm.addUser(engineID, userName, auth, priv)
-
-            return assigned
-
-    def unregisterRemoteEngine(self, engineID, namespace):
-        with self.lock:
-            try:
-                guard = self.engines[engineID]
-            except KeyError:
-                assert False, f"Engine {engineID} was never registered"
-            else:
-                if guard.release(namespace):
-                    del self.engines[engineID]
-
-    @staticmethod
-    def localize(engineID, authProtocol=None, authSecret=None,
-                           privProtocol=None, privSecret=None):
-        auth = None
-        priv = None
-
-        if authProtocol is not None:
-            auth = authProtocol(authProtocol.localize(authSecret, engineID))
-
-            if privProtocol is not None:
-                priv = privProtocol(authProtocol.localize(privSecret, engineID))
-
-        return auth, priv
-
-    def addUser(self, userName, authProtocol=None, authSecret=None,
-            privProtocol=None, privSecret=None, secret=b"",
-            default=False, defaultSecurityLevel=None, namespace=""):
-        kwargs = dict()
-        if authProtocol is None:
-            maxSecurityLevel = noAuthNoPriv
-        else:
-            if privProtocol is None:
-                maxSecurityLevel = authNoPriv
-            else:
-                maxSecurityLevel = authPriv
-                kwargs["privProtocol"] = privProtocol
-                kwargs["privSecret"] = privSecret or secret
-
-            kwargs["authProtocol"] = authProtocol
-            kwargs["authSecret"] = authSecret or secret
-
-        if defaultSecurityLevel is None:
-            defaultSecurityLevel = maxSecurityLevel
-        elif defaultSecurityLevel > maxSecurityLevel:
-            errmsg = "{} is required in order to support {}"
-            param = "privProtocol" if maxSecurityLevel.auth else "authProtocol"
-            raise ValueError(errmsg.format(param, defaultSecurityLevel))
-
-        userName = userName.encode()
-
-        with self.lock:
-            try:
-                space = self.namespaces[namespace]
-            except KeyError:
-                space = NameSpace(userName)
-                self.namespaces[namespace] = space
-            else:
-                if userName in space:
-                    errmsg = "User \"{}\" is already defined"
-
-                    if namespace:
-                        errmsg += " in namespace \"{}\"".format(namespace)
-
-                    raise ValueError(errmsg.format(userName.decode()))
-
-            if default:
-                space.defaultUserName = userName
-
-            space.addUser(userName, defaultSecurityLevel, kwargs)
-
     def connectTransport(self, transport):
         if transport.DOMAIN in self.transports:
             errmsg = "{} is already handled by a different transport object"
@@ -202,9 +246,6 @@ class Engine:
 
         self.dispatcher.connectTransport(transport)
         self.transports.add(transport.DOMAIN)
-
-    def sendPdu(self, *args, **kwargs):
-        return self.dispatcher.sendPdu(*args, **kwargs)
 
     def v1Manager(self, locator, community=b"", autowait=None):
         if autowait is None:
@@ -237,7 +278,8 @@ class Engine:
         return SNMPv2cManager(self.dispatcher, locator, community, autowait)
 
     def v3Manager(self, locator, securityModel=None, engineID=None,
-            defaultUserName=None, namespace="", autowait=None):
+            defaultUserName=None, defaultSecurityLevel=None,
+            namespace="", autowait=None):
         if securityModel is None:
             securityModel = self.defaultSecurityModel
         elif not isinstance(securityModel, SecurityModel):
@@ -246,25 +288,14 @@ class Engine:
         if securityModel != SecurityModel.USM:
             raise ValueError(self.UNSUPPORTED.format(str(securityModel)))
 
-        with self.lock:
-            try:
-                space = self.namespaces[namespace]
-            except KeyError as err:
-                errmsg = f"No users defined in namespace \"{namespace}\""
-                raise ValueError(errmsg) from err
+        if defaultUserName is None:
+            defaultUserName = self.usm.getDefaultUser(namespace)
 
-            if defaultUserName is None:
-                defaultUserName = space.defaultUserName
-            else:
-                defaultUserName = defaultUserName.encode()
-
-            try:
-                defaultUser = space.getUser(defaultUserName)
-            except KeyError as err:
-                errmsg = "No such user in namespace \"{}\": \"{}\""
-                raise ValueError(errmsg.format(namespace, defaultUserName)) from err
-            else:
-                defaultSecurityLevel = defaultUser.defaultSecurityLevel
+        if defaultSecurityLevel is None:
+            defaultSecurityLevel = self.usm.getDefaultSecurityLevel(
+                defaultUserName,
+                namespace,
+            )
 
         if autowait is None:
             autowait = self.autowaitDefault
@@ -278,16 +309,14 @@ class Engine:
             if self.mpv3 is None:
                 self.mpv3 = snmp.message.v3.MessageProcessor()
                 self.dispatcher.addMessageProcessor(self.mpv3)
-
-            if self.usm is None:
-                self.usm = UserBasedSecurityModule()
-                self.mpv3.secure(self.usm)
+                self.mpv3.secure(self.usm.securityModule)
 
         return SNMPv3UsmManager(
-            self,
+            self.dispatcher,
+            self.usm,
             locator,
             namespace,
-            defaultUserName,
+            defaultUserName.encode(),
             defaultSecurityLevel,
             engineID=engineID,
             autowait=autowait,

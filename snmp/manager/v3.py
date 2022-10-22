@@ -170,16 +170,13 @@ class Request(RequestHandle):
         if engineID == self._engineID:
             return
 
-        localEngine = self.manager.localEngine
-        namespace =  self.manager.namespace
-
         if engineID is not None:
-            if not localEngine.registerRemoteEngine(engineID, namespace):
+            if not self.manager.registerRemoteEngine(engineID):
                 errmsg = "Failed to register engineID {} under namespace \"{}\""
                 raise ValueError(errmsg.format(engineID, namespace))
 
         if self._engineID is not None:
-            localEngine.unregisterRemoteEngine(self._engineID, namespace)
+            self.manager.unregisterRemoteEngine(self._engineID)
 
         self._engineID = engineID
 
@@ -275,7 +272,7 @@ class Request(RequestHandle):
             return pdu
 
 class SNMPv3UsmManager:
-    def __init__(self, engine, locator, namespace,
+    def __init__(self, dispatcher, usm, locator, namespace,
             defaultUserName, defaultSecurityLevel,
             engineID=None, autowait=True):
 
@@ -289,8 +286,10 @@ class SNMPv3UsmManager:
         self.defaultSecurityLevel = defaultSecurityLevel
         self.autowait = autowait
 
+        self.dispatcher = dispatcher
+        self.usm = usm
+
         self.generator = NumberGenerator(32)
-        self.localEngine = engine
 
         # protects self.active
         self.activeLock = threading.Lock()
@@ -319,18 +318,12 @@ class SNMPv3UsmManager:
             return
 
         if engineID is not None:
-            if not self.localEngine.registerRemoteEngine(
-                    engineID,
-                    self.namespace,
-            ):
+            if not self.registerRemoteEngine(engineID):
                 errmsg = "Failed to register engineID {} under namespace \"{}\""
                 raise ValueError(errmsg.format(engineID, self.namespace))
 
         if self._engineID != None:
-            self.localEngine.unregisterRemoteEngine(
-                self._engineID,
-                self.namespace,
-            )
+            self.unregisterRemoteEngine(self._engineID)
 
         self._engineID = engineID
 
@@ -394,6 +387,12 @@ class SNMPv3UsmManager:
 
         return None
 
+    def registerRemoteEngine(self, engineID):
+        return self.usm.registerRemoteEngine(engineID, self.namespace)
+
+    def unregisterRemoteEngine(self, engineID):
+        return self.usm.unregisterRemoteEngine(engineID, self.namespace)
+
     def processResponse(self, request, response):
         with self.lock:
             engineID = response.securityEngineID
@@ -426,7 +425,7 @@ class SNMPv3UsmManager:
                 return True
 
     def sendPdu(self, pdu, handle, engineID, user, securityLevel):
-        return self.localEngine.sendPdu(
+        return self.dispatcher.sendPdu(
             self.locator,
             MessageProcessingModel.SNMPv3,
             pdu,
