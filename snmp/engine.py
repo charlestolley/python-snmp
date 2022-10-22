@@ -219,7 +219,7 @@ class Engine:
             self.mpv1 = snmp.message.v1.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv1)
 
-        return SNMPv1Manager(self, locator, community, autowait)
+        return SNMPv1Manager(self.dispatcher, locator, community, autowait)
 
     def v2cManager(self, locator, community=b"", autowait=None):
         if autowait is None:
@@ -234,7 +234,7 @@ class Engine:
             self.mpv2c = snmp.message.v2c.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv2c)
 
-        return SNMPv2cManager(self, locator, community, autowait)
+        return SNMPv2cManager(self.dispatcher, locator, community, autowait)
 
     def v3Manager(self, locator, securityModel=None, engineID=None,
             defaultUserName=None, namespace="", autowait=None):

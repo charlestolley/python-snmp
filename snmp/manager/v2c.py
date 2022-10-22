@@ -100,11 +100,11 @@ class Request(RequestHandle):
             return pdu
 
 class SNMPv2cManager:
-    def __init__(self, engine, locator, community, autowait=True):
+    def __init__(self, dispatcher, locator, community, autowait=True):
         self.autowait = autowait
         self.locator = locator
 
-        self.localEngine = engine
+        self.dispatcher = dispatcher
         self.defaultCommunity = community
 
         self.lock = threading.Lock()
@@ -132,7 +132,7 @@ class SNMPv2cManager:
         return None
 
     def sendPdu(self, pdu, handle, community):
-        return self.localEngine.sendPdu(
+        return self.dispatcher.sendPdu(
             self.locator,
             MessageProcessingModel.SNMPv2c,
             pdu,
