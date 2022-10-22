@@ -74,16 +74,16 @@ class Engine:
     UNSUPPORTED = "{} is not supported at this time"
 
     def __init__(self,
-        defaultDomain=TransportDomain.UDP,
         defaultVersion=MessageProcessingModel.SNMPv3,
+        defaultDomain=TransportDomain.UDP,
         defaultSecurityModel=SecurityModel.USM,
         autowait=True
     ):
         # Read-only variables
-        self.defaultDomain = defaultDomain
-        self.defaultVersion = defaultVersion
-        self.defaultSecurityModel = defaultSecurityModel
-        self.autowaitDefault = autowait
+        self.defaultVersion         = defaultVersion
+        self.defaultDomain          = defaultDomain
+        self.defaultSecurityModel   = defaultSecurityModel
+        self.autowaitDefault        = autowait
 
         self.dispatcher = Dispatcher()
 
@@ -206,7 +206,7 @@ class Engine:
     def sendPdu(self, *args, **kwargs):
         return self.dispatcher.sendPdu(*args, **kwargs)
 
-    def v1Manager(self, locator, community, autowait=None):
+    def v1Manager(self, locator, community=b"", autowait=None):
         if autowait is None:
             autowait = self.autowaitDefault
 
@@ -221,7 +221,7 @@ class Engine:
 
         return SNMPv1Manager(self, locator, community, autowait)
 
-    def v2cManager(self, locator, community, autowait=None):
+    def v2cManager(self, locator, community=b"", autowait=None):
         if autowait is None:
             autowait = self.autowaitDefault
 
