@@ -1,5 +1,3 @@
-import threading
-
 from snmp.dispatcher import *
 from snmp.engine.usm import *
 from snmp.manager.v1 import *
@@ -35,13 +33,11 @@ class Engine:
         self.autowaitDefault        = autowait
 
         self.dispatcher = Dispatcher()
-        self.lock = threading.Lock()
-
         self.transports = set()
+
         self.mpv1 = None
         self.mpv2c = None
         self.mpv3 = None
-
         self._usm = None
 
     @property
@@ -122,16 +118,15 @@ class Engine:
         if autowait is None:
             autowait = self.autowaitDefault
 
-        with self.lock:
-            if locator.domain not in self.transports:
-                transportClass = self.TRANSPORTS[locator.domain]
-                self.dispatcher.connectTransport(transportClass())
-                self.transports.add(locator.domain)
+        if locator.domain not in self.transports:
+            transportClass = self.TRANSPORTS[locator.domain]
+            self.dispatcher.connectTransport(transportClass())
+            self.transports.add(locator.domain)
 
-            if self.mpv3 is None:
-                self.mpv3 = snmp.message.v3.MessageProcessor()
-                self.dispatcher.addMessageProcessor(self.mpv3)
-                self.mpv3.secure(self.usm.securityModule)
+        if self.mpv3 is None:
+            self.mpv3 = snmp.message.v3.MessageProcessor()
+            self.dispatcher.addMessageProcessor(self.mpv3)
+            self.mpv3.secure(self.usm.securityModule)
 
         return SNMPv3UsmManager(
             self.dispatcher,
