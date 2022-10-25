@@ -69,11 +69,6 @@ class Engine:
         if autowait is None:
             autowait = self.autowaitDefault
 
-        if locator.domain not in self.transports:
-            transportClass = self.TRANSPORTS[locator.domain]
-            self.dispatcher.connectTransport(transportClass())
-            self.transports.add(locator.domain)
-
         if self.mpv1 is None:
             self.mpv1 = snmp.message.v1.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv1)
@@ -84,11 +79,6 @@ class Engine:
         if autowait is None:
             autowait = self.autowaitDefault
 
-        if locator.domain not in self.transports:
-            transportClass = self.TRANSPORTS[locator.domain]
-            self.dispatcher.connectTransport(transportClass())
-            self.transports.add(locator.domain)
-
         if self.mpv2c is None:
             self.mpv2c = snmp.message.v2c.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv2c)
@@ -96,48 +86,48 @@ class Engine:
         return SNMPv2cManager(self.dispatcher, locator, community, autowait)
 
     def v3Manager(self, locator, securityModel=None, engineID=None,
-            defaultUserName=None, defaultSecurityLevel=None,
-            namespace="", autowait=None):
+            defaultSecurityLevel=None, autowait=None, **kwargs):
         if securityModel is None:
             securityModel = self.defaultSecurityModel
         elif not isinstance(securityModel, SecurityModel):
             securityModel = SecurityModel(securityModel)
 
-        if securityModel != SecurityModel.USM:
-            raise ValueError(self.UNSUPPORTED.format(str(securityModel)))
-
-        if defaultUserName is None:
-            defaultUserName = self.usm.getDefaultUser(namespace)
-
-        if defaultSecurityLevel is None:
-            defaultSecurityLevel = self.usm.getDefaultSecurityLevel(
-                defaultUserName,
-                namespace,
-            )
-
         if autowait is None:
             autowait = self.autowaitDefault
 
-        if locator.domain not in self.transports:
-            transportClass = self.TRANSPORTS[locator.domain]
-            self.dispatcher.connectTransport(transportClass())
-            self.transports.add(locator.domain)
+        if securityModel == SecurityModel.USM:
+            defaultUserName = kwargs.get("defaultUserName")
+            namespace = kwargs.get("namespace", "")
+
+            if defaultUserName is None:
+                defaultUserName = self.usm.getDefaultUser(namespace)
+
+            if defaultSecurityLevel is None:
+                defaultSecurityLevel = self.usm.getDefaultSecurityLevel(
+                    defaultUserName,
+                    namespace,
+                )
+
+            securityModule = self.usm.securityModule
+            manager = SNMPv3UsmManager(
+                self.dispatcher,
+                self.usm,
+                locator,
+                namespace,
+                defaultUserName.encode(),
+                defaultSecurityLevel,
+                engineID=engineID,
+                autowait=autowait,
+            )
+        else:
+            raise ValueError(self.UNSUPPORTED.format(str(securityModel)))
 
         if self.mpv3 is None:
             self.mpv3 = snmp.message.v3.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv3)
-            self.mpv3.secure(self.usm.securityModule)
+            self.mpv3.secure(securityModule)
 
-        return SNMPv3UsmManager(
-            self.dispatcher,
-            self.usm,
-            locator,
-            namespace,
-            defaultUserName.encode(),
-            defaultSecurityLevel,
-            engineID=engineID,
-            autowait=autowait,
-        )
+        return manager
 
     def Manager(self, address, domain=None, version=None, **kwargs):
         if domain is None:
@@ -147,6 +137,11 @@ class Engine:
             locator = self.TRANSPORTS[domain].Locator(address)
         except KeyError as err:
             raise ValueError(self.UNSUPPORTED.format(domain)) from err
+
+        if locator.domain not in self.transports:
+            transportClass = self.TRANSPORTS[locator.domain]
+            self.dispatcher.connectTransport(transportClass())
+            self.transports.add(locator.domain)
 
         if version is None:
             version = self.defaultVersion
