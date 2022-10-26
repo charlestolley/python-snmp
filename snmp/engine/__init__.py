@@ -94,6 +94,10 @@ class Engine:
         if autowait is None:
             autowait = self.autowaitDefault
 
+        if self.mpv3 is None:
+            self.mpv3 = snmp.message.v3.MessageProcessor()
+            self.dispatcher.addMessageProcessor(self.mpv3)
+
         if securityModel == SecurityModel.USM:
             defaultUserName = kwargs.get("defaultUserName")
             namespace = kwargs.get("namespace", "")
@@ -107,8 +111,9 @@ class Engine:
                     namespace,
                 )
 
-            securityModule = self.usm.securityModule
-            manager = SNMPv3UsmManager(
+            self.mpv3.addSecurityModuleIfNeeded(self.usm.securityModule)
+
+            return SNMPv3UsmManager(
                 self.dispatcher,
                 self.usm,
                 locator,
@@ -121,13 +126,6 @@ class Engine:
         else:
             errmsg = f"Unsupported security model: {str(securityModel)}"
             raise ValueError(errmsg)
-
-        if self.mpv3 is None:
-            self.mpv3 = snmp.message.v3.MessageProcessor()
-            self.dispatcher.addMessageProcessor(self.mpv3)
-            self.mpv3.secure(securityModule)
-
-        return manager
 
     def Manager(self, address, domain=None, version=None, **kwargs):
         if domain is None:

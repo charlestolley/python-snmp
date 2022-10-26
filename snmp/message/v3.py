@@ -308,12 +308,13 @@ class MessageProcessor:
             except KeyError:
                 pass
 
-    def secure(self, module, default=False):
+    def addSecurityModuleIfNeeded(self, module, default=False):
         with self.securityLock:
-            self.securityModules[module.MODEL] = module
+            if module.MODEL not in self.securityModules:
+                self.securityModules[module.MODEL] = module
 
-            if default or self.defaultSecurityModel is None:
-                self.defaultSecurityModel = module.MODEL
+                if default or self.defaultSecurityModel is None:
+                    self.defaultSecurityModel = module.MODEL
 
     def prepareDataElements(self, msg):
         msgGlobalData, msg = HeaderData.decode(msg, leftovers=True)
