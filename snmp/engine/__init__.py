@@ -18,8 +18,6 @@ class Engine:
         ]
     }
 
-    UNSUPPORTED = "{} is not supported at this time"
-
     def __init__(self,
         defaultVersion=MessageProcessingModel.SNMPv3,
         defaultDomain=TransportDomain.UDP,
@@ -60,7 +58,8 @@ class Engine:
             errmsg = "{} is already handled by a different transport object"
             raise ValueError(errmsg.format(transport.DOMAIN))
         elif transport.DOMAIN not in self.TRANSPORTS:
-            raise ValueError(self.UNSUPPORTED.format(transport.DOMAIN))
+            errmsg = f"Unsupported transport domain: {transport.DOMAIN}"
+            raise ValueError(errmsg)
 
         self.dispatcher.connectTransport(transport)
         self.transports.add(transport.DOMAIN)
@@ -120,7 +119,8 @@ class Engine:
                 autowait=autowait,
             )
         else:
-            raise ValueError(self.UNSUPPORTED.format(str(securityModel)))
+            errmsg = f"Unsupported security model: {str(securityModel)}"
+            raise ValueError(errmsg)
 
         if self.mpv3 is None:
             self.mpv3 = snmp.message.v3.MessageProcessor()
@@ -136,7 +136,8 @@ class Engine:
         try:
             locator = self.TRANSPORTS[domain].Locator(address)
         except KeyError as err:
-            raise ValueError(self.UNSUPPORTED.format(domain)) from err
+            errmsg = f"Unsupported transport domain: {domain}"
+            raise ValueError(errmsg) from err
 
         if locator.domain not in self.transports:
             transportClass = self.TRANSPORTS[locator.domain]
@@ -155,4 +156,4 @@ class Engine:
         elif version == MessageProcessingModel.SNMPv1:
             return self.v1Manager(locator, **kwargs)
         else:
-            raise ValueError(self.UNSUPPORTED.format(str(version)))
+            raise ValueError(f"Unsupported protocol version: {str(version)}")
