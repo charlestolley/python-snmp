@@ -171,9 +171,7 @@ class Request(RequestHandle):
             return
 
         if engineID is not None:
-            if not self.manager.registerRemoteEngine(engineID):
-                errmsg = "Failed to register engineID {} under namespace \"{}\""
-                raise ValueError(errmsg.format(engineID, namespace))
+            self.manager.registerRemoteEngine(engineID)
 
         if self._engineID is not None:
             self.manager.unregisterRemoteEngine(self._engineID)
@@ -318,9 +316,7 @@ class SNMPv3UsmManager:
             return
 
         if engineID is not None:
-            if not self.registerRemoteEngine(engineID):
-                errmsg = "Failed to register engineID {} under namespace \"{}\""
-                raise ValueError(errmsg.format(engineID, self.namespace))
+            self.registerRemoteEngine(engineID)
 
         if self._engineID != None:
             self.unregisterRemoteEngine(self._engineID)
@@ -388,10 +384,16 @@ class SNMPv3UsmManager:
         return None
 
     def registerRemoteEngine(self, engineID):
-        return self.usm.registerRemoteEngine(engineID, self.namespace)
+        if not self.usm.registerRemoteEngine(engineID, self.namespace):
+            errmsg = f"Failed to register engineID {engineID}"
+
+            if self.namespace:
+                errmsg += f" under namespace \"{self.namespace}\""
+
+            raise ValueError(errmsg)
 
     def unregisterRemoteEngine(self, engineID):
-        return self.usm.unregisterRemoteEngine(engineID, self.namespace)
+        self.usm.unregisterRemoteEngine(engineID, self.namespace)
 
     def processResponse(self, request, response):
         with self.lock:
