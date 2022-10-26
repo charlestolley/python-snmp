@@ -64,35 +64,26 @@ class Engine:
         self.dispatcher.connectTransport(transport)
         self.transports.add(transport.DOMAIN)
 
-    def v1Manager(self, locator, community=b"", autowait=None):
-        if autowait is None:
-            autowait = self.autowaitDefault
-
+    def v1Manager(self, locator, autowait, community=b""):
         if self.mpv1 is None:
             self.mpv1 = snmp.message.v1.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv1)
 
         return SNMPv1Manager(self.dispatcher, locator, community, autowait)
 
-    def v2cManager(self, locator, community=b"", autowait=None):
-        if autowait is None:
-            autowait = self.autowaitDefault
-
+    def v2cManager(self, locator, autowait, community=b""):
         if self.mpv2c is None:
             self.mpv2c = snmp.message.v2c.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv2c)
 
         return SNMPv2cManager(self.dispatcher, locator, community, autowait)
 
-    def v3Manager(self, locator, securityModel=None, engineID=None,
-            defaultSecurityLevel=None, autowait=None, **kwargs):
+    def v3Manager(self, locator, autowait, securityModel=None,
+            engineID=None, defaultSecurityLevel=None, **kwargs):
         if securityModel is None:
             securityModel = self.defaultSecurityModel
         elif not isinstance(securityModel, SecurityModel):
             securityModel = SecurityModel(securityModel)
-
-        if autowait is None:
-            autowait = self.autowaitDefault
 
         if self.mpv3 is None:
             self.mpv3 = snmp.message.v3.MessageProcessor()
@@ -127,7 +118,11 @@ class Engine:
             errmsg = f"Unsupported security model: {str(securityModel)}"
             raise ValueError(errmsg)
 
-    def Manager(self, address, domain=None, version=None, **kwargs):
+    def Manager(self, address, domain=None,
+                version=None, autowait=None, **kwargs):
+        if autowait is None:
+            autowait = self.autowaitDefault
+
         if domain is None:
             domain = self.defaultDomain
 
@@ -148,10 +143,10 @@ class Engine:
             version = MessageProcessingModel(version)
 
         if version == MessageProcessingModel.SNMPv3:
-            return self.v3Manager(locator, **kwargs)
+            return self.v3Manager(locator, autowait, **kwargs)
         elif version == MessageProcessingModel.SNMPv2c:
-            return self.v2cManager(locator, **kwargs)
+            return self.v2cManager(locator, autowait, **kwargs)
         elif version == MessageProcessingModel.SNMPv1:
-            return self.v1Manager(locator, **kwargs)
+            return self.v1Manager(locator, autowait, **kwargs)
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")
