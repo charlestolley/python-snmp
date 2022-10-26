@@ -7,7 +7,6 @@ import threading
 import time
 import weakref
 
-from snmp.dispatcher import *
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
@@ -19,6 +18,9 @@ from . import *
 
 usmStatsNotInTimeWindowsInstance = OID.parse("1.3.6.1.6.3.15.1.1.2.0")
 usmStatsUnknownEngineIDsInstance = OID.parse("1.3.6.1.6.3.15.1.1.4.0")
+
+class DiscoveryError(IncomingMessageError):
+    pass
 
 class State:
     def __init__(self, arg):
@@ -76,9 +78,10 @@ class WaitForDiscovery(State):
         return True
 
     def onResponse(self, engineID, auth):
-        pass
+        errmsg = "Received a ResponsePDU in response to a discovery message"
+        raise DiscoveryError(errmsg)
 
-# User provided and engineID and has sent at least one request, but the
+# User provided engineID and has sent at least one request, but the
 # Manager has not yet received any communication from the remote engine.
 class Synchronizing(State):
     def onInactive(self):
@@ -153,8 +156,7 @@ class Request(RequestHandle):
         self.period = refreshPeriod
 
     def __del__(self):
-        if self.callback is not None:
-            self.close()
+        self.close()
 
     def __lt__(self, other):
         a = min(self .expiration, self .nextRefresh)
@@ -187,12 +189,10 @@ class Request(RequestHandle):
         return self.event.is_set()
 
     def close(self):
-        for message in self.messages:
-            self.callback(message)
+        while self.messages:
+            self.callback(self.messages.pop())
 
         self.callback = None
-        self.messages.clear()
-
         self.engineID = None
 
     def addCallback(self, callback, msgID):
@@ -287,7 +287,7 @@ class SNMPv3UsmManager:
         self.dispatcher = dispatcher
         self.usm = usm
 
-        self.generator = NumberGenerator(32)
+        self.generator = self.newGenerator()
 
         # protects self.active
         self.activeLock = threading.Lock()
@@ -322,6 +322,18 @@ class SNMPv3UsmManager:
             self.unregisterRemoteEngine(self._engineID)
 
         self._engineID = engineID
+
+    def generateRequestID(self):
+        requestID = next(self.generator)
+
+        if requestID == 0:
+            self.generator = self.newGenerator()
+            requestID = next(self.generator)
+
+        return requestID
+
+    def newGenerator(self):
+        return NumberGenerator(32)
 
     def drop(self, reference):
         with self.activeLock:
@@ -381,7 +393,7 @@ class SNMPv3UsmManager:
             if not active:
                 active = self.poke()
 
-        return None
+        return 0.0
 
     def registerRemoteEngine(self, engineID):
         if not self.usm.registerRemoteEngine(engineID, self.namespace):
@@ -390,7 +402,7 @@ class SNMPv3UsmManager:
             if self.namespace:
                 errmsg += f" under namespace \"{self.namespace}\""
 
-            raise ValueError(errmsg)
+            raise DiscoveryError(errmsg)
 
     def unregisterRemoteEngine(self, engineID):
         self.usm.unregisterRemoteEngine(engineID, self.namespace)
@@ -449,6 +461,7 @@ class SNMPv3UsmManager:
         if wait is None:
             wait = self.autowait
 
+        pdu.requestID = self.generateRequestID()
         request = Request(pdu, self, user, securityLevel, **kwargs)
         reference = ComparableWeakReference(request, self.drop)
 
@@ -466,13 +479,12 @@ class SNMPv3UsmManager:
             return request
 
     def get(self, *oids, **kwargs):
-        pdu = GetRequestPDU(*oids, requestID=next(self.generator))
+        pdu = GetRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
     def getBulk(self, *oids, nonRepeaters=0, maxRepetitions=0, **kwargs):
         pdu = GetBulkRequestPDU(
             *oids,
-            requestID=next(self.generator),
             nonRepeaters=nonRepeaters,
             maxRepetitions=maxRepetitions,
         )
@@ -480,10 +492,10 @@ class SNMPv3UsmManager:
         return self.sendRequest(pdu, **kwargs)
 
     def getNext(self, *oids, **kwargs):
-        pdu = GetNextRequestPDU(*oids, requestID=next(self.generator))
+        pdu = GetNextRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
     def set(self, *varbinds, **kwargs):
         varbinds = (VarBind(*varbind) for varbind in varbinds)
-        pdu = SetRequestPDU(*varbinds, requestID=next(self.generator))
+        pdu = SetRequestPDU(*varbinds)
         return self.sendRequest(pdu, **kwargs)

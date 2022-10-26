@@ -57,10 +57,10 @@ class Dispatcher(TransportListener):
 
             try:
                 message, handle = mp.prepareDataElements(message)
+                handle.push(message)
             except IncomingMessageError:
                 return
 
-            handle.push(message)
         except AssertionError:
             pass
         except Exception:
