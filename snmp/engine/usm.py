@@ -5,7 +5,7 @@ import threading
 from snmp.security.levels import *
 from snmp.security.usm import *
 
-class DiscoveryGuard:
+class DiscoveredEngine:
     def __init__(self):
         self.namespace = None
         self.refCount = 0
@@ -49,11 +49,11 @@ class NameSpace:
     def __contains__(self, key):
         return self.users.__contains__(key)
 
-    def addUser(self, userName, *args, **kwargs):
-        self.users[userName] = UserEntry(*args, **kwargs)
+    def __getitem__(self, key):
+        return self.users.__getitem__(key)
 
-    def getUser(self, userName):
-        return self.users[userName]
+    def __setitem__(self, key, item):
+        return self.users.__setitem__(key, item)
 
 class UsmControlModule:
     def __init__(self):
@@ -70,10 +70,12 @@ class UsmControlModule:
         priv = None
 
         if authProtocol is not None:
-            auth = authProtocol(authProtocol.localize(authSecret, engineID))
+            authKey = authProtocol.localize(authSecret, engineID)
+            auth = authProtocol(authKey)
 
             if privProtocol is not None:
-                priv = privProtocol(authProtocol.localize(privSecret, engineID))
+                privKey = authProtocol.localize(privSecret, engineID)
+                priv = privProtocol(privKey)
 
         return auth, priv
 
@@ -97,9 +99,9 @@ class UsmControlModule:
         if defaultSecurityLevel is None:
             defaultSecurityLevel = maxSecurityLevel
         elif defaultSecurityLevel > maxSecurityLevel:
-            errmsg = "{} is required in order to support {}"
+            errmsg = "Unable to support {} without the \"{}\" argument"
             param = "privProtocol" if maxSecurityLevel.auth else "authProtocol"
-            raise ValueError(errmsg.format(param, defaultSecurityLevel))
+            raise ValueError(errmsg.format(defaultSecurityLevel, param))
 
         with self.lock:
             try:
@@ -119,13 +121,13 @@ class UsmControlModule:
                 if default:
                     space.defaultUserName = userName
 
-            space.addUser(userName, defaultSecurityLevel, credentials)
+            space[userName] = UserEntry(defaultSecurityLevel, credentials)
 
     def getDefaultSecurityLevel(self, userName, namespace=""):
         space = self.getNameSpace(namespace)
 
         try:
-            user = space.getUser(userName)
+            user = space[userName]
         except KeyError as err:
             errmsg = f"No user \"{userName}\""
 
@@ -153,13 +155,15 @@ class UsmControlModule:
     def registerRemoteEngine(self, engineID, namespace):
         with self.lock:
             try:
-                guard = self.engines[engineID]
+                engine = self.engines[engineID]
             except KeyError:
-                guard = DiscoveryGuard()
-                self.engines[engineID] = guard
+                engine = DiscoveredEngine()
+                self.engines[engineID] = engine
 
-            assigned, initialized = guard.assign(namespace)
-            if assigned and not initialized:
+            assigned, initialized = engine.assign(namespace)
+
+            # Read as "assigned but not initialized"
+            if not initialized and assigned:
                 ns = self.namespaces[namespace]
                 for userName, entry in ns:
                     auth, priv = self.localize(engineID, **entry.credentials)
@@ -175,9 +179,9 @@ class UsmControlModule:
     def unregisterRemoteEngine(self, engineID, namespace):
         with self.lock:
             try:
-                guard = self.engines[engineID]
+                engine = self.engines[engineID]
             except KeyError:
                 assert False, f"Engine {engineID} was never registered"
             else:
-                if guard.release(namespace):
+                if engine.release(namespace):
                     del self.engines[engineID]
