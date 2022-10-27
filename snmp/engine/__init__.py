@@ -71,7 +71,7 @@ class Engine:
 
         return SNMPv1Manager(self.dispatcher, locator, community, autowait)
 
-    def v2cManager(self, locator, autowait, community=b""):
+    def v2cManager(self, locator, autowait, community=""):
         if self.mpv2c is None:
             self.mpv2c = snmp.message.v2c.MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv2c)
