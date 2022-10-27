@@ -226,7 +226,7 @@ class Request(RequestHandle):
         else:
             self.engineID = engineID
 
-        return self.manager.sendPdu(pdu, self, engineID, user, securityLevel)
+        self.manager.sendPdu(pdu, self, engineID, user, securityLevel)
 
     def refresh(self):
         if self.fulfilled:
@@ -439,7 +439,7 @@ class SNMPv3UsmManager:
                 return True
 
     def sendPdu(self, pdu, handle, engineID, user, securityLevel):
-        return self.dispatcher.sendPdu(
+        self.dispatcher.sendPdu(
             self.locator,
             MessageProcessingModel.SNMPv3,
             pdu,

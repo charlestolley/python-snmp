@@ -59,7 +59,7 @@ class Request(RequestHandle):
         self.event.set()
 
     def reallySend(self):
-        return self.manager.sendPdu(self.pdu, self, self.community)
+        self.manager.sendPdu(self.pdu, self, self.community)
 
     def refresh(self):
         if self.fulfilled:
@@ -132,7 +132,7 @@ class SNMPv2cManager:
         return None
 
     def sendPdu(self, pdu, handle, community):
-        return self.dispatcher.sendPdu(
+        self.dispatcher.sendPdu(
             self.locator,
             MessageProcessingModel.SNMPv2c,
             pdu,

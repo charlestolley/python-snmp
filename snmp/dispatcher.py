@@ -82,7 +82,6 @@ class Dispatcher(TransportListener):
 
         msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
         transport.send(locator.address, msg)
-        return handle
 
     def shutdown(self):
         with self.lock:
