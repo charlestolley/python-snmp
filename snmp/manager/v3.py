@@ -16,8 +16,55 @@ from snmp.types import *
 from snmp.utils import *
 from . import *
 
-usmStatsNotInTimeWindowsInstance = OID.parse("1.3.6.1.6.3.15.1.1.2.0")
-usmStatsUnknownEngineIDsInstance = OID.parse("1.3.6.1.6.3.15.1.1.4.0")
+usmStats = OID.parse("1.3.6.1.6.3.15.1.1")
+usmStatsUnsupportedSecLevelsSubTree     = (1, 0)
+usmStatsNotInTimeWindowsInstanceSubTree = (2, 0)
+usmStatsUnknownUserNamesSubTree         = (3, 0)
+usmStatsUnknownEngineIDsInstanceSubTree = (4, 0)
+usmStatsWrongDigestsSubTree             = (5, 0)
+usmStatsDecryptionErrorsSubTree         = (6, 0)
+
+class UnhandledReport(SNMPException):
+    pass
+
+class UnrecognizedReport(UnhandledReport):
+    def __init__(self, varbind):
+        super().__init__(f"Remote Engine sent this Report: \"{varbind}\"")
+        self.name = varbind.name
+        self.value = varbind.value
+
+class UsmStatsReport(UnhandledReport):
+    def __init__(self, errmsg, varbind):
+        super().__init__(errmsg)
+        self.name = varbind.name
+        self.value = varbind.value
+
+class UnsupportedSecurityLevelReport(UsmStatsReport):
+    def __init__(self, message, varbind):
+        errmsg = f"Remote Engine does not support {message.securityLevel}"
+        super().__init__(errmsg, varbind)
+
+class UnknownUserNameReport(UsmStatsReport):
+    def __init__(self, message, varbind):
+        userName = message.securityName.decode()
+        errmsg = f"Remote Engine does not recognize user \"{userName}\""
+        super().__init__(errmsg, varbind)
+
+class WrongDigestReport(UsmStatsReport):
+    def __init__(self, message, varbind):
+        userName = message.securityName.decode()
+
+        errmsg = (
+            "Remote Engine reported that your request failed authentication"
+            f"; make sure \"{userName}\" is using the correct credentials"
+        )
+
+        super().__init__(errmsg, varbind)
+
+class DecryptionErrorReport(UsmStatsReport):
+    def __init__(self, message, varbind):
+        errmsg = "Remote Engine was unable to decrypt your request"
+        super().__init__(errmsg, varbind)
 
 class DiscoveryError(IncomingMessageError):
     pass
@@ -133,22 +180,88 @@ class RequireAuthentication(State):
     def onResponse(self, engineID, auth):
         return auth
 
-class Request(RequestHandle):
+class RequestMessage(RequestHandle):
+    USM_EXCEPTION_TYPES = {
+        usmStatsUnsupportedSecLevelsSubTree:    UnsupportedSecurityLevelReport,
+        usmStatsUnknownUserNamesSubTree:        UnknownUserNameReport,
+        usmStatsWrongDigestsSubTree:            WrongDigestReport,
+        usmStatsDecryptionErrorsSubTree:        DecryptionErrorReport,
+    }
+
+    def __init__(self, request, synchronized):
+        self.request = weakref.proxy(request)
+        self.messageID = None
+        self.callback = None
+
+        self.synchronized = synchronized
+
+    def addCallback(self, func, msgID):
+        self.callback = func
+        self.messageID = msgID
+
+    def push(self, response):
+        pdu = response.data.pdu
+
+        if isinstance(pdu, ReportPDU):
+            securityLevel = response.securityLevel
+            varbind = response.data.pdu.variableBindings[0]
+
+            oid = varbind.name
+            subtree = oid.getSubTree(usmStats)
+            if subtree == usmStatsUnknownEngineIDsInstanceSubTree:
+                self.request.processUnknownEngineID(response.securityEngineID)
+            elif subtree == usmStatsNotInTimeWindowsInstanceSubTree:
+                if not self.synchronized:
+                    engineID = response.securityEngineID
+                    self.request.processNotInTimeWindow(engineID)
+            else:
+                try:
+                    exc_type = self.USM_EXCEPTION_TYPES[subtree]
+                except KeyError:
+                    exception = UnrecognizedReport(varbind)
+                else:
+                    exception = exc_type(response, varbind)
+
+                auth = response.securityLevel.auth
+                self.request.processException(exception, auth)
+        else:
+            self.request.processResponse(response)
+
+    def close(self):
+        if self.callback is not None:
+            self.callback(self.messageID)
+            self.callback = None
+
+class SharedBool:
+    def __init__(self, value):
+        self.value = value
+
+    def __bool__(self):
+        return self.value
+
+    def makeTrue(self):
+        self.value = True
+
+    def makeFalse(self):
+        self.value = False
+
+class Request:
     def __init__(self, pdu, manager, userName, securityLevel,
                             timeout=10.0, refreshPeriod=1.0):
         now = time.time()
 
         self._engineID = None
+        self.synchronized = SharedBool(False)
 
         self.manager = manager
         self.pdu = pdu
         self.securityLevel = securityLevel
         self.userName = userName
 
-        self.callback = None
         self.messages = set()
 
         self.event = threading.Event()
+        self.exception = None
         self.response = None
 
         self.expiration = now + timeout
@@ -184,31 +297,37 @@ class Request(RequestHandle):
     def expired(self):
         return self.expiration <= time.time()
 
-    @property
-    def fulfilled(self):
-        return self.event.is_set()
-
     def close(self):
         while self.messages:
-            self.callback(self.messages.pop())
+            self.messages.pop().close()
 
-        self.callback = None
         self.engineID = None
 
-    def addCallback(self, callback, msgID):
-        if self.callback is None:
-            self.callback = callback
+    def processNotInTimeWindow(self, engineID):
+        self.manager.onReport(self, engineID)
+        self.synchronized.makeTrue()
+        self.synchronized = SharedBool(False)
 
-        assert self.callback == callback
-        self.messages.add(msgID)
+    def processUnknownEngineID(self, engineID):
+        if engineID != self.engineID:
+            self.manager.onReport(self, engineID)
 
-    def push(self, response):
+    def processException(self, exception, auth):
+        if auth:
+            if not self.event.is_set():
+                self.exception = exception
+                self.event.set()
+        elif self.exception is None:
+            self.exception = exception
+
+    def processResponse(self, response):
         #if random.randint(1, 3) % 3 != 0:
         #    return
 
         if self.manager.processResponse(self, response):
-            self.response = response
-            self.event.set()
+            if not self.event.is_set():
+                self.response = response
+                self.event.set()
 
     def reallySend(self, engineID=None):
         pdu = self.pdu
@@ -226,10 +345,12 @@ class Request(RequestHandle):
         else:
             self.engineID = engineID
 
-        self.manager.sendPdu(pdu, self, engineID, user, securityLevel)
+        message = RequestMessage(self, self.synchronized)
+        self.messages.add(message)
+        self.manager.sendPdu(pdu, message, engineID, user, securityLevel)
 
     def refresh(self):
-        if self.fulfilled:
+        if self.event.is_set():
             return None
 
         now = time.time()
@@ -253,21 +374,31 @@ class Request(RequestHandle):
         self.reallySend(engineID)
 
     def wait(self):
-        pdu = None
-        while not self.expired:
-            timeout = self.manager.refresh()
-            if self.event.wait(timeout=timeout):
-                pdu = self.response.data.pdu
-                break
-        else:
-            if self.fulfilled:
-                pdu = self.response.data.pdu
+        try:
+            pdu = None
+            while not self.expired:
+                timeout = self.manager.refresh()
 
-        self.close()
-        if pdu is None:
-            raise Timeout()
-        else:
-            return pdu
+                try:
+                    ready = self.event.wait(timeout=timeout)
+                except KeyboardInterrupt as interrupt:
+                    if self.exception is not None:
+                        raise self.exception from interrupt
+                    else:
+                        raise
+
+                if ready:
+                    break
+
+            if self.event.is_set() and self.response is not None:
+                return self.response.data.pdu
+            else:
+                if self.exception is not None:
+                    raise self.exception
+                else:
+                    raise Timeout()
+        finally:
+            self.close()
 
 class SNMPv3UsmManager:
     def __init__(self, dispatcher, usm, locator, namespace,
@@ -407,36 +538,32 @@ class SNMPv3UsmManager:
     def unregisterRemoteEngine(self, engineID):
         self.usm.unregisterRemoteEngine(engineID, self.namespace)
 
+    def onReport(self, request, engineID):
+        with self.lock:
+            sendAll = self.state.onReport(engineID)
+
+            with self.activeLock:
+                request.send(engineID)
+                heapq.heapify(self.active)
+
+            if sendAll:
+                while self.unsent:
+                    reference = self.unsent.pop()
+                    request = reference()
+
+                    if request is not None:
+                        with self.activeLock:
+                            request.send(engineID)
+                            heapq.heappush(self.active, reference)
+
     def processResponse(self, request, response):
         with self.lock:
+            auth = response.securityLevel.auth
             engineID = response.securityEngineID
-            if isinstance(response.data.pdu, ReportPDU):
-                oid = response.data.pdu.variableBindings[0].name
-                if (oid == usmStatsUnknownEngineIDsInstance
-                or  oid == usmStatsNotInTimeWindowsInstance):
-                    sendAll = self.state.onReport(engineID)
+            if self.state.onResponse(engineID, auth):
+                self.engineID = engineID
 
-                    with self.activeLock:
-                        request.send(engineID)
-                        heapq.heapify(self.active)
-
-                    if sendAll:
-                        while self.unsent:
-                            reference = self.unsent.pop()
-                            request = reference()
-
-                            if request is not None:
-                                with self.activeLock:
-                                    request.send(engineID)
-                                    heapq.heappush(self.active, reference)
-
-                return False
-            else:
-                auth = response.securityLevel.auth
-                if self.state.onResponse(engineID, auth):
-                    self.engineID = engineID
-
-                return True
+            return True
 
     def sendPdu(self, pdu, handle, engineID, user, securityLevel):
         self.dispatcher.sendPdu(

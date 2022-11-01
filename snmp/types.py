@@ -325,6 +325,12 @@ class OID(Primitive):
     def getIndex(self, prefix, cls):
         return self.extractIndex(prefix, cls)[0]
 
+    def getSubTree(self, prefix):
+        if prefix.nums == self.nums[:len(prefix)]:
+            return self[len(prefix):]
+        else:
+            return None
+
     def equals(self, other):
         return self.nums == other.nums
 
