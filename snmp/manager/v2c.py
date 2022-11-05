@@ -152,7 +152,7 @@ class SNMPv2cManager:
         request = Request(pdu, self, community, **kwargs)
 
         with self.lock:
-            heapq.heappush(self.requests, ComparableWeakReference(request))
+            heapq.heappush(self.requests, ComparableWeakRef(request))
             request.send()
 
         if wait:

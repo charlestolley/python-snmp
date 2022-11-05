@@ -1,29 +1,29 @@
-__all__ = ["ComparableWeakReference", "NumberGenerator", "subbytes", "typename"]
+__all__ = ["ComparableWeakRef", "NumberGenerator", "subbytes", "typename"]
 
 from random import randint
 import weakref
 
-class ComparableWeakReference:
-    def __init__(self, obj, callback=None):
-        self.__callback__ = callback
-        self.ref = weakref.ref(obj, None if callback is None else self.notify)
+class ComparableWeakRef:
+    def __init__(self, obj, key):
+        # obj could be garbage-collected as soon as this call returns, so it's
+        # important to retrieve the value now, rather than initialize to None
+        self._value = key(obj)
 
-    def notify(self, ref):
-        self.__callback__(self)
+        self.key = key
+        self.ref = weakref.ref(obj)
+
+    @property
+    def value(self):
+        obj = self.ref()
+        if obj is not None:
+            self._value = self.key(obj)
+        return self._value
 
     def __call__(self):
         return self.ref()
 
     def __lt__(self, other):
-        a = self()
-        b = other()
-
-        if a is None:
-            return True
-        elif b is None:
-            return False
-        else:
-            return a < b
+        return self.value < other.value
 
 class NumberGenerator:
     def __init__(self, nbits, signed=True):

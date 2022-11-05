@@ -265,16 +265,11 @@ class Request:
         self.response = None
 
         self.expiration = now + timeout
-        self.nextRefresh = float("inf")
+        self._nextRefresh = self.expiration
         self.period = refreshPeriod
 
     def __del__(self):
         self.close()
-
-    def __lt__(self, other):
-        a = min(self .expiration, self .nextRefresh)
-        b = min(other.expiration, other.nextRefresh)
-        return a < b
 
     @property
     def engineID(self):
@@ -296,6 +291,14 @@ class Request:
     @property
     def expired(self):
         return self.expiration <= time.time()
+
+    @property
+    def nextRefresh(self):
+        return self._nextRefresh
+
+    @nextRefresh.setter
+    def nextRefresh(self, value):
+        self._nextRefresh = min(self.expiration, value)
 
     def close(self):
         while self.messages:
@@ -354,14 +357,12 @@ class Request:
             return None
 
         now = time.time()
-        expireTime = self.expiration - now
-        if expireTime <= 0.0:
-            return None
+        delta = self.nextRefresh - now
 
-        refreshTime = self.nextRefresh - now
-        delta = min(expireTime, refreshTime)
+        if delta <= 0.0:
+            if self.expiration <= now:
+                return None
 
-        if delta < 0.0:
             self.nextRefresh += math.ceil(-delta / self.period) * self.period
             self.reallySend()
             return 0.0
@@ -465,14 +466,6 @@ class SNMPv3UsmManager:
 
     def newGenerator(self):
         return NumberGenerator(32)
-
-    def drop(self, reference):
-        with self.activeLock:
-            for i, item in enumerate(self.active):
-                if item is reference:
-                    self.active.pop(i)
-                    heapq.heapify(self.active)
-                    break
 
     def poke(self):
         active = False
@@ -590,7 +583,7 @@ class SNMPv3UsmManager:
 
         pdu.requestID = self.generateRequestID()
         request = Request(pdu, self, user, securityLevel, **kwargs)
-        reference = ComparableWeakReference(request, self.drop)
+        reference = ComparableWeakRef(request, key=lambda r: r.nextRefresh)
 
         with self.lock:
             if self.state.onRequest(securityLevel.auth):
