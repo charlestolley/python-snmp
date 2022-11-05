@@ -26,8 +26,23 @@ class ComparableWeakRef:
         return self.value < other.value
 
 class NumberGenerator:
-    def __init__(self, nbits, signed=True):
-        half = 1 << (nbits-1)
+    """Generate integers spanning a specific range.
+
+    Given an integer size of ``n`` bits, an instance of this class will
+    generate a sequence of length ``2^n``, where each ``n``-bit integer
+    appears exactly once. Additionally, the first ``2^n-1`` numbers in the
+    sequence are guaranteed to be non-zero; or, in other words, the last
+    number in the sequence is always ``0``. After ``2^n`` iterations, the
+    sequence repeats from the beginning.
+    """
+
+    def __init__(self, n, signed=True):
+        """
+        :param int n: The size of the generated integers, in bits.
+        :param bool signed:
+            Indicates whether to use two's complement or unsigned numbers.
+        """
+        half = 1 << (n-1)
 
         self.previous = 0
         self.range = half << 1
@@ -41,6 +56,7 @@ class NumberGenerator:
         return self
 
     def __next__(self):
+        """Return the next number in the sequence"""
         self.previous += self.step
 
         if self.previous > self.wrap:

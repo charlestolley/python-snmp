@@ -1,70 +1,30 @@
 __all__ = [
-    "DummyLockTest", "NumberGeneratorTest", "SubbytesTest", "TypenameTest",
+    "NumberGeneratorTest", "SubbytesTest", "TypenameTest",
 ]
 
 import unittest
 from snmp.utils import *
 
-class DummyLockTest(unittest.TestCase):
-    def setUp(self):
-        self.lock = DummyLock()
-
-    def testContext(self):
-        with self.lock as tmp:
-            self.assertIs(tmp, self.lock)
-
-    def testAcquireRelease(self):
-        self.assertTrue(self.lock.acquire())
-        self.lock.release()
-
-class TypenameTest(unittest.TestCase):
-    def testQualifiedClass(self):
-        self.assertEqual(
-            typename(self.__class__, qualified=True),
-            ".".join((__name__, self.__class__.__name__))
-        )
-
-    def testQualifiedObject(self):
-        self.assertEqual(
-            typename(self, qualified=True),
-            ".".join((__name__, self.__class__.__name__))
-        )
-
-    def testUnqualifiedClass(self):
-        self.assertEqual(
-            typename(self.__class__),
-            self.__class__.__name__
-        )
-
-    def testUnqualifiedObject(self):
-        self.assertEqual(
-            typename(self),
-            self.__class__.__name__
-        )
-
 class NumberGeneratorTest(unittest.TestCase):
-    def setUp(self):
-        self.n = 4
+    N = 4
 
     def realTest(self, generator, lower, upper):
         nums = set()
-        for i in generator:
-            self.assertNotIn(i, nums)
-            self.assertLess(i, upper)
-            self.assertGreaterEqual(i, lower)
+        allNums = set(range(lower, upper))
+        for _ in allNums:
+            i = next(generator)
             nums.add(i)
 
-            if i == 0:
-                self.assertEqual(len(nums), upper - lower)
-                break
+        self.assertEqual(nums, allNums)
+        self.assertEqual(i, 0)
 
     def testSigned(self):
-        limit = 1 << (self.n - 1)
-        self.realTest(NumberGenerator(self.n), -limit, limit)
+        limit = 1 << (self.N - 1)
+        self.realTest(NumberGenerator(self.N), -limit, limit)
 
     def testUnsigned(self):
-        generator = NumberGenerator(self.n, signed=False)
-        self.realTest(generator, 0, 1 << self.n)
+        generator = NumberGenerator(self.N, signed=False)
+        self.realTest(generator, 0, 1 << self.N)
 
 class SubbytesTest(unittest.TestCase):
     def setUp(self):
@@ -217,6 +177,31 @@ class SubbytesTest(unittest.TestCase):
         tail = data.prune(2 * len(data))
         self.assertEqual(data, self.data[self.start:self.stop])
         self.assertEqual(tail, b"")
+
+class TypenameTest(unittest.TestCase):
+    def testQualifiedClass(self):
+        self.assertEqual(
+            typename(self.__class__, qualified=True),
+            ".".join((__name__, self.__class__.__name__))
+        )
+
+    def testQualifiedObject(self):
+        self.assertEqual(
+            typename(self, qualified=True),
+            ".".join((__name__, self.__class__.__name__))
+        )
+
+    def testUnqualifiedClass(self):
+        self.assertEqual(
+            typename(self.__class__),
+            self.__class__.__name__
+        )
+
+    def testUnqualifiedObject(self):
+        self.assertEqual(
+            typename(self),
+            self.__class__.__name__
+        )
 
 if __name__ == "__main__":
     unittest.main()
