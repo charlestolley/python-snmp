@@ -83,7 +83,7 @@ class Inactive(State):
         pass
 
     def onRequest(self, auth):
-        self.manager.state = WaitForDiscovery(self)
+        self.manager.nextState = WaitForDiscovery(self)
         return True
 
     def onReport(self, engineID):
@@ -100,7 +100,7 @@ class Unsynchronized(State):
         pass
 
     def onRequest(self, auth):
-        self.manager.state = Synchronizing(self)
+        self.manager.nextState = Synchronizing(self)
         return True
 
     def onReport(self, engineID):
@@ -115,13 +115,13 @@ class Unsynchronized(State):
 # yet received any communication from the remote engine.
 class WaitForDiscovery(State):
     def onInactive(self):
-        self.manager.state = Inactive(self)
+        self.manager.nextState = Inactive(self)
 
     def onRequest(self, auth):
         return False
 
     def onReport(self, engineID):
-        self.manager.state = TrustEveryResponse(self)
+        self.manager.nextState = TrustEveryResponse(self)
         return True
 
     def onResponse(self, engineID, auth):
@@ -132,21 +132,21 @@ class WaitForDiscovery(State):
 # Manager has not yet received any communication from the remote engine.
 class Synchronizing(State):
     def onInactive(self):
-        self.manager.state = Unsynchronized(self)
+        self.manager.nextState = Unsynchronized(self)
 
     def onRequest(self, auth):
         return not auth
 
     def onReport(self, engineID):
         if self.manager.engineID == engineID:
-            self.manager.state = RequireAuthentication(self)
+            self.manager.nextState = RequireAuthentication(self)
             return True
         else:
             return False
 
     def onResponse(self, engineID, auth):
         if auth or self.manager.engineID == engineID:
-            self.manager.state = RequireAuthentication(self)
+            self.manager.nextState = RequireAuthentication(self)
             return True
         else:
             return False
@@ -163,7 +163,7 @@ class TrustEveryResponse(State):
 
     def onResponse(self, engineID, auth):
         if auth:
-            self.manager.state = RequireAuthentication(self)
+            self.manager.nextState = RequireAuthentication(self)
 
         return True
 
@@ -429,6 +429,7 @@ class SNMPv3UsmManager:
         self.lock = threading.Lock()
         self.unsent = deque()
 
+        self.nextState = None
         if engineID is None:
             self.state = Inactive(self)
         else:
@@ -471,6 +472,7 @@ class SNMPv3UsmManager:
         active = False
         with self.lock:
             self.state.onInactive()
+            self.updateState()
 
             unsent = self.unsent
             self.unsent = deque()
@@ -484,6 +486,8 @@ class SNMPv3UsmManager:
                             request.send(self.engineID)
                             heapq.heappush(self.active, reference)
                             active = True
+
+                        self.updateState()
                     else:
                         self.unsent.appendleft(reference)
 
@@ -540,6 +544,7 @@ class SNMPv3UsmManager:
                 heapq.heapify(self.active)
 
             if sendAll:
+                self.updateState()
                 while self.unsent:
                     reference = self.unsent.pop()
                     request = reference()
@@ -555,6 +560,7 @@ class SNMPv3UsmManager:
             engineID = response.securityEngineID
             if self.state.onResponse(engineID, auth):
                 self.engineID = engineID
+                self.updateState()
 
             return True
 
@@ -590,6 +596,8 @@ class SNMPv3UsmManager:
                 with self.activeLock:
                     request.send(self.engineID)
                     heapq.heappush(self.active, reference)
+
+                self.updateState()
             else:
                 self.unsent.appendleft(reference)
 
@@ -597,6 +605,11 @@ class SNMPv3UsmManager:
             return request.wait()
         else:
             return request
+
+    def updateState(self):
+        if self.nextState is not None:
+            self.state = self.nextState
+            self.nextState = None
 
     def get(self, *oids, **kwargs):
         pdu = GetRequestPDU(*oids)
