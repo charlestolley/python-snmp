@@ -92,6 +92,7 @@ class SubbytesTest(unittest.TestCase):
         data = subbytes(wrapped, self.a, self.b)
         substring = self.data[self.start:self.stop][self.a:self.b]
         self.assertEqual(data, substring)
+        self.assertIs(data.data, self.data)
 
     def testFalse(self):
         self.assertFalse(subbytes(self.data, self.start, self.start))
