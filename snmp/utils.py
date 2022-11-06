@@ -3,7 +3,19 @@ __all__ = ["ComparableWeakRef", "NumberGenerator", "subbytes", "typename"]
 from random import randint
 import weakref
 
-class ComparableWeakRef:
+from abc import ABCMeta, abstractmethod
+from snmp.typing import *
+
+TSelfComparable = TypeVar("TSelfComparable", bound="SelfComparable")
+class SelfComparable(metaclass=ABCMeta):
+    @abstractmethod
+    def __lt__(self: TSelfComparable, other: TSelfComparable) -> bool:
+        ...
+
+T = TypeVar("T")
+V = TypeVar("V", bound=SelfComparable)
+
+class ComparableWeakRef(Generic[T, V]):
     """Allow weakly-referenced objects to be used in sorted data structures.
 
     When weakly-referenced objects are stored in a sorted data structure,
@@ -14,7 +26,7 @@ class ComparableWeakRef:
     been garbage-collected.
     """
 
-    def __init__(self, obj, key):
+    def __init__(self, obj: T, key: Callable[[T], V]) -> None:
         """
         :param obj: Any object.
         :param key:
@@ -31,13 +43,15 @@ class ComparableWeakRef:
         self.ref = weakref.ref(obj)
 
     @property
-    def value(self):
+    def value(self) -> V:
         obj = self.ref()
+
         if obj is not None:
             self._value = self.key(obj)
+
         return self._value
 
-    def __call__(self):
+    def __call__(self) -> Optional[T]:
         """Retrieve a reference to the wrapped object.
 
         If the referenced object is still alive, then it will be returned.
@@ -45,7 +59,7 @@ class ComparableWeakRef:
         """
         return self.ref()
 
-    def __lt__(self, other):
+    def __lt__(self, other: "ComparableWeakRef[T, V]") -> bool:
         """Compare this object to another ComparableWeakRef."""
         return self.value < other.value
 
@@ -60,7 +74,7 @@ class NumberGenerator:
     sequence repeats from the beginning.
     """
 
-    def __init__(self, n, signed=True):
+    def __init__(self, n: int, signed: bool = True) -> None:
         """
         :param int n: The size of the generated integers, in bits.
         :param bool signed:
@@ -76,10 +90,10 @@ class NumberGenerator:
         if signed:
             self.wrap -= half
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         return self
 
-    def __next__(self):
+    def __next__(self) -> int:
         """Get the next number in the sequence."""
         self.previous += self.step
 
@@ -109,7 +123,12 @@ class subbytes:
         attribute always references a bytes-like object directly.
     """
 
-    def __init__(self, data, start=None, stop=None):
+    def __init__(self,
+        data: Union[bytes, "subbytes"],
+        start: Optional[int] = None,
+        stop: Optional[int] = None,
+    ) -> None:
+        self.data: bytes
         if isinstance(data, subbytes):
             self.data = data.data
             base = data
@@ -125,11 +144,11 @@ class subbytes:
         self.start = new_start
         self.stop  = new_stop
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Indicate that the sequence is non-empty"""
         return self.stop > self.start
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         """Compare two sequences of bytes for equality"""
         try:
             # TypeError if other is not Sized
@@ -145,7 +164,15 @@ class subbytes:
 
         return True
 
-    def __getitem__(self, key):
+    @overload
+    def __getitem__(self, key: int) -> int:
+        ...
+
+    @overload
+    def __getitem__(self, key: slice) -> bytes:
+        ...
+
+    def __getitem__(self, key: Union[int, slice]) -> Union[int, bytes]:
         """Retrieve an individual byte or copy a sub-sequence"""
         if isinstance(key, int):
             key = self.translate(key)
@@ -160,16 +187,16 @@ class subbytes:
 
         return self.data[key]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         """Produce an iterator for this sequence"""
         for index in range(self.start, self.stop):
             yield self.data[index]
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Query the length of the sequence"""
         return self.stop - self.start
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Provide an :func:`eval`-able representation of this object"""
         args = [repr(self.data)]
 
@@ -181,7 +208,7 @@ class subbytes:
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def translate(self, index, clamp=False):
+    def translate(self, index: int, clamp: bool = False) -> int:
         """Convert an index of self into an index of :attr:`data`.
 
         This method accepts an integral `index` of any value and translates it
@@ -220,7 +247,7 @@ class subbytes:
             else:
                 return index
 
-    def consume(self):
+    def consume(self) -> int:
         """Pop a byte off the front of the sequence.
 
         This function returns the first byte of the current sequence, advancing
@@ -231,14 +258,14 @@ class subbytes:
         self.start += 1
         return byte
 
-    def dereference(self):
+    def dereference(self) -> int:
         """Retrieve the first byte of the sequence.
 
         If the sequence is empty, an :exc:`IndexError` will be raised
         """
         return self[0]
 
-    def prune(self, length):
+    def prune(self, length: int) -> "subbytes":
         """Cut the sequence down to length.
 
         This method effectively splits the current sequence at index `length`,
@@ -252,7 +279,7 @@ class subbytes:
         self.stop = removed.start
         return removed
 
-def typename(cls, qualified=False):
+def typename(cls: Any, qualified: bool = False) -> str:
     """Query an object to determine its type.
 
     :param cls:
@@ -270,4 +297,4 @@ def typename(cls, qualified=False):
     if qualified:
         return ".".join((cls.__module__, cls.__qualname__))
     else:
-        return cls.__name__
+        return cast(type, cls).__name__
