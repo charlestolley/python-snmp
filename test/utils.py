@@ -1,5 +1,6 @@
 __all__ = [
-    "NumberGeneratorTest", "SubbytesTest", "TypenameTest",
+    "ComparableWeakRefTest", "NumberGeneratorTest",
+    "SubbytesTest", "TypenameTest",
 ]
 
 import unittest
@@ -213,29 +214,31 @@ class SubbytesTest(unittest.TestCase):
         self.assertEqual(tail, b"")
 
 class TypenameTest(unittest.TestCase):
+    class Inner:
+        pass
+
+    def checkQualifiedName(self, qualname):
+        self.assertTrue(qualname.startswith(__name__))
+        self.assertEqual(qualname[len(__name__)], ".")
+
+        # drop the module path
+        qualname = qualname[len(__name__)+1:]
+        self.assertIs(eval(qualname), self.Inner)
+
+    def checkUnqualifiedName(self, name):
+        self.assertEqual(name, "Inner")
+
     def testQualifiedClass(self):
-        self.assertEqual(
-            typename(self.__class__, qualified=True),
-            ".".join((__name__, self.__class__.__name__))
-        )
+        self.checkQualifiedName(typename(self.Inner, qualified=True))
 
     def testQualifiedObject(self):
-        self.assertEqual(
-            typename(self, qualified=True),
-            ".".join((__name__, self.__class__.__name__))
-        )
+        self.checkQualifiedName(typename(self.Inner(), qualified=True))
 
     def testUnqualifiedClass(self):
-        self.assertEqual(
-            typename(self.__class__),
-            self.__class__.__name__
-        )
+        self.checkUnqualifiedName(typename(self.Inner))
 
     def testUnqualifiedObject(self):
-        self.assertEqual(
-            typename(self),
-            self.__class__.__name__
-        )
+        self.checkUnqualifiedName(typename(self.Inner()))
 
 if __name__ == "__main__":
     unittest.main()

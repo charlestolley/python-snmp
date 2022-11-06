@@ -80,7 +80,7 @@ class NumberGenerator:
         return self
 
     def __next__(self):
-        """Return the next number in the sequence"""
+        """Get the next number in the sequence."""
         self.previous += self.step
 
         if self.previous > self.wrap:
@@ -189,6 +189,17 @@ class subbytes:
         return removed
 
 def typename(cls, qualified=False):
+    """Query an object to determine its type.
+
+    :param cls:
+        If ``cls`` is a class, this function will return the name of that
+        class. If ``cls`` is an object, this function will return the name
+        of the object's class.
+    :param bool qualified:
+        Indicate whether to return the fully-qualified name, which includes
+        the module path, as well as the names of any enclosing classes (for
+        inner classes).
+    """
     if not isinstance(cls, type):
         cls = type(cls)
 
