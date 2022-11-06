@@ -41,7 +41,8 @@ class ComparableWeakRefTest(unittest.TestCase):
         self.assertFalse(dead < alive)
 
 class NumberGeneratorTest(unittest.TestCase):
-    N = 4
+    def setUp(self):
+        self.n = 4
 
     def realTest(self, generator, lower, upper):
         nums = set()
@@ -54,12 +55,12 @@ class NumberGeneratorTest(unittest.TestCase):
         self.assertEqual(i, 0)
 
     def testSigned(self):
-        limit = 1 << (self.N - 1)
-        self.realTest(NumberGenerator(self.N), -limit, limit)
+        limit = 1 << (self.n - 1)
+        self.realTest(NumberGenerator(self.n), -limit, limit)
 
     def testUnsigned(self):
-        generator = NumberGenerator(self.N, signed=False)
-        self.realTest(generator, 0, 1 << self.N)
+        generator = NumberGenerator(self.n, signed=False)
+        self.realTest(generator, 0, 1 << self.n)
 
 class SubbytesTest(unittest.TestCase):
     def setUp(self):
