@@ -5,6 +5,40 @@ __all__ = [
 import unittest
 from snmp.utils import *
 
+class ComparableWeakRefTest(unittest.TestCase):
+    class Integer:
+        def __init__(self, value):
+            self.value = value
+
+        def toInt(self):
+            return self.value
+
+    def testCall(self):
+        obj = self.Integer(23)
+        ref = ComparableWeakRef(obj, self.Integer.toInt)
+        self.assertIs(ref(), obj)
+
+    def testComparison(self):
+        a = self.Integer(5)
+        b = self.Integer(10)
+        aref = ComparableWeakRef(a, self.Integer.toInt)
+        bref = ComparableWeakRef(b, self.Integer.toInt)
+
+        self.assertLess(aref, bref)
+        self.assertFalse(bref < aref)
+
+    def testPersistence(self):
+        i = self.Integer(3)
+        dead = ComparableWeakRef(self.Integer(4), self.Integer.toInt)
+        alive = ComparableWeakRef(i, self.Integer.toInt)
+
+        if dead() is not None:
+            reason = "Ephemeral object was not immediately garbage-collected"
+            self.skipTest(reason)
+
+        self.assertLess(alive, dead)
+        self.assertFalse(dead < alive)
+
 class NumberGeneratorTest(unittest.TestCase):
     N = 4
 

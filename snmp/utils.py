@@ -4,7 +4,25 @@ from random import randint
 import weakref
 
 class ComparableWeakRef:
+    """Allow weakly-referenced objects to be used in sorted data structures.
+
+    When weakly-referenced objects are stored in a sorted data structure,
+    such as a binary heap, the unexpected replacement of an object with
+    ``None`` can violate the structure's invariants, causing the structure
+    to behave unpredictably. This class provides a proxy :meth:`__lt__`
+    method that enables proper sorting even after the referenced object has
+    been garbage-collected.
+    """
+
     def __init__(self, obj, key):
+        """
+        :param obj: Any object.
+        :param key:
+            This argument mimics the ``key`` argument to the built-in
+            :func:`sorted` function; that is, a call to ``key(obj)`` returns a
+            value that can be used to compare ``obj`` to another object of the
+            same type.
+        """
         # obj could be garbage-collected as soon as this call returns, so it's
         # important to retrieve the value now, rather than initialize to None
         self._value = key(obj)
@@ -20,9 +38,15 @@ class ComparableWeakRef:
         return self._value
 
     def __call__(self):
+        """Retrieve a reference to the wrapped object.
+
+        If the referenced object is still alive, then it will be returned.
+        Otherwise, this call will return ``None``.
+        """
         return self.ref()
 
     def __lt__(self, other):
+        """Compare this object to another ComparableWeakRef."""
         return self.value < other.value
 
 class NumberGenerator:
