@@ -139,11 +139,11 @@ class subbytes:
         self.stop  = newstop
 
     def __bool__(self) -> bool:
-        """Indicate that the sequence is non-empty"""
+        """Indicate that the sequence is non-empty."""
         return self.stop > self.start
 
     def __eq__(self, other: Any) -> bool:
-        """Compare two sequences of bytes for equality"""
+        """Compare two sequences of bytes for equality."""
         try:
             # TypeError if other is not Sized
             if len(self) != len(other):
@@ -167,7 +167,7 @@ class subbytes:
         ...
 
     def __getitem__(self, key: Union[int, slice]) -> Union[int, bytes]:
-        """Retrieve an individual byte or copy a sub-sequence"""
+        """Retrieve an individual byte or copy a sub-sequence."""
         if isinstance(key, int):
             key = self.translate(key)
         elif isinstance(key, slice):
@@ -182,16 +182,16 @@ class subbytes:
         return self.data[key]
 
     def __iter__(self) -> Iterator[int]:
-        """Produce an iterator for this sequence"""
+        """Produce an iterator for this sequence."""
         for index in range(self.start, self.stop):
             yield self.data[index]
 
     def __len__(self) -> int:
-        """Query the length of the sequence"""
+        """Query the length of the sequence."""
         return self.stop - self.start
 
     def __repr__(self) -> str:
-        """Provide an :func:`eval`-able representation of this object"""
+        """Provide an :func:`eval`-able representation of this object."""
         args = [repr(self.data)]
 
         if self.start:

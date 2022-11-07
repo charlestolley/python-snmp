@@ -13,33 +13,33 @@ from snmp.utils import subbytes
 Asn1Data = Union[bytes, subbytes]
 
 class EncodeError(SNMPException):
-    """Failure to encode a payload under ASN.1 Basic Encoding Rules"""
+    """Failure to encode a payload under ASN.1 Basic Encoding Rules."""
     pass
 
 class ParseError(IncomingMessageError):
-    """Failure to translate a sequence of bytes into an ASN.1 object"""
+    """Failure to translate a sequence of bytes into an ASN.1 object."""
     pass
 
 class Class(IntEnum):
-    """Named constants for the class bits of a BER identifier"""
+    """Named constants for the class bits of a BER identifier."""
     UNIVERSAL         = 0
     APPLICATION       = 1
     CONTEXT_SPECIFIC  = 2
     PRIVATE           = 3
 
 class Structure(IntEnum):
-    """Named constants for the primitive/constructed bit of a BER identifier"""
+    """Named constants for the constructed bit of a BER identifier."""
     PRIMITIVE     = 0
     CONSTRUCTED   = 1
 
 class Identifier(NamedTuple):
-    """Represents an ASN.1 BER identifier"""
+    """Represents an ASN.1 BER identifier."""
     cls: Class
     structure: Structure
     tag: int
 
 def decode_identifier(data: subbytes) -> Identifier:
-    """Extract the identifier from a BER-encoded sequence of bytes
+    """Extract the identifier from a BER-encoded sequence of bytes.
 
     This function reads the first byte (or bytes) in the given sequence
     and decodes it (them) as an Identifier according to the ASN.1 Basic
@@ -70,7 +70,7 @@ def decode_identifier(data: subbytes) -> Identifier:
     return Identifier(Class(cls), Structure(structure), tag)
 
 def encode_identifier(i: Identifier) -> bytes:
-    """Encode an Identifier under ASN.1 Basic Encoding Rules"""
+    """Encode an Identifier under ASN.1 Basic Encoding Rules."""
     byte = (
         ((i.cls       << 6) & 0xc0) |
         ((i.structure << 5) & 0x20)
@@ -93,7 +93,7 @@ def encode_identifier(i: Identifier) -> bytes:
     return bytes(reversed(arr))
 
 def decode_length(data: subbytes) -> int:
-    """Decode the length field of a BER-encoded sequence of bytes
+    """Decode the length field of a BER-encoded sequence of bytes.
 
     The provided `data` argument should contain a BER message that has
     already had the identifier removed from the beginning (e.g. by first
@@ -122,7 +122,7 @@ def decode_length(data: subbytes) -> int:
     return length
 
 def encode_length(length: int) -> bytes:
-    """Encode the length of a message under ASN.1 Basic Encoding Rules"""
+    """Encode the length of a message under ASN.1 Basic Encoding Rules."""
     if length < 0x80:
         return bytes([length])
 
@@ -215,7 +215,7 @@ def decode(
     leftovers: bool = False,
     copy: bool = True,
 ) -> Any:
-    """Extract the contents of a BER-encoded message
+    """Extract the contents of a BER-encoded message.
 
     This function has several options for what it can return depending on
     the values of its arguments. In the default case, given only the `data`
@@ -268,5 +268,5 @@ def decode(
             return body
 
 def encode(identifier: Identifier, data: bytes) -> bytes:
-    """Encode a message under ASN.1 Basic Encoding Rules"""
+    """Encode a message under ASN.1 Basic Encoding Rules."""
     return encode_identifier(identifier) + encode_length(len(data)) + data
