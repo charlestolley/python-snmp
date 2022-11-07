@@ -1,9 +1,9 @@
 __all__ = ["ComparableWeakRef", "NumberGenerator", "subbytes", "typename"]
 
+from abc import ABCMeta, abstractmethod
 from random import randint
 import weakref
 
-from abc import ABCMeta, abstractmethod
 from snmp.typing import *
 
 TSelfComparable = TypeVar("TSelfComparable", bound="SelfComparable")
@@ -132,11 +132,11 @@ class subbytes:
             self.stop = len(data)
             base = self
 
-        new_start = base.start if start is None else base.translate(start, True)
-        new_stop  = base.stop  if stop  is None else base.translate(stop,  True)
+        newstart = base.start if start is None else base.translate(start, True)
+        newstop  = base.stop  if stop  is None else base.translate(stop,  True)
 
-        self.start = new_start
-        self.stop  = new_stop
+        self.start = newstart
+        self.stop  = newstop
 
     def __bool__(self) -> bool:
         """Indicate that the sequence is non-empty"""

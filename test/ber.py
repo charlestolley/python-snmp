@@ -32,7 +32,8 @@ class IdentiferDecodeTest(unittest.TestCase):
         self.assertEqual(decode(b"\x82\x00")[0], identifier)
 
     def testHugeTag(self):
-        identifier = Identifier(Class.PRIVATE, Structure.CONSTRUCTED, 0x1173df6)
+        tag = 0x1173df6
+        identifier = Identifier(Class.PRIVATE, Structure.CONSTRUCTED, tag)
         self.assertEqual(decode(b"\xff\x88\xdc\xfb\x76\x00")[0], identifier)
 
 class SimpleDecodeTest(unittest.TestCase):
@@ -52,7 +53,7 @@ class SimpleDecodeTest(unittest.TestCase):
         self.assertRaises(ParseError, decode, self.data[:3])
 
     def testTooLong(self):
-        self.assertRaises(ParseError, decode, self.data + b"\x00")
+        self.assertRaises(ParseError, decode, self.data + bytes(1))
 
     def testWrongType(self):
         identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 2)
@@ -64,7 +65,7 @@ class SimpleDecodeTest(unittest.TestCase):
 
 class BigDecodeTest(unittest.TestCase):
     def setUp(self):
-        self.data = b"\x04\x82\x01\x8a" + (b"\x00" * 394)
+        self.data = b"\x04\x82\x01\x8a" + bytes(394)
 
     def testInvalidLength(self):
         self.assertRaises(ParseError, decode, self.data[:3])
@@ -134,7 +135,7 @@ class EncodeTest(unittest.TestCase):
         self.assertEqual(encode(identifier, b""), b"\xff\xc6\x29\x00")
 
     def testLongOctetString(self):
-        data = b"\x00" * 10000
+        data = bytes(10000)
         encoding = b"\x04\x82\x27\x10" + data
         identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
         self.assertEqual(encode(identifier, data), encoding)
