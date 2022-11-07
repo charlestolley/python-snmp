@@ -17,13 +17,13 @@ from snmp.types import *
 from snmp.utils import subbytes, typename
 
 class NoSuchObject(Null):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_PRIMITIVE, 0)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.PRIMITIVE, 0)
 
 class NoSuchInstance(Null):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_PRIMITIVE, 1)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.PRIMITIVE, 1)
 
 class EndOfMibView(Null):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_PRIMITIVE, 2)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.PRIMITIVE, 2)
 
 class VarBind(Sequence):
     TYPES = {
@@ -318,28 +318,28 @@ class Confirmed:
     pass
 
 class GetRequestPDU(PDU, Read, Confirmed):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 0)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 0)
 
 class GetNextRequestPDU(PDU, Read, Confirmed):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 1)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 1)
 
 class ResponsePDU(PDU, Response):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 2)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 2)
 
 class SetRequestPDU(PDU, Write, Confirmed):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 3)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 3)
 
 class TrapPDU(PDU, Notification):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 4)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 4)
 
 class GetBulkRequestPDU(BulkPDU, Read, Confirmed):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 5)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 5)
 
 class InformRequestPDU(PDU, Notification, Confirmed):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 6)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 6)
 
 class SNMPv2TrapPDU(PDU, Notification):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 7)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 7)
 
 class ReportPDU(PDU, Response, Internal):
-    TYPE = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_CONSTRUCTED, 8)
+    TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 8)

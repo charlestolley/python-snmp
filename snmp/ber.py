@@ -1,12 +1,11 @@
 __all__ = [
     "EncodeError", "ParseError",
-    "CLASS_UNIVERSAL", "CLASS_APPLICATION",
-    "CLASS_CONTEXT_SPECIFIC", "CLASS_PRIVATE",
-    "STRUCTURE_PRIMITIVE", "STRUCTURE_CONSTRUCTED",
-    "Identifier", "decode_identifier", "decode", "encode",
+    "Class", "Structure", "Identifier",
+    "decode_identifier", "decode", "encode",
 ]
 
 from collections import namedtuple
+from enum import IntEnum
 from snmp.exception import *
 from snmp.utils import subbytes
 
@@ -16,13 +15,15 @@ class EncodeError(SNMPException):
 class ParseError(IncomingMessageError):
     pass
 
-CLASS_UNIVERSAL         = 0
-CLASS_APPLICATION       = 1
-CLASS_CONTEXT_SPECIFIC  = 2
-CLASS_PRIVATE           = 3
+class Class(IntEnum):
+    UNIVERSAL         = 0
+    APPLICATION       = 1
+    CONTEXT_SPECIFIC  = 2
+    PRIVATE           = 3
 
-STRUCTURE_PRIMITIVE     = 0
-STRUCTURE_CONSTRUCTED   = 1
+class Structure(IntEnum):
+    PRIMITIVE     = 0
+    CONSTRUCTED   = 1
 
 Identifier = namedtuple("Identifier", ("cls", "structure", "tag"))
 

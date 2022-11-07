@@ -16,7 +16,7 @@ class Integer32(Integer):
     pass
 
 class IpAddress(OctetString):
-    TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 0)
+    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 0)
     MIN_SIZE = 4
     MAX_SIZE = 4
 
@@ -42,21 +42,21 @@ class IpAddress(OctetString):
         return cls(inet_ntoa(addr))
 
 class Counter32(Unsigned):
-    TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 1)
+    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 1)
 
 class Unsigned32(Unsigned):
-    TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 2)
+    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 2)
 
 Gauge32 = Unsigned32
 
 class TimeTicks(Unsigned):
-    TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 3)
+    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 3)
 
 class Opaque(OctetString):
-    TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 4)
+    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 4)
 
 class Counter64(Unsigned):
     BITS = 64
-    TYPE = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 6)
+    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 6)
 
 zeroDotZero = OID(0, 0)

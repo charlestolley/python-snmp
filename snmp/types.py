@@ -10,11 +10,11 @@ from snmp.ber import *
 from snmp.exception import *
 from snmp.utils import *
 
-INTEGER             = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 2)
-OCTET_STRING        = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
-NULL                = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 5)
-OBJECT_IDENTIFIER   = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 6)
-SEQUENCE            = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
+INTEGER             = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 2)
+OCTET_STRING        = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
+NULL                = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 5)
+OBJECT_IDENTIFIER   = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 6)
+SEQUENCE            = Identifier(Class.UNIVERSAL, Structure.CONSTRUCTED, 16)
 
 class Asn1Encodable:
     def __eq__(self, other):
