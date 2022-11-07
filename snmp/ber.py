@@ -4,9 +4,10 @@ __all__ = [
     "decode_identifier", "decode", "encode",
 ]
 
-from collections import namedtuple
 from enum import IntEnum
+
 from snmp.exception import *
+from snmp.typing import *
 from snmp.utils import subbytes
 
 class EncodeError(SNMPException):
@@ -25,7 +26,10 @@ class Structure(IntEnum):
     PRIMITIVE     = 0
     CONSTRUCTED   = 1
 
-Identifier = namedtuple("Identifier", ("cls", "structure", "tag"))
+class Identifier(NamedTuple):
+    cls: Class
+    structure: Structure
+    tag: int
 
 def decode_identifier(data):
     try:

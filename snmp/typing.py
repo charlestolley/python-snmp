@@ -3,6 +3,7 @@ __all__ = [
     "Callable",
     "Generic",
     "Iterator",
+    "NamedTuple",
     "Optional",
     "TypeVar",
     "Union",
@@ -13,6 +14,7 @@ __all__ = [
 from typing import Any
 from typing import Callable
 from typing import Generic
+from typing import NamedTuple
 from typing import Optional
 from typing import TypeVar
 from typing import Union
