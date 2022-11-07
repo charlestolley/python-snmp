@@ -18,23 +18,18 @@ V = TypeVar("V", bound=SelfComparable)
 class ComparableWeakRef(Generic[T, V]):
     """Allow weakly-referenced objects to be used in sorted data structures.
 
-    When weakly-referenced objects are stored in a sorted data structure,
-    such as a binary heap, the unexpected replacement of an object with
-    ``None`` can violate the structure's invariants, causing the structure
-    to behave unpredictably. This class provides a proxy :meth:`__lt__`
-    method that enables proper sorting even after the referenced object has
-    been garbage-collected.
+    This class extends the behavior of the standard library's
+    :class:`weakref` type by adding support for the less-than operator
+    (:meth:`__lt__`). Upon construction, it will call the provided `key`
+    function, with `obj` as the only argument, and the return value will be
+    stored as the "comparison key". So long as the object remains alive, it
+    will continue to call `key` with every comparison, and update the stored
+    value. If the reference becomes invalid (i.e. the object is garbage-
+    collected), then it will continue to use the last stored value for all
+    future comparisons.
     """
 
     def __init__(self, obj: T, key: Callable[[T], V]) -> None:
-        """
-        :param obj: Any object.
-        :param key:
-            This argument mimics the ``key`` argument to the built-in
-            :func:`sorted` function; that is, a call to ``key(obj)`` returns a
-            value that can be used to compare ``obj`` to another object of the
-            same type.
-        """
         # obj could be garbage-collected as soon as this call returns, so it's
         # important to retrieve the value now, rather than initialize to None
         self._value = key(obj)
@@ -59,27 +54,26 @@ class ComparableWeakRef(Generic[T, V]):
         """
         return self.ref()
 
-    def __lt__(self, other: "ComparableWeakRef[T, V]") -> bool:
+    def __lt__(self, other: "ComparableWeakRef[Any, V]") -> bool:
         """Compare this object to another ComparableWeakRef."""
         return self.value < other.value
 
 class NumberGenerator:
     """Generate integers spanning a specific range.
 
-    Given an integer size of ``n`` bits, an instance of this class will
-    generate a sequence of length ``2^n``, where each ``n``-bit integer
-    appears exactly once. Additionally, the first ``2^n-1`` numbers in the
-    sequence are guaranteed to be non-zero; or, in other words, the last
-    number in the sequence is always ``0``. After ``2^n`` iterations, the
-    sequence repeats from the beginning.
+    Given an integer size of `n` bits, an instance of this class will
+    generate a sequence of length ``2^n``, where each `n`-bit integer
+    appears exactly once. The first ``2^n-1`` numbers in the sequence are
+    guaranteed to be non-zero; or, in other words, the last number in the
+    sequence is always ``0``. After ``2^n`` iterations, the sequence repeats
+    from the beginning.
+
+    The `signed` argument determines whether the generated numbers should
+    use two's-complement encoding (i.e. cover the range ``-(2^(n-1))`` to
+    ``2^(n-1)-1``, inclusive), or unsigned encoding (``0`` to ``2^n-1``).
     """
 
     def __init__(self, n: int, signed: bool = True) -> None:
-        """
-        :param int n: The size of the generated integers, in bits.
-        :param bool signed:
-            Indicates whether to use two's complement or unsigned numbers.
-        """
         half = 1 << (n-1)
 
         self.previous = 0
@@ -94,7 +88,7 @@ class NumberGenerator:
         return self
 
     def __next__(self) -> int:
-        """Get the next number in the sequence."""
+        """Give the next number in the sequence."""
         self.previous += self.step
 
         if self.previous > self.wrap:
@@ -117,9 +111,9 @@ class subbytes:
 
     .. attribute:: data
 
-        The :attr:`data` attribute provides a reference to the full sequence
-        of bytes. If the `data` argument to the constructor is an instance
-        of :class:`subbytes`, it will be unwrapped so that the data
+        The :attr:`data` attribute provides a reference to the underlying
+        bytes-like object. If the `data` argument to the constructor is an
+        instance of :class:`subbytes`, it will be unwrapped so that this
         attribute always references a bytes-like object directly.
     """
 
@@ -283,9 +277,9 @@ def typename(cls: Any, qualified: bool = False) -> str:
     """Query an object to determine its type.
 
     :param cls:
-        If ``cls`` is a class, this function will return the name of that
-        class. If ``cls`` is an object, this function will return the name
-        of the object's class.
+        If ``cls`` is a class, this function will return its name.  If
+        ``cls`` is an object, this function will return the name of the
+        object's class.
     :param bool qualified:
         Indicate whether to return the fully-qualified name, which includes
         the module path, as well as the names of any enclosing classes (for
