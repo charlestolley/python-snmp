@@ -20,19 +20,19 @@ class ExceptionTypesTest(unittest.TestCase):
 
 class IdentiferDecodeTest(unittest.TestCase):
     def testUniversalConstructed(self):
-        identifier = Identifier(CLASS_UNIVERSAL, STRUCTURE_CONSTRUCTED, 16)
+        identifier = Identifier(Class.UNIVERSAL, Structure.CONSTRUCTED, 16)
         self.assertEqual(decode(b"\x30\x00")[0], identifier)
 
     def testApplicationPrimitive(self):
-        identifier = Identifier(CLASS_APPLICATION, STRUCTURE_PRIMITIVE, 1)
+        identifier = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 1)
         self.assertEqual(decode(b"\x41\x00")[0], identifier)
 
     def testContextSpecific(self):
-        identifier = Identifier(CLASS_CONTEXT_SPECIFIC, STRUCTURE_PRIMITIVE, 2)
+        identifier = Identifier(Class.CONTEXT_SPECIFIC, Structure.PRIMITIVE, 2)
         self.assertEqual(decode(b"\x82\x00")[0], identifier)
 
     def testHugeTag(self):
-        identifier = Identifier(CLASS_PRIVATE, STRUCTURE_CONSTRUCTED, 0x1173df6)
+        identifier = Identifier(Class.PRIVATE, Structure.CONSTRUCTED, 0x1173df6)
         self.assertEqual(decode(b"\xff\x88\xdc\xfb\x76\x00")[0], identifier)
 
 class SimpleDecodeTest(unittest.TestCase):
@@ -55,7 +55,7 @@ class SimpleDecodeTest(unittest.TestCase):
         self.assertRaises(ParseError, decode, self.data + b"\x00")
 
     def testWrongType(self):
-        identifier = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 2)
+        identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 2)
         self.assertRaises(ParseError, decode, self.data, expected=identifier)
 
     def testDecode(self):
@@ -76,14 +76,14 @@ class BigDecodeTest(unittest.TestCase):
 class DecodeTypesTest(unittest.TestCase):
     def testDecodeSubbytes(self):
         data = subbytes(b"nonsense\x04\x08deadbeefmorenonsense", 8, 18)
-        identifier = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
+        identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
         data = decode(data, expected=identifier)
 
         self.assertFalse(isinstance(data, subbytes))
         self.assertEqual(data, b"deadbeef")
 
     def testExpectedWithLeftovers(self):
-        identifier = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
+        identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
         result = decode(b"\x04\x02beef", expected=identifier, leftovers=True)
         data, leftovers = result
 
@@ -105,7 +105,7 @@ class DecodeTypesTest(unittest.TestCase):
 
         self.assertEqual(
             identifier,
-            Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
+            Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
         )
 
         self.assertEqual(data, b"dead")
@@ -122,7 +122,7 @@ class DecodeTypesTest(unittest.TestCase):
 
         self.assertEqual(
             identifier,
-            Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
+            Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
         )
 
         self.assertEqual(data, b"dead")
@@ -130,18 +130,18 @@ class DecodeTypesTest(unittest.TestCase):
 
 class EncodeTest(unittest.TestCase):
     def testLargeTag(self):
-        identifier = Identifier(CLASS_PRIVATE, STRUCTURE_CONSTRUCTED, 9001)
+        identifier = Identifier(Class.PRIVATE, Structure.CONSTRUCTED, 9001)
         self.assertEqual(encode(identifier, b""), b"\xff\xc6\x29\x00")
 
     def testLongOctetString(self):
         data = b"\x00" * 10000
         encoding = b"\x04\x82\x27\x10" + data
-        identifier = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 4)
+        identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
         self.assertEqual(encode(identifier, data), encoding)
 
     def testInteger(self):
         data = int(8888).to_bytes(2, "big")
-        identifier = Identifier(CLASS_UNIVERSAL, STRUCTURE_PRIMITIVE, 2)
+        identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 2)
         self.assertEqual(encode(identifier, data), b"\x02\x02\x22\xb8")
 
 if __name__ == '__main__':
