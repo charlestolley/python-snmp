@@ -1,6 +1,6 @@
 __all__ = [
     "EncodeError", "ParseError",
-    "Class", "Structure", "Identifier",
+    "Asn1Data", "Class", "Structure", "Identifier",
     "decode_identifier", "decode", "encode",
 ]
 
@@ -17,18 +17,18 @@ class EncodeError(SNMPException):
     pass
 
 class ParseError(IncomingMessageError):
-    """Failure to translate a sequence of bytes into an ASN.1 object."""
+    """Failure to translate a byte string into an ASN.1 object."""
     pass
 
 class Class(IntEnum):
-    """Named constants for the class bits of a BER identifier."""
+    """Named constants for the class bits of an ASN.1 BER identifier."""
     UNIVERSAL         = 0
     APPLICATION       = 1
     CONTEXT_SPECIFIC  = 2
     PRIVATE           = 3
 
 class Structure(IntEnum):
-    """Named constants for the constructed bit of a BER identifier."""
+    """Named constants for the constructed bit of an ASN.1 BER identifier."""
     PRIMITIVE     = 0
     CONSTRUCTED   = 1
 
@@ -39,12 +39,12 @@ class Identifier(NamedTuple):
     tag: int
 
 def decode_identifier(data: subbytes) -> Identifier:
-    """Extract the identifier from a BER-encoded sequence of bytes.
+    """Extract the identifier from an ASN.1 BER string.
 
-    This function reads the first byte (or bytes) in the given sequence
-    and decodes it (them) as an Identifier according to the ASN.1 Basic
-    Encoding Rules. As a side-effect, it modifies the `data` argument by
-    removing the decoded byte(s).
+    This function decodes the identifier portion of a BER string an returns
+    it as an :class:`Identifier` object. As a side-effect, it advances the
+    start of the `data` argument to point to the byte immediately after the
+    identifier.
     """
     try:
         byte = data.consume()
@@ -93,13 +93,14 @@ def encode_identifier(i: Identifier) -> bytes:
     return bytes(reversed(arr))
 
 def decode_length(data: subbytes) -> int:
-    """Decode the length field of a BER-encoded sequence of bytes.
+    """Decode the length field of an ASN.1 BER string.
 
-    The provided `data` argument should contain a BER message that has
-    already had the identifier removed from the beginning (e.g. by first
-    passing it to :func:`decode_identifier`). This function will decode the
-    length field and return it as an :class:`int`. As a side-effect, it
-    modifies the `data` argument by removing the decoded byte(s).
+    The provided `data` argument should contain most of a BER string,
+    starting after the identifier. The most natural way to use it is to pass
+    the same object first to :func:`decode_identifier` and then to
+    :func:`decode_length`. This function will decode the length field and
+    return it as an :class:`int`, modifying the `data` argument to start
+    immediately after the length field.
     """
     try:
         length = data.consume()
@@ -215,7 +216,7 @@ def decode(
     leftovers: bool = False,
     copy: bool = True,
 ) -> Any:
-    """Extract the contents of a BER-encoded message.
+    """Extract the contents of an ASN.1 BER string.
 
     This function has several options for what it can return depending on
     the values of its arguments. In the default case, given only the `data`
