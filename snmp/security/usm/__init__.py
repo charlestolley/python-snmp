@@ -3,6 +3,7 @@ __all__ = [
     "UserBasedSecurityModule", "UsmControlModule",
 ]
 
+from abc import abstractmethod
 import threading
 
 from time import time
@@ -11,7 +12,30 @@ from snmp.exception import IncomingMessageError
 from snmp.types import *
 from snmp.security import *
 from snmp.security.levels import *
+from snmp.typing import *
 from snmp.utils import typename
+
+class PrivProtocol:
+    @abstractmethod
+    def __init__(self, key: bytes) -> None:
+        ...
+
+    @abstractmethod
+    def decrypt(self,
+        data: bytes,
+        engineBoots: int,
+        engineTime: int,
+        salt: bytes,
+    ) -> bytes:
+        ...
+
+    @abstractmethod
+    def encrypt(self,
+        data: bytes,
+        engineBoots: int,
+        engineTime: int,
+    ) -> Tuple[bytes, bytes]:
+        ...
 
 class UsmStatsError(IncomingMessageError):
     USM_STATS = OID.parse(".1.3.6.1.6.3.15.1.1")
