@@ -300,6 +300,22 @@ class OID(Primitive):
     def __lt__(self, other: "OID") -> bool:
         return self.nums < other.nums
 
+    @staticmethod
+    def serializeSubIdentifier(bytearr: bytearray, num: int) -> None:
+        if num < 0x80:
+            bytearr.append(num)
+        else:
+            flag = 0
+            tmp = bytearray()
+
+            while num:
+                tmp.append((num & 0x7f) | flag)
+                flag = 0x80
+                num >>= 7
+
+            tmp.reverse()
+            bytearr.extend(tmp)
+
     def tryDecode(self,
         nums: Iterator[int],
         cls: Type[TPrimitive],
@@ -349,10 +365,6 @@ class OID(Primitive):
 
         return cls(*nums)
 
-    def extend(self: TOID, *nums: int) -> TOID:
-        nums = self.nums + nums
-        return type(self)(*nums)
-
     def appendIndex(self: TOID, *index: Primitive) -> TOID:
         oid = self
         for obj in index:
@@ -360,24 +372,23 @@ class OID(Primitive):
 
         return oid
 
+    def extend(self: TOID, *nums: int) -> TOID:
+        nums = self.nums + nums
+        return type(self)(*nums)
+
     # TODO: I'm not sure whether the return type annotation is correct, or
     #       if the correct annotation even exists
     def extractIndex(self,
         prefix: "OID",
         *types: Type[TPrimitive],
     ) -> Tuple[TPrimitive, ...]:
-        nums = iter(self.nums)
-        for subid in prefix:
-            try:
-                match = (subid == next(nums))
-            except StopIteration as err:
-                errmsg = "\"{}\" is shorter than the given prefix \"{}\""
-                raise self.BadPrefix(errmsg.format(self, prefix)) from err
+        suffix = self.getSubTree(prefix)
 
-            if not match:
-                errmsg = "\"{}\" does not begin with \"{}\""
-                raise self.BadPrefix(errmsg.format(self, prefix))
+        if suffix is None:
+            errmsg = "\"{}\" does not begin with \"{}\""
+            raise self.BadPrefix(errmsg.format(self, prefix))
 
+        nums = iter(suffix)
         index = tuple(self.tryDecode(nums, cls) for cls in types)
 
         try:
@@ -439,22 +450,6 @@ class OID(Primitive):
             raise ParseError("OID ended unexpectedly")
 
         return cls(*oid)
-
-    @staticmethod
-    def serializeSubIdentifier(bytearr: bytearray, num: int) -> None:
-        if num < 0x80:
-            bytearr.append(num)
-        else:
-            flag = 0
-            tmp = bytearray()
-
-            while num:
-                tmp.append((num & 0x7f) | flag)
-                flag = 0x80
-                num >>= 7
-
-            tmp.reverse()
-            bytearr.extend(tmp)
 
     def serialize(self) -> bytes:
         try:
