@@ -8,6 +8,7 @@ from abc import abstractmethod
 import re
 from snmp.ber import *
 from snmp.exception import *
+from snmp.typing import *
 from snmp.utils import *
 
 INTEGER             = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 2)
@@ -16,74 +17,116 @@ NULL                = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 5)
 OBJECT_IDENTIFIER   = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 6)
 SEQUENCE            = Identifier(Class.UNIVERSAL, Structure.CONSTRUCTED, 16)
 
+Bool = Literal[False, True]
+TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
+TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
+TInteger        = TypeVar("TInteger",       bound="Integer")
+TOctetString    = TypeVar("TOctetString",   bound="OctetString")
+TNull           = TypeVar("TNull",          bound="Null")
+TOID            = TypeVar("TOID",           bound="OID")
+
 class Asn1Encodable:
-    def __eq__(self, other):
+    TYPE: ClassVar[Identifier]
+
+    def __eq__(self, other: Any) -> bool:
         if type(self) == type(other):
             return self.equals(other)
         else:
             return NotImplemented
 
+    @overload
     @classmethod
-    def decode(cls, data, leftovers=False, copy=True, **kwargs):
-        result = decode(data, expected=cls.TYPE, leftovers=leftovers, copy=copy)
+    def decode(
+        cls: Type[TEncodable],
+        data: Asn1Data,
+        leftovers: Literal[False] = False,
+        copy: bool = True,
+        **kwargs: Any,
+    ) -> TEncodable:
+        ...
 
+    @overload
+    @classmethod
+    def decode(
+        cls: Type[TEncodable],
+        data: Asn1Data,
+        leftovers: Literal[True],
+        copy: bool = True,
+        **kwargs: Any,
+    ) -> Tuple[TEncodable, subbytes]:
+        ...
+
+    @classmethod
+    def decode(
+        cls: Type[TEncodable],
+        data: Asn1Data,
+        leftovers: bool = False,
+        copy: bool = True,
+        **kwargs: Any,
+    ) -> Union[TEncodable, Tuple[TEncodable, subbytes]]:
+        _copy: Bool = copy
         if leftovers:
-            encoding, leftovers = result
-            return cls.deserialize(encoding, **kwargs), leftovers
+            encoding, tail = decode(data, cls.TYPE, True, _copy)
+            return cls.deserialize(encoding, **kwargs), tail
         else:
-            return cls.deserialize(result, **kwargs)
+            encoding = decode(data, cls.TYPE, False, _copy)
+            return cls.deserialize(encoding, **kwargs)
 
-    def encode(self):
+    def encode(self) -> bytes:
         return encode(self.TYPE, self.serialize())
 
     @abstractmethod
-    def equals(self, other):
+    def equals(self: TEncodable, other: TEncodable) -> bool:
         ...
 
     @classmethod
     @abstractmethod
-    def deserialize(cls, data):
+    def deserialize(cls: Type[TEncodable], data: Asn1Data) -> TEncodable:
         ...
 
     @abstractmethod
-    def serialize(self):
+    def serialize(self) -> bytes:
         ...
 
 class Primitive(Asn1Encodable):
     @abstractmethod
-    def appendToOID(self, oid):
+    def appendToOID(self, oid: TOID) -> TOID:
         ...
 
     @classmethod
     @abstractmethod
-    def decodeFromOID(cls, nums):
+    def decodeFromOID(
+        cls: Type[TPrimitive],
+        nums: Iterator[int],
+    ) -> TPrimitive:
         ...
 
 class Integer(Primitive):
-    BITS = 32
-    BYTEORDER = "big"
-    SIGNED = True
     TYPE = INTEGER
 
-    def __init__(self, value):
+    BITS:       ClassVar[int]               = 32
+    BYTEORDER:  ClassVar[Literal["big"]]    = "big"
+    SIGNED:     ClassVar[bool]              = True
+
+    def __init__(self, value: int) -> None:
         self.value = value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{typename(self)}({self.value})"
 
-    def equals(self, other):
+    def equals(self, other: "Integer") -> bool:
         return self.value == other.value
 
-    def appendToOID(self, oid):
+    def appendToOID(self, oid: TOID) -> TOID:
         return oid.extend(self.value)
 
     @classmethod
-    def inRange(cls, value):
+    def inRange(cls, value: int) -> bool:
         assert isinstance(cls.SIGNED, bool)
         return value.bit_length() <= cls.BITS - cls.SIGNED + (value < 0)
 
     @classmethod
-    def decodeFromOID(cls, nums):
+    def decodeFromOID(cls: Type[TInteger], nums: Iterator[int]) -> TInteger:
         value = next(nums)
 
         if not cls.inRange(value):
@@ -93,7 +136,7 @@ class Integer(Primitive):
         return cls(value)
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls: Type[TInteger], data: Asn1Data) -> TInteger:
         value = int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED)
 
         if not cls.inRange(value):
@@ -101,7 +144,7 @@ class Integer(Primitive):
 
         return cls(value)
 
-    def serialize(self):
+    def serialize(self) -> bytes:
         assert self.inRange(self.value)
 
         # equivalent to (N + 8) // 8
@@ -112,28 +155,31 @@ class Integer(Primitive):
 class OctetString(Primitive):
     TYPE = OCTET_STRING
 
-    MIN_SIZE = 0
-    MAX_SIZE = 0xffff
-    INVALID_SIZES = ()
+    MIN_SIZE:       ClassVar[int]               = 0
+    MAX_SIZE:       ClassVar[int]               = 0xffff
+    INVALID_SIZES:  ClassVar[Tuple[int, ...]]   = ()
 
-    def __init__(self, data=b""):
+    def __init__(self, data: Asn1Data = b"") -> None:
         self._data = data
 
-    def __repr__(self):
-        return f"{typename(self)}({self.data})"
+    def __repr__(self) -> str:
+        return f"{typename(self)}({self.data!r})"
 
     @property
-    def data(self):
+    def data(self) -> Asn1Data:
         return self._data
 
-    def equals(self, other):
+    def equals(self, other: "OctetString") -> bool:
         return self.data == other.data
 
-    def appendToOID(self, oid):
+    def appendToOID(self, oid: TOID) -> TOID:
         return oid.extend(len(self.data), *self.data)
 
     @classmethod
-    def decodeFromOID(cls, nums):
+    def decodeFromOID(
+        cls: Type[TOctetString],
+        nums: Iterator[int],
+    ) -> TOctetString:
         length = next(nums)
         data = bytearray(length)
 
@@ -143,13 +189,15 @@ class OctetString(Primitive):
             try:
                 data[i] = byte
             except ValueError as err:
-                errmsg = "Sub-identifier does not fit within a single octet: {}"
-                raise OID.IndexDecodeError(errmsg.format(byte)) from err
+                errmsg = "Sub-identifier is too large for type \"{}\": {}"
+                raise OID.IndexDecodeError(
+                    errmsg.format(typename(cls), byte)
+                ) from err
 
-        return cls(bytes(data))
+        return cls.interpret(bytes(data))
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls: Type[TOctetString], data: Asn1Data) -> TOctetString:
         if len(data) < cls.MIN_SIZE:
             msg = "Encoded {} may not be less than {} bytes long"
             raise ParseError(msg.format(typename(cls), cls.MIN_SIZE))
@@ -163,10 +211,10 @@ class OctetString(Primitive):
         return cls.interpret(data)
 
     @classmethod
-    def interpret(cls, data):
+    def interpret(cls: Type[TOctetString], data: Asn1Data) -> TOctetString:
         return cls(data)
 
-    def serialize(self):
+    def serialize(self) -> bytes:
         data = self.data
         if len(data) < self.MIN_SIZE:
             msg = "Encoded {} may not be less than {} bytes long"
@@ -183,31 +231,32 @@ class OctetString(Primitive):
 class Null(Primitive):
     TYPE = NULL
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{typename(self)}()"
 
-    def equals(self, other):
+    def equals(self, other: "Null") -> bool:
         return True
 
-    def appendToOID(self, oid):
+    def appendToOID(self, oid: TOID) -> TOID:
         return oid
 
     @classmethod
-    def decodeFromOID(cls, nums):
+    def decodeFromOID(cls: Type[TNull], nums: Iterator[int]) -> TNull:
         return cls()
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls: Type[TNull], data: Asn1Data) -> TNull:
         return cls()
 
-    def serialize(self):
+    def serialize(self) -> bytes:
         return b""
 
 class OID(Primitive):
-    DOT = '.'
-    MULT = 40
-    MAXLEN = 128
     TYPE = OBJECT_IDENTIFIER
+
+    DOT:    ClassVar[str] = "."
+    MULT:   ClassVar[int] = 40
+    MAXLEN: ClassVar[int] = 128
 
     class BadPrefix(IncomingMessageError):
         pass
@@ -215,7 +264,7 @@ class OID(Primitive):
     class IndexDecodeError(IncomingMessageError):
         pass
 
-    def __init__(self, *nums):
+    def __init__(self, *nums: int) -> None:
         if len(nums) > self.MAXLEN:
             errmsg = "{} may not contain more than {} sub-identifiers"
             raise ValueError(errmsg.format(typename(self), self.MAXLEN))
@@ -223,25 +272,38 @@ class OID(Primitive):
         assert all(0 <= n < (1 << 32) for n in nums)
         self.nums = nums
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{typename(self)}{self.nums}"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.DOT.join(str(n) for n in self.nums)
 
-    def __getitem__(self, idx):
+    @overload
+    def __getitem__(self, idx: int) -> int:
+        ...
+
+    @overload
+    def __getitem__(self, idx: slice) -> Tuple[int, ...]:
+        ...
+
+    def __getitem__(self,
+        idx: Union[int, slice],
+    ) -> Union[int, Tuple[int, ...]]:
         return self.nums.__getitem__(idx)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         return self.nums.__iter__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.nums.__len__()
 
-    def __lt__(self, other):
+    def __lt__(self, other: "OID") -> bool:
         return self.nums < other.nums
 
-    def tryDecode(self, nums, cls):
+    def tryDecode(self,
+        nums: Iterator[int],
+        cls: Type[TPrimitive],
+    ) -> TPrimitive:
         try:
             return cls.decodeFromOID(nums)
         except StopIteration as err:
@@ -252,7 +314,7 @@ class OID(Primitive):
     REGEX = re.compile(r"\.(\d+)")
 
     @classmethod
-    def parse(cls, oid):
+    def parse(cls: Type[TOID], oid: str) -> TOID:
         match = cls.FIRST.match(oid)
 
         if match is None:
@@ -287,18 +349,23 @@ class OID(Primitive):
 
         return cls(*nums)
 
-    def extend(self, *nums):
+    def extend(self: TOID, *nums: int) -> TOID:
         nums = self.nums + nums
         return type(self)(*nums)
 
-    def appendIndex(self, *index):
+    def appendIndex(self: TOID, *index: Primitive) -> TOID:
         oid = self
         for obj in index:
             oid = obj.appendToOID(oid)
 
         return oid
 
-    def extractIndex(self, prefix, *types):
+    # TODO: I'm not sure whether the return type annotation is correct, or
+    #       if the correct annotation even exists
+    def extractIndex(self,
+        prefix: "OID",
+        *types: Type[TPrimitive],
+    ) -> Tuple[TPrimitive, ...]:
         nums = iter(self.nums)
         for subid in prefix:
             try:
@@ -318,27 +385,28 @@ class OID(Primitive):
         except StopIteration:
             pass
         else:
-            raise self.IndexDecodeError("Not all sub-identifiers were consumed")
+            errmsg = "Not all sub-identifiers were consumed"
+            raise self.IndexDecodeError(errmsg)
 
         return index
 
-    def getIndex(self, prefix, cls):
+    def getIndex(self, prefix: "OID", cls: Type[TPrimitive]) -> TPrimitive:
         return self.extractIndex(prefix, cls)[0]
 
-    def getSubTree(self, prefix):
+    def getSubTree(self, prefix: "OID") -> Optional[Tuple[int, ...]]:
         if prefix.nums == self.nums[:len(prefix)]:
             return self[len(prefix):]
         else:
             return None
 
-    def equals(self, other):
+    def equals(self, other: "OID") -> bool:
         return self.nums == other.nums
 
-    def appendToOID(self, oid):
+    def appendToOID(self, oid: TOID) -> TOID:
         return oid.extend(len(self.nums), *self.nums)
 
     @classmethod
-    def decodeFromOID(cls, nums):
+    def decodeFromOID(cls: Type[TOID], nums: Iterator[int]) -> TOID:
         length = next(nums)
         subids = [0] * length
 
@@ -348,16 +416,16 @@ class OID(Primitive):
         return cls(*subids)
 
     @classmethod
-    def deserialize(cls, data):
-        data = iter(data)
+    def deserialize(cls: Type[TOID], data: Asn1Data) -> TOID:
+        stream = iter(data)
 
         try:
-            oid = list(divmod(next(data), cls.MULT))
+            oid = list(divmod(next(stream), cls.MULT))
         except StopIteration as err:
             raise ParseError(f"Empty {typename(cls)}") from err
 
         value = 0
-        for byte in data:
+        for byte in stream:
             value |= byte & 0x7f
             if byte & 0x80:
                 value <<= 7
@@ -373,7 +441,7 @@ class OID(Primitive):
         return cls(*oid)
 
     @staticmethod
-    def serializeSubIdentifier(bytearr, num):
+    def serializeSubIdentifier(bytearr: bytearray, num: int) -> None:
         if num < 0x80:
             bytearr.append(num)
         else:
@@ -388,7 +456,7 @@ class OID(Primitive):
             tmp.reverse()
             bytearr.extend(tmp)
 
-    def serialize(self):
+    def serialize(self) -> bytes:
         try:
             first = self.nums[0]
         except IndexError:
@@ -407,7 +475,7 @@ class OID(Primitive):
         return bytes(encoding)
 
 class Constructed(Asn1Encodable):
-    def equals(self, other):
+    def equals(self, other: "Constructed") -> bool:
         if len(self) == len(other):
             for left, right in zip(self, other):
                 if left != right:
@@ -416,14 +484,14 @@ class Constructed(Asn1Encodable):
         return True
 
     @abstractmethod
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Asn1Encodable]:
         ...
 
     @abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         ...
 
-    def serialize(self):
+    def serialize(self) -> bytes:
         return b"".join([item.encode() for item in self])
 
 class Sequence(Constructed):
