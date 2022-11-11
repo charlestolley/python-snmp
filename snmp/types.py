@@ -1,7 +1,7 @@
 __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
-    "Asn1Encodable", "Integer", "OctetString", "Null", "OID",
-    "Constructed", "Sequence",
+    "Asn1Encodable","Primitive", "Constructed",
+    "Integer", "OctetString", "Null", "OID", "Sequence",
 ]
 
 from abc import abstractmethod
