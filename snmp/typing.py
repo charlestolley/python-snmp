@@ -12,6 +12,7 @@ __all__ = [
     "TypeVar",
     "Union",
     "cast",
+    "final",
     "overload",
 ]
 
@@ -38,9 +39,13 @@ else:
 
 if sys.version_info[:2] >= (3, 8):
     from typing import Literal
+    from typing import final
 else:
     class DummyType:
         def __getitem__(self, key):
             return None
 
     Literal = DummyType()
+
+    def final(wrapped):
+        return wrapped
