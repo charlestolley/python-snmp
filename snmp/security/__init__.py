@@ -88,6 +88,8 @@ class SecurityParameters:
         )
 
 class SecurityModule:
+    MODEL: ClassVar[SecurityModel]
+
     @abstractmethod
     def processIncoming(self,
         msg: subbytes,

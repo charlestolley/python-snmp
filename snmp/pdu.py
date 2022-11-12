@@ -1,7 +1,7 @@
 __all__ = [
     "NoSuchObject", "NoSuchInstance", "EndOfMibView",
     "VarBind", "VarBindList",
-    "PDU", "BulkPDU",
+    "AnyPDU", "PDU", "BulkPDU",
     "GetRequestPDU", "GetNextRequestPDU", "GetBulkRequestPDU",
     "SetRequestPDU",
     "ResponsePDU", "ReportPDU",
@@ -17,6 +17,7 @@ from snmp.types import *
 from snmp.typing import *
 from snmp.utils import subbytes, typename
 
+AnyPDU = Union["PDU", "BulkPDU"]
 TPDU = TypeVar("TPDU", bound="PDU")
 TBulkPDU = TypeVar("TBulkPDU", bound="BulkPDU")
 
