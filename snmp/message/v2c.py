@@ -6,11 +6,11 @@ from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
 from snmp.types import *
+from snmp.typing import *
 from snmp.utils import *
-from . import *
 
 pduTypes = {
-    cls.TYPE: cls for cls in (
+    cls.TYPE: cls for cls in cast(Tuple[Type[AnyPDU], ...], (
         GetRequestPDU,
         GetNextRequestPDU,
         ResponsePDU,
@@ -20,35 +20,36 @@ pduTypes = {
         InformRequestPDU,
         SNMPv2TrapPDU,
         ReportPDU,
-    )
+    ))
 }
 
 class LateResponse(IncomingMessageError):
     pass
 
 class ResponseMismatch(IncomingMessageError):
-    @classmethod
-    def byField(cls, field):
-        return cls(f"{field} does not match request")
+    pass
 
 class CacheEntry:
-    def __init__(self, handle, community):
+    def __init__(self,
+        handle: RequestHandle[Message],
+        community: bytes,
+    ) -> None:
         self.community = community
         self.handle = weakref.ref(handle)
 
 class MessageProcessor:
     VERSION = MessageProcessingModel.SNMPv2c
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.cacheLock = threading.Lock()
         self.generator = self.newGenerator()
-        self.outstanding = {}
+        self.outstanding: MutableMapping[int, CacheEntry] = {}
 
     @staticmethod
-    def newGenerator():
+    def newGenerator() -> NumberGenerator:
         return NumberGenerator(32)
 
-    def cache(self, entry):
+    def cache(self, entry: CacheEntry) -> int:
         retry = 0
         while retry < 10:
             with self.cacheLock:
@@ -63,18 +64,20 @@ class MessageProcessor:
 
         raise Exception("Failed to allocate request ID")
 
-    def retrieve(self, requestID):
+    def retrieve(self, requestID: int) -> CacheEntry:
         with self.cacheLock:
             return self.outstanding[requestID]
 
-    def uncache(self, requestID):
+    def uncache(self, requestID: int) -> None:
         with self.cacheLock:
             try:
                 del self.outstanding[requestID]
             except KeyError:
                 pass
 
-    def prepareDataElements(self, msg):
+    def prepareDataElements(self,
+        msg: subbytes,
+    ) -> Tuple[Message, RequestHandle[Message]]:
         message = Message.decodeBody(msg, pduTypes)
 
         if isinstance(message.pdu, ResponsePDU):
@@ -89,13 +92,17 @@ class MessageProcessor:
                 raise LateResponse("Handle has already been released")
 
             if entry.community != message.community:
-                raise ResponseMismatch.byField("Community")
+                raise ResponseMismatch(f"Community does not match request")
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
         return message, handle
 
-    def prepareOutgoingMessage(self, pdu, handle, community):
+    def prepareOutgoingMessage(self,
+        pdu: AnyPDU,
+        handle: RequestHandle[Message],
+        community: bytes,
+    ) -> bytes:
         if pdu.requestID == 0:
             cacheEntry = CacheEntry(handle, community)
             pdu.requestID = self.cache(cacheEntry)
