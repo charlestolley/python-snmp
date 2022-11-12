@@ -13,7 +13,7 @@ from snmp.types import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.typing import *
-from snmp.utils import typename
+from snmp.utils import *
 
 class AuthProtocol:
     @abstractmethod
@@ -56,30 +56,23 @@ class PrivProtocol:
     ) -> Tuple[bytes, bytes]:
         ...
 
-class UsmStatsError(IncomingMessageError):
-    USM_STATS = OID.parse(".1.3.6.1.6.3.15.1.1")
+class UnsupportedSecLevel(IncomingMessageError):
+    pass
 
-    def __init__(self, msg):
-        super().__init__(msg)
-        self.oid = self.USM_STATS.extend(self.ERRNUM)
+class NotInTimeWindow(IncomingMessageError):
+    pass
 
-class UnsupportedSecLevel(UsmStatsError):
-    ERRNUM = 1
+class UnknownUserName(IncomingMessageError):
+    pass
 
-class NotInTimeWindow(UsmStatsError):
-    ERRNUM = 2
+class UnknownEngineID(IncomingMessageError):
+    pass
 
-class UnknownUserName(UsmStatsError):
-    ERRNUM = 3
+class WrongDigest(IncomingMessageError):
+    pass
 
-class UnknownEngineID(UsmStatsError):
-    ERRNUM = 4
-
-class WrongDigest(UsmStatsError):
-    ERRNUM = 5
-
-class DecryptionError(UsmStatsError):
-    ERRNUM = 6
+class DecryptionError(IncomingMessageError):
+    pass
 
 class InvalidEngineID(ValueError):
     pass
@@ -91,7 +84,11 @@ class InvalidSecurityLevel(ValueError):
     pass
 
 class TimeEntry:
-    def __init__(self, engineBoots, latestBootTime=None, authenticated=False):
+    def __init__(self,
+        engineBoots: int,
+        latestBootTime: Optional[float] = None,
+        authenticated: bool = False,
+    ) -> None:
         if latestBootTime is None:
             latestBootTime = time()
 
@@ -100,18 +97,21 @@ class TimeEntry:
         self.latestBootTime = latestBootTime
         self.latestReceivedEngineTime = 0
 
-    def snmpEngineTime(self, timestamp):
+    def snmpEngineTime(self, timestamp: float) -> int:
         return int(timestamp - self.latestBootTime)
 
 class TimeKeeper:
-    MAX_ENGINE_BOOTS = (1 << 31) - 1
-    TIME_WINDOW_SIZE = 150
+    MAX_ENGINE_BOOTS: ClassVar[int] = (1 << 31) - 1
+    TIME_WINDOW_SIZE: ClassVar[int] = 150
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.lock = threading.Lock()
-        self.table = {}
+        self.table: MutableMapping[bytes, TimeEntry] = {}
 
-    def getEngineTime(self, engineID, timestamp=None):
+    def getEngineTime(self,
+        engineID: bytes,
+        timestamp: Optional[float] = None,
+    ) -> Tuple[int, int]:
         if timestamp is None:
             timestamp = time()
 
@@ -123,11 +123,21 @@ class TimeKeeper:
 
             return entry.snmpEngineBoots, entry.snmpEngineTime(timestamp)
 
-    def update(self, engineID, msgBoots=0, msgTime=0, timestamp=None):
+    def update(self,
+        engineID: bytes,
+        msgBoots: int = 0,
+        msgTime: int = 0,
+        timestamp: Optional[float] = None,
+    ) -> None:
         self.updateAndVerify(engineID, msgBoots, msgTime, False, timestamp)
 
-    def updateAndVerify(self, engineID, msgBoots, msgTime,
-                                auth=True, timestamp=None):
+    def updateAndVerify(self,
+        engineID: bytes,
+        msgBoots: int,
+        msgTime: int,
+        auth: bool = True,
+        timestamp: Optional[float] = None,
+    ) -> bool:
         if timestamp is None:
             timestamp = time()
 
@@ -165,16 +175,24 @@ class TimeKeeper:
             return withinTimeWindow
 
 class Credentials:
-    def __init__(self, auth=None, priv=None):
+    def __init__(self,
+        auth: Optional[AuthProtocol] = None,
+        priv: Optional[PrivProtocol] = None,
+    ) -> None:
         self.auth = auth
         self.priv = priv
 
 class UserTable:
-    def __init__(self):
-        self.engines = {}
+    def __init__(self) -> None:
+        Users = MutableMapping[bytes, Credentials]
+        self.engines: MutableMapping[bytes, Users] = {}
         self.lock = threading.Lock()
 
-    def addUser(self, engineID, userName, credentials):
+    def addUser(self,
+        engineID: bytes,
+        userName: bytes,
+        credentials: Credentials,
+    ) -> None:
         with self.lock:
             try:
                 users = self.engines[engineID]
@@ -184,7 +202,7 @@ class UserTable:
 
             users[userName] = credentials
 
-    def getUser(self, engineID, userName):
+    def getUser(self, engineID: bytes, userName: bytes) -> Credentials:
         with self.lock:
             try:
                 users = self.engines[engineID]
@@ -199,7 +217,7 @@ class UserTable:
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM
 
-    def __init__(self, engineID=None):
+    def __init__(self, engineID: Optional[bytes] = None) -> None:
         self.engineID = engineID
         self.timekeeper = TimeKeeper()
         self.users = UserTable()
@@ -207,14 +225,24 @@ class UserBasedSecurityModule(SecurityModule):
         if self.engineID is not None:
             self.timekeeper.update(self.engineID)
 
-    def addUser(self, engineID, userName, auth=None, priv=None):
+    def addUser(self,
+        engineID: bytes,
+        userName: bytes,
+        auth: Optional[AuthProtocol] = None,
+        priv: Optional[PrivProtocol] = None,
+    ) -> None:
         if auth is None and priv is not None:
             priv = None
 
         self.users.addUser(engineID, userName, Credentials(auth, priv))
 
-    def prepareOutgoing(self, header, data, engineID,
-                        securityName, securityLevel):
+    def prepareOutgoing(self,
+        header: bytes,
+        data: bytes,
+        engineID: bytes,
+        securityName: bytes,
+        securityLevel: SecurityLevel,
+    ) -> bytes:
         if securityLevel.auth:
             user = self.users.getUser(engineID, securityName)
 
@@ -253,7 +281,7 @@ class UserBasedSecurityModule(SecurityModule):
             msgAuthenticationParameters = b''
             msgPrivacyParameters = b''
 
-        encodedPrivacyParameters = OctetString(msgPrivacyParameters).encode()
+        encodedPrivacyParams = OctetString(msgPrivacyParameters).encode()
         securityParameters = encode(
             SEQUENCE,
             b''.join((
@@ -262,7 +290,7 @@ class UserBasedSecurityModule(SecurityModule):
                 Integer(snmpEngineTime).encode(),
                 OctetString(securityName).encode(),
                 OctetString(msgAuthenticationParameters).encode(),
-                encodedPrivacyParameters,
+                encodedPrivacyParams,
             ))
         )
 
@@ -271,8 +299,8 @@ class UserBasedSecurityModule(SecurityModule):
         wholeMsg = encode(SEQUENCE, body)
 
         if securityLevel.auth:
-            signature = user.auth.sign(wholeMsg)
-            endIndex = len(wholeMsg) - len(data) - len(encodedPrivacyParameters)
+            signature = cast(AuthProtocol, user.auth).sign(wholeMsg)
+            endIndex = len(wholeMsg) - len(data) - len(encodedPrivacyParams)
             startIndex = endIndex - len(signature)
             wholeMsg = b''.join((
                 wholeMsg[:startIndex],
@@ -282,13 +310,24 @@ class UserBasedSecurityModule(SecurityModule):
 
         return wholeMsg
 
-    def processIncoming(self, msg, securityLevel, timestamp=None):
+    def processIncoming(self,
+        msg: subbytes,
+        securityLevel: SecurityLevel,
+        timestamp: Optional[float] = None,
+    ) -> Tuple[SecurityParameters, bytes]:
         if timestamp is None:
             timestamp = time()
 
         msgSecurityParameters, msgData = \
             OctetString.decode(msg, leftovers=True, copy=False)
-        ptr = decode(msgSecurityParameters.data, expected=SEQUENCE, copy=False)
+
+        ptr = decode(
+            msgSecurityParameters.data,
+            expected=SEQUENCE,
+            leftovers=False,
+            copy=False,
+        )
+
         msgAuthoritativeEngineID, ptr = OctetString.decode(ptr, leftovers=True)
         msgAuthoritativeEngineBoots, ptr  = Integer.decode(ptr, leftovers=True)
         msgAuthoritativeEngineTime,  ptr  = Integer.decode(ptr, leftovers=True)
@@ -300,8 +339,8 @@ class UserBasedSecurityModule(SecurityModule):
             ptr.start - len(msgAuthenticationParameters.data)
         msgPrivacyParameters = OctetString.decode(ptr)
 
-        engineID = msgAuthoritativeEngineID.data
-        userName = msgUserName.data
+        engineID = cast(bytes, msgAuthoritativeEngineID.data)
+        userName = cast(bytes, msgUserName.data)
         securityParameters = SecurityParameters(engineID, userName)
 
         if not securityLevel.auth:
@@ -360,11 +399,11 @@ class UserBasedSecurityModule(SecurityModule):
 
         if securityLevel.priv:
             try:
-                payload = user.priv.decrypt(
-                    OctetString.decode(msgData).data,
+                payload = cast(PrivProtocol, user.priv).decrypt(
+                    cast(bytes, OctetString.decode(msgData).data),
                     msgAuthoritativeEngineBoots.value,
                     msgAuthoritativeEngineTime.value,
-                    msgPrivacyParameters.data
+                    cast(bytes, msgPrivacyParameters.data),
                 )
             except ValueError as err:
                 raise DecryptionError(str(err)) from err
@@ -374,11 +413,11 @@ class UserBasedSecurityModule(SecurityModule):
         return securityParameters, payload
 
 class DiscoveredEngine:
-    def __init__(self):
-        self.namespace = None
+    def __init__(self) -> None:
+        self.namespace: Optional[str] = None
         self.refCount = 0
 
-    def assign(self, namespace):
+    def assign(self, namespace: str) -> Tuple[bool, bool]:
         assigned = True
         initialized = True
 
@@ -394,7 +433,7 @@ class DiscoveredEngine:
 
         return assigned, initialized
 
-    def release(self, namespace):
+    def release(self, namespace: str) -> bool:
         assert self.namespace == namespace
         assert self.refCount > 0
 
@@ -402,55 +441,73 @@ class DiscoveredEngine:
         return self.refCount == 0
 
 class UserEntry:
-    def __init__(self, defaultSecurityLevel, credentials):
+    def __init__(self,
+        defaultSecurityLevel: SecurityLevel,
+        credentials: MutableMapping[str, Any],
+    ) -> None:
         self.credentials = credentials
         self.defaultSecurityLevel = defaultSecurityLevel
 
 class NameSpace:
-    def __init__(self, defaultUserName):
+    def __init__(self, defaultUserName: str):
         self.defaultUserName = defaultUserName
-        self.users = {}
+        self.users: MutableMapping[str, UserEntry] = {}
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tuple[str, UserEntry]]:
         return self.users.items().__iter__()
 
-    def __contains__(self, key):
+    def __contains__(self, key: str) -> bool:
         return self.users.__contains__(key)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> UserEntry:
         return self.users.__getitem__(key)
 
-    def __setitem__(self, key, item):
+    def __setitem__(self, key: str, item: UserEntry) -> None:
         return self.users.__setitem__(key, item)
 
 class UsmControlModule:
-    def __init__(self):
+    def __init__(self) -> None:
         self.lock = threading.Lock()
-        self.engines    = {}
-        self.namespaces = {}
+        self.engines: MutableMapping[bytes, DiscoveredEngine] = {}
+        self.namespaces: MutableMapping[str, NameSpace] = {}
 
         self.securityModule = UserBasedSecurityModule()
 
     @staticmethod
-    def localize(engineID, authProtocol=None, authSecret=None,
-                           privProtocol=None, privSecret=None):
+    def localize(
+        engineID: bytes,
+        authProtocol: Optional[Type[AuthProtocol]] = None,
+        authSecret: Optional[bytes] = None,
+        privProtocol: Optional[Type[PrivProtocol]] = None,
+        privSecret: Optional[bytes] = None,
+    ) -> Tuple[Optional[AuthProtocol], Optional[PrivProtocol]]:
         auth = None
         priv = None
 
         if authProtocol is not None:
+            assert authSecret is not None
             authKey = authProtocol.localize(authSecret, engineID)
             auth = authProtocol(authKey)
 
             if privProtocol is not None:
+                assert privSecret is not None
                 privKey = authProtocol.localize(privSecret, engineID)
                 priv = privProtocol(privKey)
 
         return auth, priv
 
-    def addUser(self, userName, authProtocol=None, authSecret=None,
-            privProtocol=None, privSecret=None, secret=b"",
-            default=False, defaultSecurityLevel=None, namespace=""):
-        credentials = dict()
+    def addUser(self,
+        userName: str,
+        authProtocol: Optional[AuthProtocol] = None,
+        authSecret: Optional[bytes] = None,
+        privProtocol: Optional[PrivProtocol] = None,
+        privSecret: Optional[bytes] = None,
+        secret: bytes = b"",
+        default: bool = False,
+        defaultSecurityLevel: Optional[SecurityLevel] = None,
+        namespace: str = "",
+    ) -> None:
+        credentials: MutableMapping[str, Any] = dict()
         if authProtocol is None:
             maxSecurityLevel = noAuthNoPriv
         else:
@@ -491,7 +548,10 @@ class UsmControlModule:
 
             space[userName] = UserEntry(defaultSecurityLevel, credentials)
 
-    def getDefaultSecurityLevel(self, userName, namespace=""):
+    def getDefaultSecurityLevel(self,
+        userName: str,
+        namespace: str = "",
+    ) -> SecurityLevel:
         space = self.getNameSpace(namespace)
 
         try:
@@ -506,10 +566,10 @@ class UsmControlModule:
 
         return user.defaultSecurityLevel
 
-    def getDefaultUser(self, namespace=""):
+    def getDefaultUser(self, namespace: str = "") -> str:
         return self.getNameSpace(namespace).defaultUserName
 
-    def getNameSpace(self, namespace=""):
+    def getNameSpace(self, namespace: str = "") -> NameSpace:
         try:
             return self.namespaces[namespace]
         except KeyError as err:
@@ -520,7 +580,7 @@ class UsmControlModule:
 
             raise ValueError(errmsg) from err
 
-    def registerRemoteEngine(self, engineID, namespace):
+    def registerRemoteEngine(self, engineID: bytes, namespace: str) -> bool:
         with self.lock:
             try:
                 engine = self.engines[engineID]
@@ -544,12 +604,12 @@ class UsmControlModule:
 
             return assigned
 
-    def unregisterRemoteEngine(self, engineID, namespace):
+    def unregisterRemoteEngine(self, engineID: bytes, namespace: str) -> None:
         with self.lock:
             try:
                 engine = self.engines[engineID]
             except KeyError:
-                assert False, f"Engine {engineID} was never registered"
+                assert False, f"Engine {engineID!r} was never registered"
             else:
                 if engine.release(namespace):
                     del self.engines[engineID]
