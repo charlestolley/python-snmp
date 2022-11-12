@@ -3,15 +3,16 @@ import weakref
 
 from snmp.ber import *
 from snmp.exception import *
+from snmp.message import *
 from snmp.pdu import *
 from snmp.security import *
-from snmp.security.levels import noAuthNoPriv
+from snmp.security.levels import *
 from snmp.types import *
+from snmp.typing import *
 from snmp.utils import *
-from . import MessageProcessingModel
 
 pduTypes = {
-    cls.TYPE: cls for cls in (
+    cls.TYPE: cls for cls in cast(Tuple[Type[AnyPDU], ...], (
         GetRequestPDU,
         GetNextRequestPDU,
         ResponsePDU,
@@ -20,7 +21,7 @@ pduTypes = {
         InformRequestPDU,
         SNMPv2TrapPDU,
         ReportPDU,
-    )
+    ))
 }
 
 class InvalidMessage(IncomingMessageError):
@@ -31,27 +32,28 @@ class LateResponse(IncomingMessageError):
 
 class ResponseMismatch(IncomingMessageError):
     @classmethod
-    def byField(cls, field):
+    def byField(cls, field: str) -> "ResponseMismatch":
         return cls(f"{field} does not match request")
 
 class UnknownSecurityModel(IncomingMessageError):
     pass
 
+@final
 class MessageFlags(OctetString):
     MIN_SIZE = 1
 
-    AUTH_FLAG       = (1 << 0)
-    PRIV_FLAG       = (1 << 1)
-    REPORTABLE_FLAG = (1 << 2)
-    ALL_FLAGS       = AUTH_FLAG | PRIV_FLAG | REPORTABLE_FLAG
+    AUTH_FLAG: ClassVar[int]        = (1 << 0)
+    PRIV_FLAG: ClassVar[int]        = (1 << 1)
+    REPORTABLE_FLAG: ClassVar[int]  = (1 << 2)
+    ALL_FLAGS: ClassVar[int]        = AUTH_FLAG | PRIV_FLAG | REPORTABLE_FLAG
 
-    def __init__(self, byte=0):
+    def __init__(self, byte: int = 0) -> None:
         self.byte = byte & self.ALL_FLAGS
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{typename(self)}({self.byte})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         flags = []
         if self.authFlag:
             flags.append("AUTH")
@@ -65,63 +67,69 @@ class MessageFlags(OctetString):
         return f"<{','.join(flags)}>"
 
     @classmethod
-    def interpret(cls, data=b""):
+    def interpret(cls, data: Asn1Data = b"") -> "MessageFlags":
         return cls(byte=data[0])
 
     @property
-    def data(self):
+    def data(self) -> bytes:
         return bytes((self.byte,))
 
     @property
-    def authFlag(self):
+    def authFlag(self) -> bool:
         return bool(self.byte & self.AUTH_FLAG)
 
-    @property
-    def privFlag(self):
-        return bool(self.byte & self.PRIV_FLAG)
-
-    @property
-    def reportableFlag(self):
-        return bool(self.byte & self.REPORTABLE_FLAG)
-
     @authFlag.setter
-    def authFlag(self, value):
+    def authFlag(self, value: Any) -> None:
         if value:
             self.byte |= self.AUTH_FLAG
         else:
             self.byte &= ~self.AUTH_FLAG
 
+    @property
+    def privFlag(self) -> bool:
+        return bool(self.byte & self.PRIV_FLAG)
+
     @privFlag.setter
-    def privFlag(self, value):
+    def privFlag(self, value: Any) -> None:
         if value:
             self.byte |= self.PRIV_FLAG
         else:
             self.byte &= ~self.PRIV_FLAG
 
+    @property
+    def reportableFlag(self) -> bool:
+        return bool(self.byte & self.REPORTABLE_FLAG)
+
     @reportableFlag.setter
-    def reportableFlag(self, value):
+    def reportableFlag(self, value: Any) -> None:
         if value:
             self.byte |= self.REPORTABLE_FLAG
         else:
             self.byte &= ~self.REPORTABLE_FLAG
 
+@final
 class HeaderData(Sequence):
-    def __init__(self, msgID, maxSize, flags, securityModel):
+    def __init__(self,
+        msgID: int,
+        maxSize: int,
+        flags: MessageFlags,
+        securityModel: SecurityModel,
+    ) -> None:
         self.id = msgID
         self.maxSize = maxSize
         self.flags = flags
         self.securityModel = securityModel
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Asn1Encodable]:
         yield Integer(self.id)
         yield Integer(self.maxSize)
         yield self.flags
         yield Integer(self.securityModel)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 4
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         args = (
             str(self.id),
             str(self.maxSize),
@@ -131,10 +139,10 @@ class HeaderData(Sequence):
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.toString()
 
-    def toString(self, depth=0, tab="    "):
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
         indent = tab * depth
         subindent = indent + tab
         securityModel = SecurityModel(self.securityModel)
@@ -147,7 +155,7 @@ class HeaderData(Sequence):
         ))
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, data: Asn1Data) -> "HeaderData":
         msgID,      data = Integer      .decode(data, leftovers=True)
         msgMaxSize, data = Integer      .decode(data, leftovers=True)
         msgFlags,   data = MessageFlags .decode(data, leftovers=True)
@@ -160,28 +168,38 @@ class HeaderData(Sequence):
         elif msgSecurityModel.value < 1:
             raise ParseError("msgSecurityModel may not be less than 1")
 
+        try:
+            securityModel = SecurityModel(msgSecurityModel.value)
+        except ValueError as err:
+            raise UnknownSecurityModel(msgSecurityModel.value) from err
+
         return cls(
             msgID.value,
             msgMaxSize.value,
             msgFlags,
-            msgSecurityModel.value
+            securityModel,
         )
 
+@final
 class ScopedPDU(Sequence):
-    def __init__(self, pdu, contextEngineID, contextName=b""):
+    def __init__(self,
+        pdu: AnyPDU,
+        contextEngineID: bytes,
+        contextName: bytes = b"",
+    ) -> None:
         self.contextEngineID = contextEngineID
         self.contextName = contextName
         self.pdu = pdu
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Asn1Encodable]:
         yield OctetString(self.contextEngineID)
         yield OctetString(self.contextName)
         yield self.pdu
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 3
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         args = (
             repr(self.pdu),
             repr(self.contextEngineID),
@@ -190,21 +208,24 @@ class ScopedPDU(Sequence):
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.toString()
 
-    def toString(self, depth=0, tab="    "):
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
             f"{indent}{typename(self)}:",
-            f"{subindent}Context Engine ID: {self.contextEngineID}",
-            f"{subindent}Context Name: {self.contextName}",
+            f"{subindent}Context Engine ID: {self.contextEngineID!r}",
+            f"{subindent}Context Name: {self.contextName!r}",
             f"{self.pdu.toString(depth=depth+1, tab=tab)}"
         ))
 
     @classmethod
-    def deserialize(cls, data, types=None):
+    def deserialize(cls,
+        data: Asn1Data,
+        types: Optional[Mapping[Identifier, Type[AnyPDU]]] = None,
+    ) -> "ScopedPDU":
         if types is None:
             types = dict()
 
@@ -219,29 +240,24 @@ class ScopedPDU(Sequence):
 
         return cls(
             pduType.decode(data),
-            contextEngineID = contextEngineID.data,
-            contextName     = contextName.data,
+            contextEngineID = cast(bytes, contextEngineID.data),
+            contextName     = cast(bytes, contextName.data),
         )
 
-class CacheEntry:
-    def __init__(self, engineID, contextName, handle,
-            securityName, securityModel, securityLevel):
-        self.context = contextName
-        self.engineID = engineID
-        self.handle = weakref.ref(handle)
-        self.securityName = securityName
-        self.securityModel = securityModel
-        self.securityLevel = securityLevel
-
 class SNMPv3Message:
-    def __init__(self, msgID, securityLevel, securityParameters, data):
+    def __init__(self,
+        msgID: int,
+        securityLevel: SecurityLevel,
+        securityParameters: SecurityParameters,
+        data: ScopedPDU,
+    ):
         self.id = msgID
         self.securityLevel = securityLevel
         self.securityEngineID = securityParameters.securityEngineID
         self.securityName = securityParameters.securityName
         self.data = data
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         args = (repr(member) for member in (
             self.id,
             self.securityLevel,
@@ -251,38 +267,54 @@ class SNMPv3Message:
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.toString()
 
-    def toString(self, depth=0, tab="    "):
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
             f"{indent}{typename(self)}:",
             f"{subindent}Message ID: {self.id}",
-            f"{subindent}Security Engine ID: {self.securityEngineID}",
+            f"{subindent}Security Engine ID: {self.securityEngineID!r}",
             f"{subindent}Security Level: {self.securityLevel}",
-            f"{subindent}Security Name: {self.securityName}",
+            f"{subindent}Security Name: {self.securityName!r}",
             f"{self.data.toString(depth+1, tab)}",
         ))
+
+class CacheEntry:
+    def __init__(self,
+        engineID: bytes,
+        contextName: bytes,
+        handle: RequestHandle[SNMPv3Message],
+        securityName: bytes,
+        securityModel: SecurityModel,
+        securityLevel: SecurityLevel,
+    ):
+        self.context = contextName
+        self.engineID = engineID
+        self.handle = weakref.ref(handle)
+        self.securityName = securityName
+        self.securityModel = securityModel
+        self.securityLevel = securityLevel
 
 class MessageProcessor:
     VERSION = MessageProcessingModel.SNMPv3
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.cacheLock = threading.Lock()
         self.generator = self.newGenerator()
-        self.outstanding = {}
+        self.outstanding: Dict[int, CacheEntry] = {}
 
         self.securityLock = threading.Lock()
-        self.defaultSecurityModel = None
-        self.securityModules = {}
+        self.defaultSecurityModel: Optional[SecurityModel] = None
+        self.securityModules: Dict[SecurityModel, SecurityModule] = {}
 
     @staticmethod
-    def newGenerator():
+    def newGenerator() -> NumberGenerator:
         return NumberGenerator(31, signed=False)
 
-    def cache(self, entry):
+    def cache(self, entry: CacheEntry) -> int:
         retry = 0
         while retry < 10:
             with self.cacheLock:
@@ -297,18 +329,21 @@ class MessageProcessor:
 
         raise Exception("Failed to allocate message ID")
 
-    def retrieve(self, msgID):
+    def retrieve(self, msgID: int) -> CacheEntry:
         with self.cacheLock:
             return self.outstanding[msgID]
 
-    def uncache(self, msgID):
+    def uncache(self, msgID: int) -> None:
         with self.cacheLock:
             try:
                 del self.outstanding[msgID]
             except KeyError:
                 pass
 
-    def addSecurityModuleIfNeeded(self, module, default=False):
+    def addSecurityModuleIfNeeded(self,
+        module: SecurityModule,
+        default: bool = False,
+    ) -> None:
         with self.securityLock:
             if module.MODEL not in self.securityModules:
                 self.securityModules[module.MODEL] = module
@@ -316,7 +351,9 @@ class MessageProcessor:
                 if default or self.defaultSecurityModel is None:
                     self.defaultSecurityModel = module.MODEL
 
-    def prepareDataElements(self, msg):
+    def prepareDataElements(self,
+        msg: subbytes,
+    ) -> Tuple[SNMPv3Message, RequestHandle[SNMPv3Message]]:
         msgGlobalData, msg = HeaderData.decode(msg, leftovers=True)
 
         with self.securityLock:
@@ -370,11 +407,19 @@ class MessageProcessor:
             SNMPv3Message(msgGlobalData.id, securityLevel, security, scopedPDU)
         return message, handle
 
-    def prepareOutgoingMessage(self, pdu, handle, engineID, securityName,
-            securityLevel=noAuthNoPriv, securityModel=None, contextName=b''):
+    def prepareOutgoingMessage(self,
+        pdu: AnyPDU,
+        handle: RequestHandle[SNMPv3Message],
+        engineID: bytes,
+        securityName: bytes,
+        securityLevel: SecurityLevel = noAuthNoPriv,
+        securityModel: Optional[SecurityModel] = None,
+        contextName: bytes = b"",
+    ) -> bytes:
 
         with self.securityLock:
             if securityModel is None:
+                assert self.defaultSecurityModel is not None
                 securityModel = self.defaultSecurityModel
 
             try:

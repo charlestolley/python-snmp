@@ -106,7 +106,7 @@ class TimeKeeper:
 
     def __init__(self) -> None:
         self.lock = threading.Lock()
-        self.table: MutableMapping[bytes, TimeEntry] = {}
+        self.table: Dict[bytes, TimeEntry] = {}
 
     def getEngineTime(self,
         engineID: bytes,
@@ -184,8 +184,7 @@ class Credentials:
 
 class UserTable:
     def __init__(self) -> None:
-        Users = MutableMapping[bytes, Credentials]
-        self.engines: MutableMapping[bytes, Users] = {}
+        self.engines: Dict[bytes, Dict[bytes, Credentials]] = {}
         self.lock = threading.Lock()
 
     def addUser(self,
@@ -443,7 +442,7 @@ class DiscoveredEngine:
 class UserEntry:
     def __init__(self,
         defaultSecurityLevel: SecurityLevel,
-        credentials: MutableMapping[str, Any],
+        credentials: Mapping[str, Any],
     ) -> None:
         self.credentials = credentials
         self.defaultSecurityLevel = defaultSecurityLevel
@@ -451,7 +450,7 @@ class UserEntry:
 class NameSpace:
     def __init__(self, defaultUserName: str):
         self.defaultUserName = defaultUserName
-        self.users: MutableMapping[str, UserEntry] = {}
+        self.users: Dict[str, UserEntry] = {}
 
     def __iter__(self) -> Iterator[Tuple[str, UserEntry]]:
         return self.users.items().__iter__()
@@ -468,8 +467,8 @@ class NameSpace:
 class UsmControlModule:
     def __init__(self) -> None:
         self.lock = threading.Lock()
-        self.engines: MutableMapping[bytes, DiscoveredEngine] = {}
-        self.namespaces: MutableMapping[str, NameSpace] = {}
+        self.engines: Dict[bytes, DiscoveredEngine] = {}
+        self.namespaces: Dict[str, NameSpace] = {}
 
         self.securityModule = UserBasedSecurityModule()
 
@@ -507,7 +506,7 @@ class UsmControlModule:
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         namespace: str = "",
     ) -> None:
-        credentials: MutableMapping[str, Any] = dict()
+        credentials: Dict[str, Any] = dict()
         if authProtocol is None:
             maxSecurityLevel = noAuthNoPriv
         else:

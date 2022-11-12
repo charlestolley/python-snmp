@@ -2,11 +2,11 @@ __all__ = [
     "Any",
     "Callable",
     "ClassVar",
+    "Dict",
     "Generic",
     "Iterator",
     "Literal",
     "Mapping",
-    "MutableMapping",
     "NamedTuple",
     "Optional",
     "Tuple",
@@ -31,15 +31,15 @@ from typing import overload
 
 import sys
 if sys.version_info[:2] >= (3, 9):
+    from builtins import dict as Dict
     from collections.abc import Iterator
     from collections.abc import Mapping
-    from collections.abc import MutableMapping
     from builtins import tuple as Tuple
     from builtins import type as Type
 else:
+    from typing import Dict
     from typing import Iterator
     from typing import Mapping
-    from typing import MutableMapping
     from typing import Tuple
     from typing import Type
 

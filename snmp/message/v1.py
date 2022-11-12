@@ -39,7 +39,7 @@ class MessageProcessor:
     def __init__(self) -> None:
         self.cacheLock = threading.Lock()
         self.generator = self.newGenerator()
-        self.outstanding: MutableMapping[int, CacheEntry] = {}
+        self.outstanding: Dict[int, CacheEntry] = {}
 
     @staticmethod
     def newGenerator() -> NumberGenerator:
