@@ -4,13 +4,15 @@ import os
 import select
 import socket
 
+from snmp.transport import TransportListener
 from snmp.transport.udp import UdpTransportBase
+from snmp.typing import *
 
 STOPMSG = bytes(1)
 RECV_SIZE = 65507
 
 class UdpTransport(UdpTransportBase):
-    def __init__(self, host="", port=0):
+    def __init__(self, host: str = "", port: int = 0) -> None:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.r      = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.w      = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -22,12 +24,12 @@ class UdpTransport(UdpTransportBase):
         self.r.bind(("127.0.0.1", 0))
         self.w.bind(("127.0.0.1", 0))
 
-    def close(self):
+    def close(self) -> None:
         self.w.close()
         self.r.close()
         self.socket.close()
 
-    def listen(self, listener):
+    def listen(self, listener: TransportListener) -> None:
         sock = self.socket.fileno()
         stop = self.r.fileno()
 
@@ -43,8 +45,8 @@ class UdpTransport(UdpTransportBase):
                     if addr == self.w.getsockname() and data == STOPMSG:
                         done = True
 
-    def send(self, addr, packet):
+    def send(self, addr: Tuple[str, int], packet: bytes) -> None:
         self.socket.sendto(packet, addr)
 
-    def stop(self):
+    def stop(self) -> None:
         self.w.sendto(STOPMSG, self.r.getsockname())

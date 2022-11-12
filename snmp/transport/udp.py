@@ -2,13 +2,16 @@ __all__ = ["UdpTransport"]
 
 import importlib
 from socket import AF_INET, inet_pton
-from . import Transport, TransportDomain, package
 
-class UdpTransportBase(Transport):
-    DEFAULT_PORT = 161
+from snmp.transport import *
+from snmp.transport import Transport, package
+from snmp.typing import *
+
+class UdpTransportBase(Transport[Tuple[str, int]]):
+    DEFAULT_PORT: ClassVar[int] = 161
 
     @classmethod
-    def normalizeAddress(cls, address):
+    def normalizeAddress(cls, address: Any) -> Tuple[str, int]:
         if isinstance(address, tuple):
             ip, port = address
         else:
@@ -18,7 +21,9 @@ class UdpTransportBase(Transport):
         try:
             inet_pton(AF_INET, ip)
         except OSError as err:
-            raise ValueError("Invalid IPv4 address: {}".format(ip)) from err
+            raise ValueError(f"Invalid IPv4 address: \"{ip}\"") from err
+        except TypeError as err:
+            raise TypeError(f"IPv4 address must be a str: {ip}") from err
 
         if port <= 0 or port > 0xffff:
             errmsg = "Invalid UDP port number: {}"

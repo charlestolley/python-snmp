@@ -3,23 +3,26 @@ __all__ = ["UdpTransport"]
 import os
 import select
 import socket
+
+from snmp.transport import TransportListener
 from snmp.transport.udp import UdpTransportBase
+from snmp.typing import *
 
 RECV_SIZE = 65507
 
 class UdpTransport(UdpTransportBase):
-    def __init__(self, host="", port=0):
+    def __init__(self, host: str = "", port: int = 0) -> None:
         self.pipe = os.pipe()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setblocking(False)
         self.socket.bind((host, port))
 
-    def close(self):
+    def close(self) -> None:
         os.close(self.pipe[0])
         os.close(self.pipe[1])
         self.socket.close()
 
-    def listen(self, listener):
+    def listen(self, listener: TransportListener) -> None:
         abort = self.pipe[0]
         sock = self.socket.fileno()
 
@@ -38,8 +41,8 @@ class UdpTransport(UdpTransportBase):
                     os.read(fd, 1)
                     done = True
 
-    def send(self, addr, packet):
+    def send(self, addr: Tuple[str, int], packet: bytes) -> None:
         self.socket.sendto(packet, addr)
 
-    def stop(self):
-        os.write(self.pipe[1], b'\0')
+    def stop(self) -> None:
+        os.write(self.pipe[1], bytes(1))
