@@ -1,16 +1,23 @@
 __all__ = [
-    "HmacMd5", "HmacSha", "HmacSha224", "HmacSha256", "HmacSha384", "HmacSha512"
+    "HmacMd5", "HmacSha",
+    "HmacSha224", "HmacSha256", "HmacSha384", "HmacSha512"
 ]
 
 import hashlib
 import hmac
 
-class AuthProtocol:
-    def __init__(self, key):
+from snmp.security.usm import AuthProtocol
+from snmp.typing import *
+
+class HmacAuthProtocol(AuthProtocol):
+    ALGORITHM:  ClassVar[Callable[..., "hashlib._Hash"]]
+    N:          ClassVar[int]
+
+    def __init__(self, key: bytes) -> None:
         self.key = key
 
     @classmethod
-    def localize(cls, secret, engineID):
+    def localize(cls, secret: bytes, engineID: bytes) -> bytes:
         repeat, truncate = divmod(1 << 20, len(secret))
 
         context = cls.ALGORITHM()
@@ -27,34 +34,34 @@ class AuthProtocol:
         return context.digest()
 
     @property
-    def msgAuthenticationParameters(self):
+    def msgAuthenticationParameters(self) -> bytes:
         return bytes(self.N)
 
-    def sign(self, data):
+    def sign(self, data: bytes) -> bytes:
         context = hmac.new(self.key, digestmod=self.ALGORITHM)
         context.update(data)
         return context.digest()[:self.N]
 
-class HmacMd5(AuthProtocol):
+class HmacMd5(HmacAuthProtocol):
     ALGORITHM = hashlib.md5
     N = 12
 
-class HmacSha(AuthProtocol):
+class HmacSha(HmacAuthProtocol):
     ALGORITHM = hashlib.sha1
     N = 12
 
-class HmacSha224(AuthProtocol):
+class HmacSha224(HmacAuthProtocol):
     ALGORITHM = hashlib.sha224
     N = 16
 
-class HmacSha256(AuthProtocol):
+class HmacSha256(HmacAuthProtocol):
     ALGORITHM = hashlib.sha256
     N = 24
 
-class HmacSha384(AuthProtocol):
+class HmacSha384(HmacAuthProtocol):
     ALGORITHM = hashlib.sha384
     N = 32
 
-class HmacSha512(AuthProtocol):
+class HmacSha512(HmacAuthProtocol):
     ALGORITHM = hashlib.sha512
     N = 48

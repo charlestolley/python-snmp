@@ -15,6 +15,25 @@ from snmp.security.levels import *
 from snmp.typing import *
 from snmp.utils import typename
 
+class AuthProtocol:
+    @abstractmethod
+    def __init__(self, key: bytes) -> None:
+        ...
+
+    @classmethod
+    @abstractmethod
+    def localize(cls, secret: bytes, engineID: bytes) -> bytes:
+        ...
+
+    @property
+    @abstractmethod
+    def msgAuthenticationParameters(self) -> bytes:
+        ...
+
+    @abstractmethod
+    def sign(self, data: bytes) -> bytes:
+        ...
+
 class PrivProtocol:
     @abstractmethod
     def __init__(self, key: bytes) -> None:
