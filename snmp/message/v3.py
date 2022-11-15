@@ -298,7 +298,7 @@ class CacheEntry:
         self.securityModel = securityModel
         self.securityLevel = securityLevel
 
-class MessageProcessor:
+class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
     VERSION = MessageProcessingModel.SNMPv3
 
     def __init__(self) -> None:
@@ -407,7 +407,7 @@ class MessageProcessor:
             SNMPv3Message(msgGlobalData.id, securityLevel, security, scopedPDU)
         return message, handle
 
-    def prepareOutgoingMessage(self,
+    def prepareOutgoingMessage(self,    # type: ignore[override]
         pdu: AnyPDU,
         handle: RequestHandle[SNMPv3Message],
         engineID: bytes,

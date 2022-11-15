@@ -33,7 +33,7 @@ class CacheEntry:
         self.community = community
         self.handle = weakref.ref(handle)
 
-class MessageProcessor:
+class SNMPv1MessageProcessor(MessageProcessor[Message, PDU]):
     VERSION = MessageProcessingModel.SNMPv1
 
     def __init__(self) -> None:
@@ -94,7 +94,7 @@ class MessageProcessor:
 
         return message, handle
 
-    def prepareOutgoingMessage(self,
+    def prepareOutgoingMessage(self,    # type: ignore[override]
         pdu: PDU,
         handle: RequestHandle[Message],
         community: bytes,

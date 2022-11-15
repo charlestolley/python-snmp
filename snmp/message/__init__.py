@@ -1,4 +1,7 @@
-__all__ = ["Message", "MessageBase", "MessageProcessingModel", "RequestHandle"]
+__all__ = [
+    "Message", "MessageBase", "MessageProcessor",
+    "MessageProcessingModel", "RequestHandle",
+]
 
 from abc import abstractmethod
 import enum
@@ -10,6 +13,7 @@ from snmp.typing import *
 from snmp.utils import *
 
 T = TypeVar("T")
+TPDU = TypeVar("TPDU", bound=AnyPDU)
 TMessage = TypeVar("TMessage", bound="Message")
 TMessageBase = TypeVar("TMessageBase", bound="MessageBase")
 
@@ -101,4 +105,20 @@ class RequestHandle(Generic[T]):
 
     @abstractmethod
     def push(self, response: T) -> None:
+        ...
+
+class MessageProcessor(Generic[T, TPDU]):
+    VERSION: ClassVar[MessageProcessingModel]
+
+    @abstractmethod
+    def prepareDataElements(self, msg: subbytes) -> Tuple[T, RequestHandle[T]]:
+        ...
+
+    @abstractmethod
+    def prepareOutgoingMessage(self,
+        pdu: TPDU,
+        handle: RequestHandle[T],
+        *args: Any,
+        **kwargs: Any,
+    ) -> bytes:
         ...
