@@ -5,10 +5,10 @@ import math
 import threading
 import time
 
+from snmp.manager import *
 from snmp.message import *
 from snmp.pdu import *
 from snmp.utils import *
-from . import *
 
 class Request(RequestHandle):
     def __init__(self, pdu, manager, community,
@@ -24,25 +24,24 @@ class Request(RequestHandle):
         self.response = None
 
         self.expiration = now + timeout
-        self.nextRefresh = float("inf")
+        self._nextRefresh = self.expiration
         self.period = refreshPeriod
 
     def __del__(self):
         if self.callback is not None:
             self.close()
 
-    def __lt__(self, other):
-        a = min(self .expiration, self .nextRefresh)
-        b = min(other.expiration, other.nextRefresh)
-        return a < b
-
     @property
     def expired(self):
         return self.expiration <= time.time()
 
     @property
-    def fulfilled(self):
-        return self.event.is_set()
+    def nextRefresh(self):
+        return self._nextRefresh
+
+    @nextRefresh.setter
+    def nextRefresh(self, value):
+        self._nextRefresh = min(self.expiration, value)
 
     def close(self):
         self.callback(self.pdu.requestID)
@@ -62,18 +61,16 @@ class Request(RequestHandle):
         self.manager.sendPdu(self.pdu, self, self.community)
 
     def refresh(self):
-        if self.fulfilled:
+        if self.event.is_set():
             return None
 
         now = time.time()
-        expireTime = self.expiration - now
-        if expireTime <= 0.0:
-            return None
+        delta = self.nextRefresh - now
 
-        refreshTime = self.nextRefresh - now
-        delta = min(expireTime, refreshTime)
+        if delta <= 0.0:
+            if self.expiration <= now:
+                return None
 
-        if delta < 0.0:
             self.nextRefresh += math.ceil(-delta / self.period) * self.period
             self.reallySend()
             return 0.0
@@ -137,7 +134,7 @@ class SNMPv2cManager:
             MessageProcessingModel.SNMPv2c,
             pdu,
             handle,
-            community
+            community,
         )
 
     def sendRequest(self, pdu, community=None, wait=None, **kwargs):
@@ -150,9 +147,10 @@ class SNMPv2cManager:
             wait = self.autowait
 
         request = Request(pdu, self, community, **kwargs)
+        reference = ComparableWeakRef(request, key=lambda r: r.nextRefresh)
 
         with self.lock:
-            heapq.heappush(self.requests, ComparableWeakRef(request))
+            heapq.heappush(self.requests, reference)
             request.send()
 
         if wait:
