@@ -10,11 +10,14 @@ from snmp.utils import *
 
 class SecurityLevel:
     def __init__(self, auth: Any = False, priv: Any = False) -> None:
-        self._auth = False
-        self._priv = False
+        a = bool(auth)
+        p = bool(priv)
 
-        self.auth = auth
-        self.priv = priv
+        if p and not a:
+            raise ValueError("Privacy without authentication is not valid")
+
+        self._auth = a
+        self._priv = p
 
     def __repr__(self) -> str:
         return "{}(auth={}, priv={})".format(
@@ -33,27 +36,9 @@ class SecurityLevel:
     def auth(self) -> bool:
         return self._auth
 
-    @auth.setter
-    def auth(self, value: Any) -> None:
-        _value = bool(value)
-        if not _value and self.priv:
-            msg = "Cannot disable authentication while privacy is enabled"
-            raise ValueError(msg)
-
-        self._auth = _value
-
     @property
     def priv(self) -> bool:
         return self._priv
-
-    @priv.setter
-    def priv(self, value: Any) -> None:
-        _value = bool(value)
-        if _value and not self.auth:
-            msg = "Cannot enable privacy while authentication is disabled"
-            raise ValueError(msg)
-
-        self._priv = _value
 
     def __eq__(self, other: Any) -> bool:
         try:
