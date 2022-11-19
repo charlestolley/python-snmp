@@ -2,3 +2,6 @@
 ==================================================
 
 .. automodule:: snmp
+
+.. autoclass:: Engine
+   :members:

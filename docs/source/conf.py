@@ -13,3 +13,4 @@ extensions = ["sphinx.ext.autodoc"]
 html_theme = "python_docs_theme"
 
 autodoc_typehints = "none"
+autodoc_member_order = "bysource"

@@ -12,6 +12,24 @@ from snmp.transport import *
 from snmp.transport.udp import *
 
 class Engine:
+    """:rfc:`3411#section-3.1.1` defines an SNMP engine as follows:
+
+    .. pull-quote::
+
+        `"An SNMP engine provides services for sending and receiving
+        messages, authenticating and encrypting messages, and controlling
+        access to managed objects.  There is a one-to-one association
+        between an SNMP engine and the SNMP entity which contains it."`
+
+    This class is the core of an SNMP application. A user should create
+    exactly one instance of an Engine in an SNMP application, and would be
+    wise to use a context manager (i.e. a `with` block) to manage its
+    lifetime. When used without a context manager, it is important to call
+    :meth:`shutdown` once the :class:`Engine` is no longer in use. Failure
+    to do so may cause the application to hang, rather than terminating
+    properly.
+    """
+
     TRANSPORTS = {
         cls.DOMAIN: cls for cls in [
             UdpTransport,
@@ -40,6 +58,7 @@ class Engine:
 
     @property
     def usm(self):
+        """This object provides methods to configure User-Based Security."""
         if self._usm is None:
             self._usm = UsmControlModule()
         return self._usm
@@ -51,6 +70,11 @@ class Engine:
         self.shutdown()
 
     def shutdown(self):
+        """Clean up any background threads and system resources.
+
+        This function is called automatically by the :meth:`__exit__` method
+        when the :class:`Engine` is used within a context manager.
+        """
         self.dispatcher.shutdown()
 
     def connectTransport(self, transport):
@@ -120,6 +144,28 @@ class Engine:
 
     def Manager(self, address, domain=None,
                 version=None, autowait=None, **kwargs):
+        """Construct an object to manage a specific remote engine.
+
+        This factory method will return an object that can be used to perform
+        management operations on a remote engine. The `address` parameter
+        gives the address of a host within the chosen `domain`. If the `domain`
+        is not specified, the :class:`Engine`'s `defaultDomain` will be used.
+        When using UDP over IPv4, the address should either be a :class:`str`
+        containing an IPv4 address, or a 2-tuple, containing the IPv4 address
+        and destination port number (when not using the standard port 161).
+
+        The `version` parameter sets the SNMP version for all communication
+        by this Manager. If this parameter is not specified, the
+        :class:`Engine`'s `defaultVersion` will be used. Additional keyword
+        arguments are available, depending on the selected version.
+
+        Finally, the `autowait` parameter dictates the default blocking
+        behavior and return type of all management methods. In short, every
+        management method of every version of Manager has a `wait` parameter.
+        The `autowait` parameter gives the default value for that `wait`
+        parameter. If `autowait` is not specified, the :class:`Engine`'s own
+        `autowait` parameter will be used.
+        """
         if autowait is None:
             autowait = self.autowaitDefault
 
