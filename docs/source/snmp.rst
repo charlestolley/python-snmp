@@ -15,7 +15,12 @@
    :members:
 
 .. data:: noAuthNoPriv
+   :canonical: snmp.security.levels.noAuthNoPriv
+
 .. data:: authNoPriv
+   :canonical: snmp.security.levels.authNoPriv
+
 .. data:: authPriv
+   :canonical: snmp.security.levels.authPriv
 
    These objects represent the three possible security levels in SNMP version 3.

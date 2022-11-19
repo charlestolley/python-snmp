@@ -58,9 +58,14 @@ class Engine:
 
     @property
     def usm(self):
-        """This object provides methods to configure User-Based Security."""
+        """This object provides methods to configure User-Based Security.
+
+        This object is an instance of :class:`snmp.security.usm.UsmAdmin`.
+        The :mod:`snmp.security.usm.auth` and :mod:`snmp.security.usm.priv`
+        modules contain classes implementing various standard algorithms.
+        """
         if self._usm is None:
-            self._usm = UsmControlModule()
+            self._usm = UsmAdmin()
         return self._usm
 
     def __enter__(self):

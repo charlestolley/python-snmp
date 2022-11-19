@@ -8,5 +8,4 @@ something else, check the :doc:`contents`.
 .. toctree::
    :hidden:
 
-   snmp
    contents
