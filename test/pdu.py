@@ -2,8 +2,8 @@ __all__ = ["NullTypesTest", "PDUTest", "VarBindListTest", "VarBindTest",]
 
 import unittest
 from snmp.ber import ParseError
-from snmp.pdu.v2 import *
-from snmp.smi.v2 import *
+from snmp.pdu import *
+from snmp.smi import *
 from snmp.types import *
 
 class NullTypesTest(unittest.TestCase):

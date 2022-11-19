@@ -1,10 +1,10 @@
 import test.ber
-import test.pdu.v2
+import test.pdu
 import test.security
 import test.security.levels
 import test.security.usm.auth
 import test.security.usm.priv
-import test.smi.v2
+import test.smi
 import test.types
 import test.utils
 
@@ -14,8 +14,8 @@ modules = [
     test.ber,
     test.types,
     test.utils,
-    test.pdu.v2,
-    test.smi.v2,
+    test.pdu,
+    test.smi,
     test.security,
     test.security.levels,
     test.security.usm.auth,

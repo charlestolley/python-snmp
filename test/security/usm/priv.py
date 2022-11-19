@@ -3,7 +3,7 @@ __all__ = ["Aes128CfbTest", "DesCbcTest"]
 import unittest
 from snmp.ber import *
 from snmp.types import *
-from snmp.pdu.v2 import *
+from snmp.pdu import *
 from snmp.security.usm.auth import HmacSha
 from snmp.security.usm.priv import *
 
