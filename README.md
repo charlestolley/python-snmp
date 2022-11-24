@@ -76,7 +76,7 @@ The output should look like this (assume interface 1 is named "loopback"):
 ## Installation Notes
 The `snmp.security.usm.priv` module, which provides the USM privacy algorithms, depends on OpenSSL. As it is very common to use SNMP without privacy (encryption), this module is optional. All other code is pure-Python, and depends only on the standard library. `pip install snmp` will attempt to compile against OpenSSL, but if that fails, then it will complete the installation without building the `snmp.openssl` module. If you install OpenSSL at a later time, you will need to uninstall and reinstall it (assuming you are using pip).
 
-If you aren't using pip, or just want to do things your own way, you can also navigate to the site-packages directory where `snmp` is installed, and execute the following code in the interactive shell:
+If you aren't using pip, or just want to do things your own way, you can also navigate to the site-packages directory where `snmp` is installed (or the root directory of this Git repository), and execute the following code in the interactive shell:
 
     from snmp.cffi.openssl.aes import ffi as aes
     from snmp.cffi.openssl.des import ffi as des
