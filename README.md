@@ -34,7 +34,7 @@ The output should look like this (assume interface 1 is named "loopback"):
 
     # autowait=False will cause each request to return a handle rather than blocking
     with Engine(autowait=False) as engine:
-        engine.addUser(
+        engine.usm.addUser(
             "sample-user",
             authProtocol=HmacSha256,
             authSecret=b"sample-auth-secret",
@@ -62,7 +62,7 @@ The output should look like this (assume interface 1 is named "loopback"):
                 oid, value = varbind
 
                 try:
-                    ifIndex = oid.extractIndex(ifDescr, Integer)
+                    ifIndex = oid.getIndex(ifDescr, Integer)
                 except OID.BadPrefix:
                     break
 
