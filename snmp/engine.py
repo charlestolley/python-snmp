@@ -40,12 +40,14 @@ class Engine:
         defaultVersion=MessageProcessingModel.SNMPv3,
         defaultDomain=TransportDomain.UDP,
         defaultSecurityModel=SecurityModel.USM,
+        defaultCommunity="",
         autowait=True
     ):
         # Read-only variables
         self.defaultVersion         = defaultVersion
         self.defaultDomain          = defaultDomain
         self.defaultSecurityModel   = defaultSecurityModel
+        self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
         self.dispatcher = Dispatcher()
@@ -93,19 +95,35 @@ class Engine:
         self.dispatcher.connectTransport(transport)
         self.transports.add(transport.DOMAIN)
 
-    def v1Manager(self, locator, autowait, community=b""):
+    def v1Manager(self, locator, autowait, community=None):
+        if community is None:
+            community = self.defaultCommunity
+
         if self.mpv1 is None:
             self.mpv1 = SNMPv1MessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv1)
 
-        return SNMPv1Manager(self.dispatcher, locator, community, autowait)
+        return SNMPv1Manager(
+            self.dispatcher,
+            locator,
+            community.encode(),
+            autowait,
+        )
 
-    def v2cManager(self, locator, autowait, community=""):
+    def v2cManager(self, locator, autowait, community=None):
+        if community is None:
+            community = self.defaultCommunity
+
         if self.mpv2c is None:
             self.mpv2c = SNMPv2cMessageProcessor()
             self.dispatcher.addMessageProcessor(self.mpv2c)
 
-        return SNMPv2cManager(self.dispatcher, locator, community, autowait)
+        return SNMPv2cManager(
+            self.dispatcher,
+            locator,
+            community.encode(),
+            autowait,
+        )
 
     def v3Manager(self, locator, autowait, securityModel=None,
             engineID=None, defaultSecurityLevel=None, **kwargs):

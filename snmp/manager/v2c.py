@@ -102,7 +102,7 @@ class SNMPv2cManager:
         self.locator = locator
 
         self.dispatcher = dispatcher
-        self.defaultCommunity = community.encode()
+        self.defaultCommunity = community
 
         self.lock = threading.Lock()
         self.requests = []
