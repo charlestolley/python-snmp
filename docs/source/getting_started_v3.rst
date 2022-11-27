@@ -13,7 +13,7 @@ The first step in any SNMP application is to create an Engine object. It is impo
 
 In order to send SNMP requests, you will need to create a Manager object. Each Manager represents a communication channel between your application and a single remote engine (i.e. an Agent), so you will need more than one Manager to manage multiple nodes.
 
-Before creating a Manager, however, you must provide the Engine with credentials for the user(s) that are supported by the remote engine that it manages. The ``Engine.usm.addUser()`` method tells the Engine about the algorithm(s) and password(s) for each user. The :mod:`snmp.security.usm.auth` and :mod:`snmp.security.usm.priv` modules contain implementations of several common authentication and privacy (encryption) algorithms.
+Before creating a Manager, however, you must provide the Engine with credentials for the user(s) belonging to the engine that it manages. The ``Engine.usm.addUser()`` method tells the Engine about the algorithm(s) and password(s) for each user. The :mod:`snmp.security.usm.auth` and :mod:`snmp.security.usm.priv` modules contain implementations of several common authentication and privacy (encryption) algorithms.
 
 .. note::
 
