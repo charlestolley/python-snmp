@@ -74,14 +74,4 @@ The output should look like this (assume interface 1 is named "loopback"):
             break
 
 ## Installation Notes
-The `snmp.security.usm.priv` module, which provides the USM privacy algorithms, depends on OpenSSL. As it is very common to use SNMP without privacy (encryption), this module is optional. All other code is pure-Python, and depends only on the standard library. `pip install snmp` will attempt to compile against OpenSSL, but if that fails, then it will complete the installation without building the `snmp.openssl` module. If you install OpenSSL at a later time, you will need to uninstall and reinstall it (assuming you are using pip).
-
-If you aren't using pip, or just want to do things your own way, you can also navigate to the site-packages directory where `snmp` is installed (or the root directory of this Git repository), and execute the following code in the interactive shell:
-
-    from snmp.cffi.openssl.aes import ffi as aes
-    from snmp.cffi.openssl.des import ffi as des
-    aes.compile()
-    des.compile()
-
-If you have OpenSSL installed in a non-standard location, set `CPPFLAGS="-isystem <path-to-openssl>/include"` and `LDFLAGS="-Wl,-rpath,<path-to-openssl>/lib"` before invoking Python to run these commands. I will also note that if you choose the non-reinstall route, and later choose to uninstall (using pip), it will leave these files behind.
-I will also mention that for Windows I'm providing statically-linked wheels, so that you can install and use the `priv` module without installing OpenSSL. I got the idea from the `cryptography` library, which apparently does the same thing.
+This section has moved [here](https://python-snmp.readthedocs.io/en/latest/installation.html). This is the place to look if you are seeing `ModuleNotFoundError`s.
