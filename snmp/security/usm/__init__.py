@@ -465,34 +465,6 @@ class NameSpace:
         return self.users.__setitem__(key, item)
 
 class UsmAdmin:
-    """This class manages user credentials at a global scope. SNMP user
-    credentials behave differently than most password-protected systems, in
-    that there is no central authority involved. Each SNMP engine manages
-    its own users and credentials. While one might expect a network
-    administrator to use the same set of user names and credentials across
-    all nodes in a network, it is conceivable that some nodes might use one
-    set of credentials, while other nodes use an unrelated set of
-    credentials. This creates the possibility of a collision, in which two
-    nodes define users with the same user name but different credentials. To
-    allow for such configurations, the :class:`UsmAdmin` associates each
-    user with a namespace. This allows the caller to organize the
-    credentials according to the organization of the network.
-
-    When determining how to use namespaces, it is important to understand
-    that each SNMP engine belongs to exactly one namespace. A namespace may
-    contain any number of engines, and any number of user names, and a user
-    name may be present in any number of namespaces. There's nothing to stop
-    a zealous caller from defining one namespace for every engine. A more
-    practical strategy, however, would be to define one namespace for each
-    set of hosts that use identical credentials to each other. The most
-    trivial arrangement is to ignore the namespace altogether, which is fine
-    so long as no two engines use conflicting credentials with a single user
-    name.
-
-    **TL;DR;** ignore the `namespace` parameter unless you have colliding
-    user names.
-    """
-
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.engines: Dict[bytes, DiscoveredEngine] = {}
@@ -534,35 +506,6 @@ class UsmAdmin:
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         namespace: str = "",
     ) -> None:
-        """Register a user and the user's security credentials.
-
-        This method stores security information for a user. Despite the large
-        number of parameters, its behavior is quite straightforward.
-
-        The only required parameter is the `userName`. Other parameters depend
-        on the level of security that the user supports. If the user supports
-        authentication, then the `authProtocol` parameter gives a class
-        implementing :class:`snmp.security.usm.AuthProtocol`. Similarly, if the
-        user supports privacy, then the `privProtocol` parameter gives a class
-        implementing :class:`snmp.security.usm.PrivProtocol`. The auth and priv
-        secrets are given by the `authSecret` and `privSecret` parameters,
-        respectively. Alternately, if the same secret is used for both auth and
-        priv, then the `secret` parameter may be used in lieu of the other two.
-
-        The `defaultSecurityLevel` parameter sets the default security level
-        for the user. If not specified, the highest supported security level
-        will be used (e.g. if the user supports auth but not priv, the default
-        security level will be :const:`snmp.security.levels.authNoPriv`).
-
-        Normally the first user added in a namespace becomes the "default"
-        user. A value of ``True`` for the `default` parameter will cause the
-        given user to replace the previous user as the default for this
-        namespace.
-
-        Lastly, the `namespace` parameter specifies the namespace of the
-        given credentials. For an explanation of namespaces, see above, under
-        :class:`UsmAdmin`.
-        """
         credentials: Dict[str, Any] = dict()
         if authProtocol is None:
             maxSecurityLevel = noAuthNoPriv

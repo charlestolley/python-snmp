@@ -1,17 +1,3 @@
-"""This library implements the Simple Network Management Protocol (SNMP).
-In spite of it's name, SNMP seems to have a reputation for being
-complicated and unintuitive. This library aims to make it as easy as
-possible to use SNMP in Python.
-
-   .. note::
-
-      The current version is, admittedly, somewhat limited in its features.
-      It currently only supports the "CommandGenerator" role, which allows
-      the user to send requests and receive responses. At this time, there
-      is no interface for generating or processing traps, or for accepting
-      requests, but those features will be supported in time.
-"""
-
 __all__ = [
     "Engine",
     "SNMPv1", "SNMPv2c", "SNMPv3",
