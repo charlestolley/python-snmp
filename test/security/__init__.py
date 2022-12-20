@@ -9,12 +9,6 @@ class SecurityLevelTest(unittest.TestCase):
         self.authNoPriv = SecurityLevel(auth=True)
         self.authPriv = SecurityLevel(auth=True, priv=True)
 
-    def setAuth(self, obj, value):
-        obj.auth = value
-
-    def setPriv(self, obj, value):
-        obj.priv = value
-
     def testConstructor(self):
         self.assertRaises(ValueError, SecurityLevel, priv=True)
 
@@ -37,28 +31,6 @@ class SecurityLevelTest(unittest.TestCase):
         self.assertLess(self.noAuthNoPriv, self.authNoPriv)
         self.assertLess(self.noAuthNoPriv, self.authPriv)
         self.assertLess(self.authNoPriv, self.authPriv)
-
-    def testSetAuth(self):
-        self.noAuthNoPriv.auth = True
-        self.assertEqual(self.noAuthNoPriv, self.authNoPriv)
-
-    def testUnsetAuth(self):
-        self.authNoPriv.auth = False
-        self.assertEqual(self.authNoPriv, self.noAuthNoPriv)
-
-    def testInvalidAuth(self):
-        self.assertRaises(ValueError, self.setAuth, self.authPriv, False)
-
-    def testSetPriv(self):
-        self.authNoPriv.priv = True
-        self.assertEqual(self.authNoPriv, self.authPriv)
-
-    def testUnsetPriv(self):
-        self.authPriv.priv = False
-        self.assertEqual(self.authPriv, self.authNoPriv)
-
-    def testInvalidPriv(self):
-        self.assertRaises(ValueError, self.setPriv, self.noAuthNoPriv, True)
 
 class SecurityModelTest(unittest.TestCase):
     def testUSM(self):
