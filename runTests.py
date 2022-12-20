@@ -11,9 +11,9 @@ import test.utils
 # The order of this list is meant to test each module
 # before testing the modules that depend on it
 modules = [
+    test.utils,
     test.ber,
     test.types,
-    test.utils,
     test.pdu,
     test.smi,
     test.security,
