@@ -9,14 +9,11 @@ from snmp.exception import *
 from snmp.utils import subbytes
 
 class ExceptionTypesTest(unittest.TestCase):
-    def throw(self, exceptionType):
-        raise exceptionType()
-
     def testEncodeError(self):
-        self.assertRaises(SNMPException, self.throw, EncodeError)
+        self.assertIsInstance(EncodeError(), SNMPException)
 
     def testParseError(self):
-        self.assertRaises(IncomingMessageError, self.throw, ParseError)
+        self.assertIsInstance(ParseError(), IncomingMessageError)
 
 class IdentiferDecodeTest(unittest.TestCase):
     def testUniversalConstructed(self):
@@ -41,10 +38,12 @@ class SimpleDecodeTest(unittest.TestCase):
         self.data = b"\x04\x02\x00\x00"
 
     def testEmpty(self):
-        self.assertRaises(ParseError, decode, self.data[:0])
+        regex = "[Ii]dentifier"
+        self.assertRaisesRegex(ParseError, regex, decode, self.data[:0])
 
     def testNoLength(self):
-        self.assertRaises(ParseError, decode, self.data[:1])
+        regex = "[Ll]ength"
+        self.assertRaisesRegex(ParseError, regex, decode, self.data[:1])
 
     def testNoData(self):
         self.assertRaises(ParseError, decode, self.data[:2])
@@ -56,8 +55,15 @@ class SimpleDecodeTest(unittest.TestCase):
         self.assertRaises(ParseError, decode, self.data + bytes(1))
 
     def testWrongType(self):
+        regex = "[Ee]xpected"
         identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 2)
-        self.assertRaises(ParseError, decode, self.data, expected=identifier)
+        self.assertRaisesRegex(
+            ParseError,
+            regex,
+            decode,
+            self.data,
+            expected=identifier
+        )
 
     def testDecode(self):
         _, data = decode(self.data)
@@ -68,7 +74,7 @@ class BigDecodeTest(unittest.TestCase):
         self.data = b"\x04\x82\x01\x8a" + bytes(394)
 
     def testInvalidLength(self):
-        self.assertRaises(ParseError, decode, self.data[:3])
+        self.assertRaisesRegex(ParseError, "[Ll]ength", decode, self.data[:3])
 
     def testBigData(self):
         _, data = decode(self.data)
@@ -113,7 +119,8 @@ class DecodeTypesTest(unittest.TestCase):
         self.assertEqual(leftovers, b"beef")
 
     def testNoCopy(self):
-        result = decode(b"\x04\x04deadbeef", leftovers=True, copy=False)
+        original = b"\x04\x04deadbeef"
+        result = decode(original, leftovers=True, copy=False)
         identifier, data, leftovers = result
 
         self.assertTrue(isinstance(result, tuple))
@@ -126,6 +133,7 @@ class DecodeTypesTest(unittest.TestCase):
             Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
         )
 
+        self.assertIs(data.data, original)
         self.assertEqual(data, b"dead")
         self.assertEqual(leftovers, b"beef")
 
