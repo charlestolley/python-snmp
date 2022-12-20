@@ -32,6 +32,9 @@ class IntegerTest(unittest.TestCase):
         self.assertEqual(Integer.decode(data), Integer(value))
 
     def helpTestEncode(self, n):
+        # There may be multiple valid ways to encode a number,
+        # but as long as decode() has been tested, there's no
+        # reason not to use it to test encode().
         n = Integer(n)
         self.assertEqual(Integer.decode(n.encode()), n)
 
@@ -86,12 +89,6 @@ class IntegerTest(unittest.TestCase):
 
     def testEncodeMin(self):
         self.helpTestEncode(self.MIN)
-
-    def testEncodeTooHigh(self):
-        self.assertRaises(ValueError, Integer(self.MAX+1).encode)
-
-    def testEncodeTooLow(self):
-        self.assertRaises(ValueError, Integer(self.MIN-1).encode)
 
 class OctetStringTest(unittest.TestCase):
     def setUp(self):
@@ -183,6 +180,10 @@ class OIDTest(unittest.TestCase):
         self.assertEqual(self.internet[3], 1)
         self.assertRaises(IndexError, self.internet.__getitem__, 4)
 
+    def testHash(self):
+        table = {self.internet: None}
+        self.assertIn(OID(1, 3, 6, 1), table)
+
     def testLen(self):
         self.assertEqual(len(self.internet), 4)
 
@@ -268,6 +269,78 @@ class OIDTest(unittest.TestCase):
             1, 3, 6, 1, 42, 8, 0x52, 0x6f, 0x62, 0x69, 0x6e, 0x73, 0x6f, 0x6e
         ))
 
+    def testIndexInteger(self):
+        oid = self.internet.extend(3)
+        index = oid.getIndex(self.internet, Integer)
+        self.assertEqual(index, Integer(3))
+
+    def testIndexIntegerOutOfRange(self):
+        oid = self.internet.extend(1 << 31)
+        self.assertRaises(
+            OID.IndexDecodeError,
+            oid.getIndex,
+            self.internet,
+            Integer,
+        )
+
+    def testIndexOctetString(self):
+        data = b"test string"
+        oid = self.internet.extend(len(data), *data)
+        result = oid.getIndex(self.internet, OctetString)
+        self.assertEqual(result, OctetString(data))
+
+    def testIndexIncompleteOctetString(self):
+        data = b"test string"
+        oid = self.internet.extend(len(data) + 1, *data)
+        self.assertRaises(
+            OID.IndexDecodeError,
+            oid.getIndex,
+            self.internet,
+            OctetString,
+        )
+
+    def testIndexInvalidOctets(self):
+        oid = self.internet.extend(3, ord("O"), ord("I"), 394)
+        self.assertRaises(
+            OID.IndexDecodeError,
+            oid.getIndex,
+            self.internet,
+            OctetString,
+        )
+
+    def testIndexNull(self):
+        self.assertEqual(self.internet.getIndex(self.internet, Null), Null())
+
+    def testIndexOID(self):
+        oid = self.internet.extend(len(self.internet), *self.internet)
+        self.assertEqual(oid.getIndex(self.internet, OID), self.internet)
+
+    def testIndexIncompleteOID(self):
+        oid = self.internet.extend(len(self.internet) + 1, *self.internet)
+        self.assertRaises(
+            OID.IndexDecodeError,
+            oid.getIndex,
+            self.internet,
+            OID,
+        )
+
+    def testIndexMissing(self):
+        self.assertRaises(
+            OID.IndexDecodeError,
+            self.internet.getIndex,
+            self.internet,
+            Integer,
+        )
+
+    def testIndexLeftovers(self):
+        oid = self.internet.extend(3, 0)
+        self.assertRaises(
+            OID.IndexDecodeError,
+            oid.getIndex,
+            self.internet,
+            Integer,
+        )
+
     def testExtractWrongPrefix(self):
         self.assertRaises(
             OID.BadPrefix,
@@ -284,78 +357,12 @@ class OIDTest(unittest.TestCase):
         )
 
     def testExtractMatched(self):
-        self.assertEqual(None, self.internet.extractIndex(self.internet))
+        self.assertEqual((), self.internet.extractIndex(self.internet))
 
-    def testExtractInteger(self):
+    def testExtractOne(self):
         oid = self.internet.extend(3)
         index = oid.extractIndex(self.internet, Integer)
-        self.assertEqual(index, Integer(3))
-
-    def testExtractIntegerOutOfRange(self):
-        oid = self.internet.extend(1 << 31)
-        self.assertRaises(
-            OID.IndexDecodeError,
-            oid.extractIndex,
-            self.internet,
-        )
-
-    def testExtractOctetString(self):
-        data = b"test string"
-        oid = self.internet.extend(len(data), *data)
-        result = oid.extractIndex(self.internet, OctetString)
-        self.assertEqual(result, OctetString(data))
-
-    def testExtractIncompleteOctetString(self):
-        data = b"test string"
-        oid = self.internet.extend(len(data) + 1, *data)
-        self.assertRaises(
-            OID.IndexDecodeError,
-            oid.extractIndex,
-            self.internet,
-            OctetString,
-        )
-
-    def testExtractInvalidOctets(self):
-        oid = self.internet.extend(3, ord("O"), ord("I"), 394)
-        self.assertRaises(
-            OID.IndexDecodeError,
-            oid.extractIndex,
-            self.internet,
-            OctetString,
-        )
-
-    def testExtractNull(self):
-        self.assertEqual(self.internet.extractIndex(self.internet, Null), Null())
-
-    def testExtractOID(self):
-        oid = self.internet.extend(len(self.internet), *self.internet)
-        self.assertEqual(oid.extractIndex(self.internet, OID), self.internet)
-
-    def testExtractIncompleteOID(self):
-        oid = self.internet.extend(len(self.internet) + 1, *self.internet)
-        self.assertRaises(
-            OID.IndexDecodeError,
-            oid.extractIndex,
-            self.internet,
-            OID,
-        )
-
-    def testExtractMissing(self):
-        self.assertRaises(
-            OID.IndexDecodeError,
-            self.internet.extractIndex,
-            self.internet,
-            Integer,
-        )
-
-    def testExtractLeftovers(self):
-        oid = self.internet.extend(3, 0)
-        self.assertRaises(
-            OID.IndexDecodeError,
-            oid.extractIndex,
-            self.internet,
-            Integer,
-        )
+        self.assertEqual(index, (Integer(3),))
 
     def testExtractMany(self):
         inetCidrRouteIfIndex = OID(1, 3, 6, 1, 2, 1, 4, 24, 7, 1, 7)
@@ -367,14 +374,14 @@ class OIDTest(unittest.TestCase):
             .extend(1)                  \
             .extend(4, 0, 0, 0, 0)
 
-        destType, dest, pfxLen, policy, nextHopType, nextHop = oid.extractIndex(
+        destType, dest, mask, policy, nextHopType, nextHop = oid.extractIndex(
             inetCidrRouteIfIndex,
             Integer, OctetString, Integer, OID, Integer, OctetString,
         )
 
         self.assertEqual(destType, Integer(1))
         self.assertEqual(dest, OctetString(b"\xc0\xa8\x00\x00"))
-        self.assertEqual(pfxLen, Integer(24))
+        self.assertEqual(mask, Integer(24))
         self.assertEqual(policy, OID(0, 0, 2))
         self.assertEqual(nextHopType, Integer(1))
         self.assertEqual(nextHop, OctetString(b"\x00\x00\x00\x00"))
