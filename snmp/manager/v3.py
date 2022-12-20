@@ -17,12 +17,12 @@ from snmp.utils import *
 from . import *
 
 usmStats = OID.parse("1.3.6.1.6.3.15.1.1")
-usmStatsUnsupportedSecLevelsSubTree     = (1, 0)
-usmStatsNotInTimeWindowsInstanceSubTree = (2, 0)
-usmStatsUnknownUserNamesSubTree         = (3, 0)
-usmStatsUnknownEngineIDsInstanceSubTree = (4, 0)
-usmStatsWrongDigestsSubTree             = (5, 0)
-usmStatsDecryptionErrorsSubTree         = (6, 0)
+usmStatsUnsupportedSecLevels        = usmStats.extend(1, 0)
+usmStatsNotInTimeWindowsInstance    = usmStats.extend(2, 0)
+usmStatsUnknownUserNames            = usmStats.extend(3, 0)
+usmStatsUnknownEngineIDsInstance    = usmStats.extend(4, 0)
+usmStatsWrongDigests                = usmStats.extend(5, 0)
+usmStatsDecryptionErrors            = usmStats.extend(6, 0)
 
 class UnhandledReport(SNMPException):
     pass
@@ -182,10 +182,10 @@ class RequireAuthentication(State):
 
 class RequestMessage(RequestHandle):
     USM_EXCEPTION_TYPES = {
-        usmStatsUnsupportedSecLevelsSubTree:    UnsupportedSecurityLevelReport,
-        usmStatsUnknownUserNamesSubTree:        UnknownUserNameReport,
-        usmStatsWrongDigestsSubTree:            WrongDigestReport,
-        usmStatsDecryptionErrorsSubTree:        DecryptionErrorReport,
+        usmStatsUnsupportedSecLevels:   UnsupportedSecurityLevelReport,
+        usmStatsUnknownUserNames:       UnknownUserNameReport,
+        usmStatsWrongDigests:           WrongDigestReport,
+        usmStatsDecryptionErrors:       DecryptionErrorReport,
     }
 
     def __init__(self, request, synchronized):
@@ -207,16 +207,15 @@ class RequestMessage(RequestHandle):
             varbind = response.data.pdu.variableBindings[0]
 
             oid = varbind.name
-            subtree = oid.getSubTree(usmStats)
-            if subtree == usmStatsUnknownEngineIDsInstanceSubTree:
+            if oid == usmStatsUnknownEngineIDsInstance:
                 self.request.processUnknownEngineID(response.securityEngineID)
-            elif subtree == usmStatsNotInTimeWindowsInstanceSubTree:
+            elif oid == usmStatsNotInTimeWindowsInstance:
                 if not self.synchronized:
                     engineID = response.securityEngineID
                     self.request.processNotInTimeWindow(engineID)
             else:
                 try:
-                    exc_type = self.USM_EXCEPTION_TYPES[subtree]
+                    exc_type = self.USM_EXCEPTION_TYPES[oid]
                 except KeyError:
                     exception = UnrecognizedReport(varbind)
                 else:

@@ -291,6 +291,9 @@ class OID(Primitive):
     ) -> Union[int, Tuple[int, ...]]:
         return self.nums.__getitem__(idx)
 
+    def __hash__(self) -> int:
+        return self.nums.__hash__()
+
     def __iter__(self) -> Iterator[int]:
         return self.nums.__iter__()
 
@@ -382,13 +385,15 @@ class OID(Primitive):
         prefix: "OID",
         *types: Type[TPrimitive],
     ) -> Tuple[TPrimitive, ...]:
-        suffix = self.getSubTree(prefix)
+        if len(self.nums) < len(prefix):
+            errmsg = "\"{}\" is shorter than the given prefix \"{}\""
+            raise self.BadPrefix(errmsg.format(self, prefix))
 
-        if suffix is None:
+        if self.nums[:len(prefix)] != prefix.nums:
             errmsg = "\"{}\" does not begin with \"{}\""
             raise self.BadPrefix(errmsg.format(self, prefix))
 
-        nums = iter(suffix)
+        nums = iter(self.nums[len(prefix):])
         index = tuple(self.tryDecode(nums, cls) for cls in types)
 
         try:
@@ -403,12 +408,6 @@ class OID(Primitive):
 
     def getIndex(self, prefix: "OID", cls: Type[TPrimitive]) -> TPrimitive:
         return self.extractIndex(prefix, cls)[0]
-
-    def getSubTree(self, prefix: "OID") -> Optional[Tuple[int, ...]]:
-        if prefix.nums == self.nums[:len(prefix)]:
-            return self[len(prefix):]
-        else:
-            return None
 
     def equals(self, other: "OID") -> bool:
         return self.nums == other.nums
