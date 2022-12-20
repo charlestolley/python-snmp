@@ -177,12 +177,6 @@ class Counter64Test(unittest.TestCase):
     def testEncodeMax(self):
         self.helpTestEncode((1 << 64) - 1)
 
-    def testEncodeNegative(self):
-        self.assertRaises(ValueError, Counter64(-1).encode)
-
-    def testEncodeTooLarge(self):
-        self.assertRaises(ValueError, Counter64(1 << 64).encode)
-
 class ZeroDotZeroTest(unittest.TestCase):
     def setUp(self):
         self.data = b"\x06\x01\x00"
