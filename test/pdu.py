@@ -1,5 +1,9 @@
-__all__ = ["NullTypesTest", "PDUTest", "VarBindListTest", "VarBindTest",]
+__all__ = [
+    "BulkPDUTest", "NullTypesTest", "PDUTest", "PDUTypesTest",
+    "PDUClassesTest", "VarBindListTest", "VarBindTest",
+]
 
+import re
 import unittest
 from snmp.ber import ParseError
 from snmp.pdu import *
@@ -24,9 +28,9 @@ class VarBindTest(unittest.TestCase):
     def setUp(self):
         self.ifDescr = OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2)
         self.varbind = VarBind(self.ifDescr.extend(1), OctetString(b"lo"))
-        self.data = bytes.fromhex("""
+        self.data = bytes.fromhex(re.sub(r"\n", "", """
             30 10 06 0a 2b 06 01 02 01 02 02 01 02 01 04 02 6c 6f
-        """)
+        """))
 
     def testRepr(self):
         self.assertEqual(eval(repr(self.varbind)), self.varbind)
@@ -107,13 +111,13 @@ class VarBindListTest(unittest.TestCase):
             VarBind(ifSpecific.appendIndex(ifIndex), zeroDotZero),
         )
 
-        self.data = bytes.fromhex("""
+        self.data = bytes.fromhex(re.sub(r"\n", "", """
             30 4b
                30 10 06 0a 2b 06 01 02 01 02 02 01 02 01 04 02 6c 6f
                30 10 06 0a 2b 06 01 02 01 02 02 01 04 01 02 02 05 dc
                30 14 06 0a 2b 06 01 02 01 02 02 01 06 01 04 06 6d 61 63 61 64 72
                30 0f 06 0a 2b 06 01 02 01 02 02 01 16 01 06 01 00
-        """)
+        """))
 
     def testConstructorDefaults(self):
         self.assertEqual(
@@ -157,7 +161,7 @@ class PDUTest(unittest.TestCase):
             variableBindings=VarBindList(var)
         )
 
-        self.data = bytes.fromhex("""
+        self.data = bytes.fromhex(re.sub(r"\n", "", """
             a2 1e
                02 04 70 9b 4a 44
                02 01 05
@@ -166,7 +170,7 @@ class PDUTest(unittest.TestCase):
                   30 0e
                      06 0a 2b 06 01 02 01 02 02 01 02 1d
                      81 00 
-        """)
+        """))
 
     # see RFC 3416 section 3 (p. 8)
     def testErrorStatusEnum(self):
@@ -224,7 +228,7 @@ class BulkPDUTest(unittest.TestCase):
             ),
         )
 
-        self.data = bytes.fromhex("""
+        self.data = bytes.fromhex(re.sub(r"\n", "", """
             a5 2c
                02 04 4b dd c5 97
                02 01 00
@@ -236,7 +240,7 @@ class BulkPDUTest(unittest.TestCase):
                   30 0d
                      06 09 2b 06 01 02 01 02 02 01 04
                      05 00
-        """)
+        """))
 
     def testIgnoreUnusedArgs(self):
         pdu = GetBulkRequestPDU(
@@ -279,6 +283,11 @@ class PDUTypesTest(unittest.TestCase):
         pdu = SetRequestPDU.decode(data)
         self.assertEqual(pdu, SetRequestPDU())
 
+    def testTrap(self):
+        data = bytes.fromhex("a4 0b 02 01 00 02 01 00 02 01 00 30 00")
+        pdu = TrapPDU.decode(data)
+        self.assertEqual(pdu, TrapPDU())
+
     def testGetBulkRequest(self):
         data = bytes.fromhex("a5 0b 02 01 00 02 01 00 02 01 00 30 00")
         pdu = GetBulkRequestPDU.decode(data)
@@ -289,10 +298,10 @@ class PDUTypesTest(unittest.TestCase):
         pdu = InformRequestPDU.decode(data)
         self.assertEqual(pdu, InformRequestPDU())
 
-    def testTrap(self):
+    def testSNMPv2Trap(self):
         data = bytes.fromhex("a7 0b 02 01 00 02 01 00 02 01 00 30 00")
-        pdu = TrapPDU.decode(data)
-        self.assertEqual(pdu, TrapPDU())
+        pdu = SNMPv2TrapPDU.decode(data)
+        self.assertEqual(pdu, SNMPv2TrapPDU())
 
     def testReport(self):
         data = bytes.fromhex("a8 0b 02 01 00 02 01 00 02 01 00 30 00")
@@ -300,7 +309,7 @@ class PDUTypesTest(unittest.TestCase):
         self.assertEqual(pdu, ReportPDU())
 
 # see RFC 3411 section 2.8 (pp. 13-14)
-class testPDUClasses(unittest.TestCase):
+class PDUClassesTest(unittest.TestCase):
     def testReadClass(self):
         self.assertTrue(isinstance(GetRequestPDU(), Read))
         self.assertTrue(isinstance(GetNextRequestPDU(), Read))
@@ -316,6 +325,7 @@ class testPDUClasses(unittest.TestCase):
     def testNotificationClass(self):
         self.assertTrue(isinstance(InformRequestPDU(), Notification))
         self.assertTrue(isinstance(TrapPDU(), Notification))
+        self.assertTrue(isinstance(SNMPv2TrapPDU(), Notification))
 
     def testInternalClass(self):
         self.assertTrue(isinstance(ReportPDU(), Internal))
@@ -330,6 +340,7 @@ class testPDUClasses(unittest.TestCase):
     def testUnconfirmedClass(self):
         self.assertFalse(isinstance(ResponsePDU(), Confirmed))
         self.assertFalse(isinstance(TrapPDU(), Confirmed))
+        self.assertFalse(isinstance(SNMPv2TrapPDU(), Confirmed))
         self.assertFalse(isinstance(ReportPDU(), Confirmed))
 
 if __name__ == '__main__':
