@@ -104,7 +104,7 @@
       the default ``""`` namespace. Otherwise, you will need to pick names for
       each of your namespaces, and use those names both when adding security
       configurations, using this method, and when creating Managers, using the
-      :meth:`Manager` factory method. Namespaces may use any string.
+      :meth:`Engine.Manager` factory method. Namespaces may use any string.
 
       (Ignore the words in parentheses if not using namespaces). Normally, the
       first user added (to a namespace) becomes the "default" user (for that
@@ -230,6 +230,11 @@
    :canonical: snmp.security.levels.authPriv
 
    These objects represent the three possible security levels in SNMP version 3.
+
+.. toctree::
+   :hidden:
+
+   manager
 
 .. _Facade: https://en.wikipedia.org/wiki/Facade_pattern
 .. _Factory Method: https://en.wikipedia.org/wiki/Factory_method_pattern
