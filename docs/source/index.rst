@@ -12,4 +12,3 @@ component.
    installation
    getting_started
    snmp
-   usm

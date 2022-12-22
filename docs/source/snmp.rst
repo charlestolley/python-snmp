@@ -13,7 +13,7 @@
 
    .. note::
 
-      This module is still under development. It currently supports the
+      This library is still under development. It currently supports the
       "CommandGenerator" role, which allows the user to send requests and
       receive responses. Future versions will add support for sending and
       receiving notifications (i.e. traps), and for accepting incoming
@@ -44,12 +44,73 @@
    argument. All other arguments should be passed by keyword, as their ordering
    is subject to change in future library versions.
 
-   .. property:: usm
+   .. note::
 
-      This property refers to a :class:`snmp.security.usm.UsmAdmin` object. It's
-      public API contains only a single method called ``addUser()``, which you
-      must call to tell the :class:`Engine` about users' security settings. See
-      :meth:`snmp.security.usm.UsmAdmin.addUser` for details about that method.
+      User-Based security is not only the only security model supported by this
+      library, it's also, so far as I know, the only security model defined for
+      SNMPv3. The library is designed to be flexibile, so it could theoretically
+      support other models, but for sake of clarity and simplicity, this class
+      documentation assumes you are using the User-Based Security Model (USM).
+
+   .. method:: usm.addUser( \
+        userName, \
+        authProtocol=None, \
+        authSecret=None, \
+        privProtocol=None, \
+        privSecret=None, \
+        secret=b"", \
+        default=False, \
+        defaultSecurityLevel=None, \
+        namespace="", \
+      )
+
+      This method is used to input the security configuration of each user. As
+      used here, the phrase "security configuration" refers to a unique
+      combination of user name, authentication algorithm, privacy algorithm,
+      authentication password, and privacy password. The :class:`Engine` needs
+      this information before it can send or receive any SNMPv3 messages, so
+      this should be the first method call made with a new :class:`Engine`
+      object. Despite the large number of parameters, its behavior is mostly
+      straightforward.
+
+      The only required parameter is the `userName`. Other parameters depend on
+      the level of security that the user supports. If the user supports
+      authentication, then the `authProtocol` parameter expects a class that
+      implements the authentication algorithm. Similarly, the `privProtocol`
+      parameter specifies a privacy algorithm. Implementations of standard
+      algorithms are provided in the :mod:`snmp.security.usm.auth` and
+      :mod:`snmp.security.usm.priv` modules. The `authSecret` and `privSecret`
+      parameters specify the authentication and privacy passwords.
+      Alternatively, if authentication and privacy use the same password, then
+      the `secret` parameter may be used in lieu of the other two.
+
+      Normally, a user will default to the highest security level that its
+      configuration supports. If you desire a lower security level as the
+      default for a particular user, specify the desired default with the
+      `defaultSecurityLevel` parameter.
+
+      The `namespace` parameter is only necessary if the :class:`Engine` has
+      multiple security configurations under the same `userName`. This would
+      mean that two remote engines have different algorithms or passwords for
+      one user. In this case, you, as the administrator will need to organize
+      the security configurations under different namespaces so that you can
+      refer to them unambiguously.
+
+      The purpose of namespaces is not actually to organize the security
+      configurations, it's to organize the managed nodes (i.e. remote engines)
+      in the network. A namespace should consist of all nodes that share the
+      same security configurations. In a network containing only one namespace,
+      you can ignore the concept of namespaces, and everything will belong to
+      the default ``""`` namespace. Otherwise, you will need to pick names for
+      each of your namespaces, and use those names both when adding security
+      configurations, using this method, and when creating Managers, using the
+      :meth:`Manager` factory method. Namespaces may use any string.
+
+      (Ignore the words in parentheses if not using namespaces). Normally, the
+      first user added (to a namespace) becomes the "default" user (for that
+      namespace). To manually designate a user to be the default (for its
+      namespace), give a value of ``True`` for the `default` parameter when
+      adding that user.
 
    .. method:: shutdown
 
@@ -105,15 +166,6 @@
       engineID=None, securityModel=None, defaultSecurityLevel=None, \
       defaultUserName=None, namespace="")
       :noindex:
-
-      .. note::
-
-         User-Based security is not only the only security model supported by
-         this library, it's also, so far as I know, the only security model
-         defined for SNMPv3. The library is designed to be flexibile, so it
-         could theoretically support other models, but for sake of clarity and
-         simplicity, this section just assumes you are using the User-Based
-         Security Model (USM).
 
       .. note::
 
