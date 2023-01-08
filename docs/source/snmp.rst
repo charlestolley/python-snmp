@@ -27,7 +27,7 @@
       defaultVersion=SNMPv3, \
       defaultDomain=TransportDomain.UDP, \
       defaultSecurityModel=SecurityModel.USM, \
-      defaultCommunity="", \
+      defaultCommunity=b"", \
       autowait=True, \
    )
 
@@ -202,9 +202,10 @@
       community=None)
       :noindex:
 
-      The `community` parameter sets the default community string for this
-      ``Manager``. This can also be configured at the :class:`Engine` level,
-      with the `defaultCommunity` argument to the constructor.
+      The `community` parameter sets the default community for this ``Manager``.
+      This can also be configured at the :class:`Engine` level, with the
+      `defaultCommunity` argument to the constructor. Note that these parameters
+      expect ``bytes`` objects, not ``str``\s.
 
    .. method:: Manager(address, version=SNMPv1, domain=None, autowait=None, \
       community=None)

@@ -140,8 +140,6 @@ class SNMPv2cManager:
     def sendRequest(self, pdu, community=None, wait=None, **kwargs):
         if community is None:
             community = self.defaultCommunity
-        else:
-            community = community.encode()
 
         if wait is None:
             wait = self.autowait

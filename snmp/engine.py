@@ -22,7 +22,7 @@ class Engine:
         defaultVersion=MessageProcessingModel.SNMPv3,
         defaultDomain=TransportDomain.UDP,
         defaultSecurityModel=SecurityModel.USM,
-        defaultCommunity="",
+        defaultCommunity=b"",
         autowait=True
     ):
         # Read-only variables
@@ -77,7 +77,7 @@ class Engine:
         return SNMPv1Manager(
             self.dispatcher,
             locator,
-            community.encode(),
+            community,
             autowait,
         )
 
@@ -92,7 +92,7 @@ class Engine:
         return SNMPv2cManager(
             self.dispatcher,
             locator,
-            community.encode(),
+            community,
             autowait,
         )
 
