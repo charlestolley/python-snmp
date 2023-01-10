@@ -30,6 +30,7 @@
       defaultCommunity=b"", \
       autowait=True, \
    )
+   :canonical: snmp.engine.Engine
 
    Technically speaking, this class is a Facade_ for the various components in
    this library. Because it manages network resources and background threads, it
@@ -146,21 +147,7 @@
       The `autowait` parameter assigns a default value for the `wait` parameter
       to the ``Manager``'s request methods. If not given, its value falls back
       on the `autowait` parameter provided in the :class:`Engine` constructor.
-      Each request method causes a real SNMP request to be sent to the managed
-      engine. The simplest programming model is simply to block until a response
-      arrives, and then return the response. This is the behavior when `wait` is
-      ``True`` (which is the default if you never touch the `wait` or `autowait`
-      parmameters). However, this limits an application to a single outstanding
-      request at a time. For larger systems, it may be more advantageous to send
-      requests to multiple engines, or even multiple requests to a single
-      engine, at the same time. When a request is made with ``wait=False``, the
-      method will send the request, and then immediately return a "handle" for
-      the request. This handle will have a public ``wait()`` method, which, when
-      called, will block until the response arrives, and then return it, just as
-      the request method would when `wait` was ``True``. Future library versions
-      may explore enhancements to this, such as a "try-wait" feature, or some
-      kind of request handle multiplexing (similar to the behavior of the POSIX
-      :func:`select` function).
+      See the :doc:`manager` page for an explanation of the `wait` parameter.
 
    .. method:: Manager(address, version=SNMPv3, domain=None, autowait=None, \
       engineID=None, securityModel=None, defaultSecurityLevel=None, \
