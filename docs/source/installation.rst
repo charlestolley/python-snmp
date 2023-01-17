@@ -43,6 +43,7 @@ In Ubuntu, it's as simple as
 
    sudo apt install libssl-dev
    pip uninstall snmp
+   pip cache remove snmp        # force pip to re-build the wheel
    pip install snmp
 
 You can also download_ and install OpenSSL from source quite easily (run
