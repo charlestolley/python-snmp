@@ -224,6 +224,7 @@
    :hidden:
 
    manager
+   types
 
 .. _Facade: https://en.wikipedia.org/wiki/Facade_pattern
 .. _Factory Method: https://en.wikipedia.org/wiki/Factory_method_pattern
