@@ -259,7 +259,7 @@ Data Types
 .. class:: VarBind(name, value=None)
    :canonical: snmp.pdu.VarBind
 
-   An SNMP variable binding pairs and OID with a value. In actual usage, the
+   An SNMP variable binding pairs an OID with a value. In actual usage, the
    OID (i.e. the "name") consists of a prefix, which refers to an object
    definition in the MIB, and an index, identifying a unique instance of that
    object for a specific engine. The value is an instance of the type specified
