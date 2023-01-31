@@ -269,6 +269,11 @@ class OIDTest(unittest.TestCase):
             1, 3, 6, 1, 42, 8, 0x52, 0x6f, 0x62, 0x69, 0x6e, 0x73, 0x6f, 0x6e
         ))
 
+    def testIndexDefault(self):
+        oid = self.internet.extend(3)
+        index = oid.getIndex(self.internet)
+        self.assertEqual(index, Integer(3))
+
     def testIndexInteger(self):
         oid = self.internet.extend(3)
         index = oid.getIndex(self.internet, Integer)

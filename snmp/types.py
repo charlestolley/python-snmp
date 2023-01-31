@@ -406,7 +406,10 @@ class OID(Primitive):
 
         return index
 
-    def getIndex(self, prefix: "OID", cls: Type[TPrimitive]) -> TPrimitive:
+    def getIndex(self,
+        prefix: "OID",
+        cls: Type[TPrimitive] = Integer,
+    ) -> TPrimitive:
         return self.extractIndex(prefix, cls)[0]
 
     def equals(self, other: "OID") -> bool:

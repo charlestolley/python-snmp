@@ -154,7 +154,7 @@ Data Types
       :class:`snmp.types.OID.IndexDecodeError`. The index is returned as a tuple
       whose length matches the length of `types`.
 
-   .. method:: getIndex(prefix, cls)
+   .. method:: getIndex(prefix, cls=Integer)
 
       This method wraps a call to :meth:`extractIndex` for an index consisting
       of only a single object. Where that method returns a tuple of length 1,
