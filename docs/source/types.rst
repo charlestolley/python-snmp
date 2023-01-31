@@ -344,6 +344,12 @@ Data Types
       This property gives access to the :class:`VarBindList` containing the
       message's variable bindings.
 
+   .. class:: ErrorStatus(errorStatus)
+
+      This :class:`IntEnum` class enumerates the possible values of the
+      :attr:`errorStatus` field. Note that some values are only valid in newer
+      versions of SNMP.
+
 .. class:: GetRequestPDU( \
       * varbinds, \
       requestID=0, \
