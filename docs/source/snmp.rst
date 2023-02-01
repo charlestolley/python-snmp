@@ -130,7 +130,11 @@
       This is a `Factory Method`_ for creating ``Manager`` objects. Each
       ``Manager`` object is responsible for a single remote engine, and expects
       to have exclusive responsibility for that engine (meaning you should
-      create exactly one ``Manager`` for each remote engine).
+      create exactly one ``Manager`` for each remote engine). Note that, while
+      all accesses to an :class:`Engine` should occur on a single thread, and
+      each ``Manager`` should also be accessed within a single thread, it is
+      allowable to create multiple threads, each with exclusive access to one or
+      more ``Manager``\s.
 
       `address` and `version` are the only positional arguments. All other
       arguments should be passed by keyword, as their ordering is subject to
