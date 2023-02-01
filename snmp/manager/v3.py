@@ -331,6 +331,7 @@ class Request:
                 self.response = response
                 self.event.set()
 
+    # Always update self.nextRefresh right before calling this method
     def reallySend(self, engineID=None):
         pdu = self.pdu
         user = self.userName
@@ -356,17 +357,19 @@ class Request:
             return None
 
         now = time.time()
-        delta = self.nextRefresh - now
+        timeToNextRefresh = self.nextRefresh - now
 
-        if delta <= 0.0:
+        if timeToNextRefresh <= 0.0:
             if self.expiration <= now:
                 return None
 
-            self.nextRefresh += math.ceil(-delta / self.period) * self.period
+            # Calculating it like this mitigates over-delay
+            periodsElapsed = math.ceil(-timeToNextRefresh / self.period)
+            self.nextRefresh += periodsElapsed * self.period
             self.reallySend()
             return 0.0
         else:
-            return delta
+            return timeToNextRefresh
 
     def send(self, engineID=None):
         now = time.time()
@@ -512,8 +515,6 @@ class SNMPv3UsmManager:
                         return wait
                     else:
                         heapq.heapreplace(self.active, reference)
-
-                    active = True
                 else:
                     active = False
 
