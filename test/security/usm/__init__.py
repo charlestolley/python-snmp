@@ -1,7 +1,48 @@
-__all__ = ["TimeKeeperTest"]
+__all__ = ["DiscoveredEngineTest", "TimeKeeperTest"]
 
-from snmp.security.usm import TimeKeeper
+from snmp.security.usm import DiscoveredEngine, TimeKeeper
 import unittest
+
+class DiscoveredEngineTest(unittest.TestCase):
+    def setUp(self):
+        self.namespace = "namespace"
+        self.discoveredEngine = DiscoveredEngine()
+        self.discoveredEngine.assign(self.namespace)
+
+    def testUninitialized(self):
+        discoveredEngine = DiscoveredEngine()
+        assigned, initialized = discoveredEngine.assign(self.namespace)
+        self.assertTrue(assigned)
+        self.assertFalse(initialized)
+
+    def testMultipleAssignment(self):
+        assigned, _ = self.discoveredEngine.assign("other")
+        self.assertFalse(assigned)
+
+    def testReentrancy(self):
+        assigned, initialized = self.discoveredEngine.assign(self.namespace)
+        self.assertTrue(assigned)
+        self.assertTrue(initialized)
+
+    def testReassignment(self):
+        self.discoveredEngine.release(self.namespace)
+        assigned, initialized = self.discoveredEngine.assign(self.namespace)
+        self.assertTrue(assigned)
+        self.assertTrue(initialized)
+
+    def testRelease(self):
+        _, _ = self.discoveredEngine.assign(self.namespace)
+        first   = self.discoveredEngine.release(self.namespace)
+        second  = self.discoveredEngine.release(self.namespace)
+
+        self.assertFalse(first)
+        self.assertTrue(second)
+
+    def testReclaim(self):
+        self.discoveredEngine.release(self.namespace)
+        assigned, initialized = self.discoveredEngine.assign("other")
+        self.assertTrue(assigned)
+        self.assertFalse(initialized)
 
 class TimeKeeperTest(unittest.TestCase):
     def setUp(self):
