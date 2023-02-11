@@ -157,7 +157,10 @@ class TimeKeeper:
 
                 if msgBoots == entry.snmpEngineBoots:
                     if msgTime > entry.latestReceivedEngineTime:
-                        entry.latestBootTime = timestamp - msgTime
+                        calculatedBootTime = timestamp - msgTime
+                        if calculatedBootTime < entry.latestBootTime:
+                            entry.latestBootTime = calculatedBootTime
+
                         entry.latestReceivedEngineTime = msgTime
                         withinTimeWindow = True
                     else:
