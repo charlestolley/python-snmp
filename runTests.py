@@ -2,6 +2,7 @@ import test.ber
 import test.pdu
 import test.security
 import test.security.levels
+import test.security.usm
 import test.security.usm.auth
 import test.security.usm.priv
 import test.smi
@@ -18,6 +19,7 @@ modules = [
     test.smi,
     test.security,
     test.security.levels,
+    test.security.usm,
     test.security.usm.auth,
     test.security.usm.priv,
 ]
