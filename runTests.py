@@ -6,6 +6,7 @@ import test.security.usm
 import test.security.usm.auth
 import test.security.usm.priv
 import test.smi
+import test.transport.udp
 import test.types
 import test.utils
 
@@ -22,6 +23,7 @@ modules = [
     test.security.usm,
     test.security.usm.auth,
     test.security.usm.priv,
+    test.transport.udp,
 ]
 
 def allTests(cls):
