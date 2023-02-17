@@ -180,7 +180,11 @@ class OctetString(Primitive):
         cls: Type[TOctetString],
         nums: Iterator[int],
     ) -> TOctetString:
-        length = next(nums)
+        if cls.MIN_SIZE == cls.MAX_SIZE:
+            length = cls.MAX_SIZE
+        else:
+            length = next(nums)
+
         data = bytearray(length)
 
         for i in range(length):
