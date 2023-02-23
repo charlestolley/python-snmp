@@ -1,4 +1,4 @@
-__all__ = ["UdpTransportTest"]
+__all__ = ["UdpIPv4TransportTest", "UdpIPv6TransportTest"]
 
 import socket
 from threading import Event, Thread
@@ -6,10 +6,13 @@ import time
 import unittest
 
 from snmp.transport import TransportListener
-from snmp.transport.udp import UdpTransport
-from snmp.transport.generic.udp import UdpTransport as GenericUdpTransport
+from snmp.transport.udp import UdpIPv4Transport, UdpIPv6Transport
+from snmp.transport.generic.udp import (
+    UdpIPv4Transport as GenericUdpIPv4Transport,
+    UdpIPv6Transport as GenericUdpIPv6Transport,
+)
 
-def declareUdpTransportTest(transportType):
+def declareUdpTransportTest(transportType, testAddress):
     class AbstractUdpTransportTest(unittest.TestCase):
         class Listener(TransportListener):
             def __init__(self):
@@ -26,8 +29,8 @@ def declareUdpTransportTest(transportType):
                 self.event.wait(timeout=timeout)
 
         def setUp(self):
-            self.addr = "12.84.238.117"
-            self.localhost = "127.0.0.1"
+            self.addr = testAddress
+            self.localhost = transportType.DOMAIN.loopback_address
             self.port = 2945
             self.listener = self.Listener()
             self.timeout = 10e-3
@@ -61,7 +64,7 @@ def declareUdpTransportTest(transportType):
             self.assertRaises(ValueError, self.transport.normalizeAddress, addr)
 
         def testInvalidAddressType(self):
-            addr = socket.inet_pton(socket.AF_INET, self.addr)
+            addr = b"invalid"
             self.assertRaises(TypeError, self.transport.normalizeAddress, addr)
 
         def testInvalidPortType(self):
@@ -88,11 +91,26 @@ def declareUdpTransportTest(transportType):
 
     return AbstractUdpTransportTest
 
-UdpTransportTest = declareUdpTransportTest(UdpTransport)
+ipv4TestAddr = "12.84.238.117"
+ipv6TestAddr = "18:6:249:132:81::25:7"
+UdpIPv4TransportTest = declareUdpTransportTest(UdpIPv4Transport, ipv4TestAddr)
+UdpIPv6TransportTest = declareUdpTransportTest(UdpIPv6Transport, ipv6TestAddr)
 
-if UdpTransport is not GenericUdpTransport:
-    GenericUdpTransportTest = declareUdpTransportTest(GenericUdpTransport)
-    __all__.append("GenericUdpTransportTest")
+if UdpIPv4Transport is not GenericUdpIPv4Transport:
+    GenericUdpIPv4TransportTest = declareUdpTransportTest(
+        GenericUdpIPv4Transport,
+        ipv4TestAddr,
+    )
+
+    __all__.append("GenericUdpIPv4TransportTest")
+
+if UdpIPv6Transport is not GenericUdpIPv6Transport:
+    GenericUdpIPv6TransportTest = declareUdpTransportTest(
+        GenericUdpIPv6Transport,
+        ipv6TestAddr,
+    )
+
+    __all__.append("GenericUdpIPv6TransportTest")
 
 if __name__ == "__main__":
     unittest.main()

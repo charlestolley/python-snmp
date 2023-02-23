@@ -1,28 +1,31 @@
-__all__ = ["UdpTransport"]
+__all__ = ["UdpIPv4Transport", "UdpIPv6Transport"]
 
 import os
 import select
 import socket
 
-from snmp.transport import TransportListener
-from snmp.transport.udp import UdpTransportBase
+from snmp.transport import *
+from snmp.transport.udp import UdpTransport
 from snmp.typing import *
 
 STOPMSG = bytes(1)
 RECV_SIZE = 65507
 
-class UdpTransport(UdpTransportBase):
+class GenericUdpTransport(UdpTransport):
+    DOMAIN: ClassVar[TransportDomain]
+
     def __init__(self, host: str = "", port: int = 0) -> None:
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.r      = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.w      = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        address_family = self.DOMAIN.address_family
+        self.socket = socket.socket(address_family, socket.SOCK_DGRAM)
+        self.r      = socket.socket(address_family, socket.SOCK_DGRAM)
+        self.w      = socket.socket(address_family, socket.SOCK_DGRAM)
 
         self.socket.setblocking(False)
         self.r     .setblocking(False)
 
         self.socket.bind((host, port))
-        self.r.bind(("127.0.0.1", 0))
-        self.w.bind(("127.0.0.1", 0))
+        self.r.bind((self.DOMAIN.loopback_address, 0))
+        self.w.bind((self.DOMAIN.loopback_address, 0))
 
     def close(self) -> None:
         self.w.close()
@@ -50,3 +53,9 @@ class UdpTransport(UdpTransportBase):
 
     def stop(self) -> None:
         self.w.sendto(STOPMSG, self.r.getsockname())
+
+class UdpIPv4Transport(GenericUdpTransport):
+    DOMAIN = TransportDomain.UDP_IPv4
+
+class UdpIPv6Transport(GenericUdpTransport):
+    DOMAIN = TransportDomain.UDP_IPv6

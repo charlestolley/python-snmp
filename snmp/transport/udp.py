@@ -1,36 +1,41 @@
-__all__ = ["UdpTransport"]
+__all__ = ["UdpIPv4Transport", "UdpIPv6Transport"]
 
 import importlib
-from socket import AF_INET, inet_pton
+from socket import inet_pton
 
 from snmp.transport import *
 from snmp.transport import Transport, package
 from snmp.typing import *
 
-class UdpTransportBase(Transport[Tuple[str, int]]):
+class UdpTransport(Transport[Tuple[str, int]]):
+    DOMAIN = ClassVar[TransportDomain]
     DEFAULT_PORT: ClassVar[int] = 161
 
     @classmethod
     def normalizeAddress(cls, address: Any) -> Tuple[str, int]:
         if isinstance(address, tuple):
-            ip, port = address
+            addr, port = address
         else:
-            ip = address
+            addr = address
             port = cls.DEFAULT_PORT
 
         try:
-            inet_pton(AF_INET, ip)
+            _ = inet_pton(cls.DOMAIN.address_family, addr)
         except OSError as err:
-            raise ValueError(f"Invalid IPv4 address: \"{ip}\"") from err
+            family = cls.DOMAIN.address_family.name
+            errstr = f"Invalid address for {family}: \"{addr}\""
+            raise ValueError(errstr) from err
         except TypeError as err:
-            raise TypeError(f"IPv4 address must be a str: {ip}") from err
+            raise TypeError(f"Address must be a str: {addr}") from err
 
         if port <= 0 or port > 0xffff:
             errmsg = "Invalid UDP port number: {}"
             raise ValueError(errmsg.format(port))
 
-        return ip, port
+        return addr, port
 
 module = importlib.import_module(".udp", package=package)
-UdpTransport = module.UdpTransport
-UdpTransport.DOMAIN = TransportDomain.UDP
+UdpIPv4Transport = module.UdpIPv4Transport
+UdpIPv6Transport = module.UdpIPv6Transport
+UdpIPv4Transport.DOMAIN = TransportDomain.UDP_IPv4
+UdpIPv6Transport.DOMAIN = TransportDomain.UDP_IPv6

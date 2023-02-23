@@ -1,19 +1,21 @@
-__all__ = ["UdpTransport"]
+__all__ = ["UdpIPv4Transport", "UdpIPv6Transport"]
 
 import os
 import select
 import socket
 
-from snmp.transport import TransportListener
-from snmp.transport.udp import UdpTransportBase
+from snmp.transport import *
+from snmp.transport.udp import UdpTransport
 from snmp.typing import *
 
 RECV_SIZE = 65507
 
-class UdpTransport(UdpTransportBase):
+class PosixUdpTransport(UdpTransport):
     def __init__(self, host: str = "", port: int = 0) -> None:
         self.pipe = os.pipe()
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        address_family = self.DOMAIN.address_family
+        self.socket = socket.socket(address_family, socket.SOCK_DGRAM)
         self.socket.setblocking(False)
         self.socket.bind((host, port))
 
@@ -46,3 +48,9 @@ class UdpTransport(UdpTransportBase):
 
     def stop(self) -> None:
         os.write(self.pipe[1], bytes(1))
+
+class UdpIPv4Transport(PosixUdpTransport):
+    DOMAIN = TransportDomain.UDP_IPv4
+
+class UdpIPv6Transport(PosixUdpTransport):
+    DOMAIN = TransportDomain.UDP_IPv6

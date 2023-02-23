@@ -4,10 +4,17 @@ from abc import abstractmethod
 from collections import namedtuple
 import enum
 import os
+import socket
 
 from snmp.typing import *
 
-TransportDomain = enum.Enum("TransportDomain", ("UDP",))
+class TransportDomain(enum.Enum):
+    def __init__(self, family: socket.AddressFamily, loopback: str):
+        self.address_family = family
+        self.loopback_address = loopback
+
+    UDP_IPv4 = socket.AF_INET, "127.0.0.1"
+    UDP_IPv6 = socket.AF_INET6, "::1"
 
 T = TypeVar("T")
 class TransportLocator(Generic[T]):

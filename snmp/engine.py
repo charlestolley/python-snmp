@@ -14,13 +14,14 @@ from snmp.transport.udp import *
 class Engine:
     TRANSPORTS = {
         cls.DOMAIN: cls for cls in [
-            UdpTransport,
+            UdpIPv4Transport,
+            UdpIPv6Transport,
         ]
     }
 
     def __init__(self,
         defaultVersion=MessageProcessingModel.SNMPv3,
-        defaultDomain=TransportDomain.UDP,
+        defaultDomain=TransportDomain.UDP_IPv4,
         defaultSecurityModel=SecurityModel.USM,
         defaultCommunity=b"",
         autowait=True
