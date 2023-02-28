@@ -5,12 +5,11 @@ import select
 import socket
 
 from snmp.transport import *
-from snmp.transport.udp import UdpTransport
 from snmp.typing import *
 
 RECV_SIZE = 65507
 
-class PosixUdpTransport(UdpTransport):
+class PosixUdpTransport:
     def __init__(self, host: str = "", port: int = 0) -> None:
         self.pipe = os.pipe()
 

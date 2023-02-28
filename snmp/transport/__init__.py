@@ -38,17 +38,17 @@ class Transport(Generic[T]):
     def close(self) -> None:
         ...
 
-    @abstractmethod
-    def listen(self, listener: "TransportListener") -> None:
-        ...
+    #@abstractmethod
+    #def listen(self, listener: "TransportListener") -> None:
+    #    ...
 
     @abstractmethod
     def send(self, address: T, data: bytes) -> None:
         ...
 
-    @abstractmethod
-    def stop(self) -> None:
-        ...
+    #@abstractmethod
+    #def stop(self) -> None:
+    #    ...
 
 class TransportListener:
     @abstractmethod

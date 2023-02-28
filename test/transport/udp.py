@@ -1,4 +1,7 @@
-__all__ = ["UdpIPv4TransportTest", "UdpIPv6TransportTest"]
+__all__ = [
+    "UdpIPv4SocketTest", "UdpIPv6SocketTest",
+    "UdpIPv4TransportTest", "UdpIPv6TransportTest",
+]
 
 import socket
 from threading import Event, Thread
@@ -6,11 +9,55 @@ import time
 import unittest
 
 from snmp.transport import TransportListener
+from snmp.transport.udp import UdpIPv4Socket, UdpIPv6Socket
 from snmp.transport.udp import UdpIPv4Transport, UdpIPv6Transport
+
 from snmp.transport.generic.udp import (
     UdpIPv4Transport as GenericUdpIPv4Transport,
     UdpIPv6Transport as GenericUdpIPv6Transport,
 )
+
+def declareUdpSocketTest(socketType, testAddress):
+    class AbstractUdpSocketTest(unittest.TestCase):
+        def setUp(self):
+            self.addr = testAddress
+            self.port = 2945
+
+        def testAddressWithoutPort(self):
+            addr, port = socketType.normalizeAddress(self.addr)
+            self.assertEqual(addr, self.addr)
+            self.assertEqual(port, 161)
+
+        def testNormalizeNoOp(self):
+            addr, port = socketType.normalizeAddress((self.addr, self.port))
+            self.assertEqual(addr, self.addr)
+            self.assertEqual(port, self.port)
+
+        def testInvalidAddress(self):
+            addr = "invalid"
+            self.assertRaises(ValueError, socketType.normalizeAddress, addr)
+
+        def testInvalidPortNumber(self):
+            addr = (self.addr, 0x10000)
+            self.assertRaises(ValueError, socketType.normalizeAddress, addr)
+
+        def testInvalidAddressType(self):
+            addr = b"invalid"
+            self.assertRaises(TypeError, socketType.normalizeAddress, addr)
+
+        def testInvalidPortType(self):
+            addr = (self.addr, str(self.port))
+            self.assertRaises(TypeError, socketType.normalizeAddress, addr)
+
+        def testDefaultConstruction(self):
+            socket = socketType()
+            socket.close()
+
+        def testLoopback(self):
+            socket = socketType(socketType.DOMAIN.loopback_address)
+            socket.close()
+
+    return AbstractUdpSocketTest
 
 def declareUdpTransportTest(transportType, testAddress):
     class AbstractUdpTransportTest(unittest.TestCase):
@@ -46,9 +93,7 @@ def declareUdpTransportTest(transportType, testAddress):
             return thread
 
         def setUp(self):
-            self.addr = testAddress
             self.localhost = transportType.DOMAIN.loopback_address
-            self.port = 2945
             self.listener = self.Listener()
             self.timeout = 10e-3
 
@@ -56,32 +101,6 @@ def declareUdpTransportTest(transportType, testAddress):
 
         def tearDown(self):
             self.transport.close()
-
-        def testAddressWithoutPort(self):
-            addr, port = self.transport.normalizeAddress(self.addr)
-            self.assertEqual(addr, self.addr)
-            self.assertEqual(port, 161)
-
-        def testNormalizeNoOp(self):
-            addr, port = self.transport.normalizeAddress((self.addr, self.port))
-            self.assertEqual(addr, self.addr)
-            self.assertEqual(port, self.port)
-
-        def testInvalidAddress(self):
-            addr = "invalid"
-            self.assertRaises(ValueError, self.transport.normalizeAddress, addr)
-
-        def testInvalidPortNumber(self):
-            addr = (self.addr, 0x10000)
-            self.assertRaises(ValueError, self.transport.normalizeAddress, addr)
-
-        def testInvalidAddressType(self):
-            addr = b"invalid"
-            self.assertRaises(TypeError, self.transport.normalizeAddress, addr)
-
-        def testInvalidPortType(self):
-            addr = (self.addr, str(self.port))
-            self.assertRaises(TypeError, self.transport.normalizeAddress, addr)
 
         def testStop(self):
             thread = self.spawnThread()
@@ -107,6 +126,9 @@ def declareUdpTransportTest(transportType, testAddress):
 
 ipv4TestAddr = "12.84.238.117"
 ipv6TestAddr = "18:6:249:132:81::25:7"
+
+UdpIPv4SocketTest = declareUdpSocketTest(UdpIPv4Socket, ipv4TestAddr)
+UdpIPv6SocketTest = declareUdpSocketTest(UdpIPv6Socket, ipv6TestAddr)
 UdpIPv4TransportTest = declareUdpTransportTest(UdpIPv4Transport, ipv4TestAddr)
 UdpIPv6TransportTest = declareUdpTransportTest(UdpIPv6Transport, ipv6TestAddr)
 

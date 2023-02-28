@@ -5,13 +5,12 @@ import select
 import socket
 
 from snmp.transport import *
-from snmp.transport.udp import UdpTransport
 from snmp.typing import *
 
 STOPMSG = bytes(1)
 RECV_SIZE = 65507
 
-class GenericUdpTransport(UdpTransport):
+class GenericUdpTransport:
     DOMAIN: ClassVar[TransportDomain]
 
     def __init__(self, host: str = "", port: int = 0) -> None:
