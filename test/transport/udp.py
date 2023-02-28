@@ -25,8 +25,25 @@ def declareUdpTransportTest(transportType, testAddress):
             def hear(self, transport, addr, data):
                 self.event.set()
 
+            def reset(self):
+                self.event.clear()
+
             def wait(self, timeout):
                 self.event.wait(timeout=timeout)
+
+        def getDestAddress(self):
+            # Beware that this may break, as .socket is a private attribute
+            return (self.localhost, self.transport.socket.getsockname()[1])
+
+        def spawnThread(self):
+            thread = Thread(
+                target=self.transport.listen,
+                args=(self.listener,),
+                daemon=True,
+            )
+
+            thread.start()
+            return thread
 
         def setUp(self):
             self.addr = testAddress
@@ -36,11 +53,6 @@ def declareUdpTransportTest(transportType, testAddress):
             self.timeout = 10e-3
 
             self.transport = transportType(self.localhost)
-            self.thread = Thread(
-                target=self.transport.listen,
-                args=(self.listener,),
-                daemon=True,
-            )
 
         def tearDown(self):
             self.transport.close()
@@ -72,22 +84,24 @@ def declareUdpTransportTest(transportType, testAddress):
             self.assertRaises(TypeError, self.transport.normalizeAddress, addr)
 
         def testStop(self):
-            self.thread.start()
+            thread = self.spawnThread()
             self.transport.stop()
-            self.thread.join(timeout=self.timeout)
-            self.assertFalse(self.thread.is_alive())
+            thread.join(timeout=self.timeout)
+            self.assertFalse(thread.is_alive())
 
         def testHear(self):
-            self.thread.start()
-
-            # Beware that this may break, as .socket is a private attribute
-            addr = (self.localhost, self.transport.socket.getsockname()[1])
-
-            self.transport.send(addr, b"test")
+            thread = self.spawnThread()
+            self.transport.send(self.getDestAddress(), b"test")
             self.listener.wait(self.timeout)
             self.transport.stop()
-            self.thread.join(timeout=self.timeout)
+            thread.join(timeout=self.timeout)
             self.assertTrue(self.listener.heard)
+
+        def testRestart(self):
+            self.testHear()
+            self.listener.reset()
+            self.assertFalse(self.listener.heard)
+            self.testHear()
 
     return AbstractUdpTransportTest
 
