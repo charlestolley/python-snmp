@@ -14,8 +14,8 @@ from snmp.transport.udp import *
 class Engine:
     TRANSPORTS = {
         cls.DOMAIN: cls for cls in [
-            UdpIPv4Transport,
-            UdpIPv6Transport,
+            UdpIPv4Socket,
+            UdpIPv6Socket,
         ]
     }
 
@@ -33,7 +33,7 @@ class Engine:
         self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
-        self.dispatcher = Dispatcher()
+        self.dispatcher = Dispatcher(UdpMultiplexor())
         self.transports = set()
 
         self.mpv1 = None

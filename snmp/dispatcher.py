@@ -12,11 +12,13 @@ from snmp.types import SEQUENCE, Integer
 from snmp.utils import typename
 
 class Dispatcher(TransportListener):
-    def __init__(self):
+    def __init__(self, multiplexor):
         self.lock = threading.Lock()
         self.msgProcessors = {}
-        self.threads = {}
         self.transports = {}
+
+        self.multiplexor = multiplexor
+        self.thread = None
 
     def addMessageProcessor(self, mp):
         with self.lock:
@@ -26,21 +28,25 @@ class Dispatcher(TransportListener):
         domain = transport.DOMAIN
 
         with self.lock:
-            if domain in self.threads:
+            if domain in self.transports:
                 if self.transports.get(domain) is transport:
                     return
 
                 errmsg = "This {} instance is already connected to {}"
                 raise ValueError(errmsg.format(typename(self), str(domain)))
 
-            thread = threading.Thread(
-                target=transport.listen,
-                args=(self,))
+            if self.thread is not None:
+                self.multiplexor.stop()
+                self.thread.join()
 
-            thread.start()
+            self.multiplexor.register(transport)
+            self.thread = threading.Thread(
+                target=self.multiplexor.listen,
+                args=(self,)
+            )
 
+            self.thread.start()
             self.transports[domain] = transport
-            self.threads[domain] = thread
 
     def hear(self, transport, address, data):
         try:
@@ -85,14 +91,9 @@ class Dispatcher(TransportListener):
 
     def shutdown(self):
         with self.lock:
-            for transport in self.transports.values():
-                transport.stop()
+            if self.thread is not None:
+                self.multiplexor.stop()
+                self.thread.join()
 
-            for thread in self.threads.values():
-                thread.join()
-
-            for transport in self.transports.values():
-                transport.close()
-
-            self.transports.clear()
-            self.threads.clear()
+            self.multiplexor.close()
+            self.thread = None
