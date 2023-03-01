@@ -1,55 +1,51 @@
-__all__ = ["UdpIPv4Transport", "UdpIPv6Transport"]
+__all__ = ["UdpMultiplexor"]
 
 import os
 import select
-import socket
 
 from snmp.transport import *
+from snmp.transport.udp import UdpSocket
 from snmp.typing import *
 
 RECV_SIZE = 65507
 
-class PosixUdpTransport:
-    def __init__(self, host: str = "", port: int = 0) -> None:
-        self.pipe = os.pipe()
+class PosixUdpMultiplexor(TransportMultiplexor[UdpSocket]):
+    def __init__(self) -> None:
+        self.r, self.w = os.pipe()
+        self.sockets: Dict[int, UdpSocket] = {}
 
-        address_family = self.DOMAIN.address_family
-        self.socket = socket.socket(address_family, socket.SOCK_DGRAM)
-        self.socket.setblocking(False)
-        self.socket.bind((host, port))
-
-    def close(self) -> None:
-        os.close(self.pipe[0])
-        os.close(self.pipe[1])
-        self.socket.close()
+    def register(self, sock: UdpSocket) -> None:
+        self.sockets[sock.fileno] = sock
 
     def listen(self, listener: TransportListener) -> None:
-        abort = self.pipe[0]
-        sock = self.socket.fileno()
-
         poller = select.poll()
-        poller.register(sock, select.POLLIN)
-        poller.register(abort, select.POLLIN)
+        poller.register(self.r, select.POLLIN)
+
+        for fileno in self.sockets.keys():
+            poller.register(fileno, select.POLLIN)
 
         done = False
         while not done:
             ready = poller.poll()
             for fd, _ in ready:
-                if fd == sock:
-                    data, addr = self.socket.recvfrom(RECV_SIZE)
-                    listener.hear(self, addr, data)
-                elif fd == abort:
-                    os.read(fd, 1)
-                    done = True
-
-    def send(self, addr: Tuple[str, int], packet: bytes) -> None:
-        self.socket.sendto(packet, addr)
+                try:
+                    sock = self.sockets[fd]
+                except KeyError:
+                    if fd == self.r:
+                        os.read(fd, 1)
+                        done = True
+                else:
+                    addr, data = sock.receive(RECV_SIZE)
+                    listener.hear(sock, addr, data)
 
     def stop(self) -> None:
-        os.write(self.pipe[1], bytes(1))
+        os.write(self.w, bytes(1))
 
-class UdpIPv4Transport(PosixUdpTransport):
-    DOMAIN = TransportDomain.UDP_IPv4
+    def close(self) -> None:
+        for sock in self.sockets.values():
+            sock.close()
 
-class UdpIPv6Transport(PosixUdpTransport):
-    DOMAIN = TransportDomain.UDP_IPv6
+        os.close(self.w)
+        os.close(self.r)
+
+UdpMultiplexor = PosixUdpMultiplexor

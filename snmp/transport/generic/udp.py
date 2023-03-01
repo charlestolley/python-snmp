@@ -1,60 +1,68 @@
-__all__ = ["UdpIPv4Transport", "UdpIPv6Transport"]
+__all__ = ["UdpMultiplexor"]
 
-import os
 import select
-import socket
+from socket import *
 
 from snmp.transport import *
+from snmp.transport.udp import UdpSocket
 from snmp.typing import *
 
 STOPMSG = bytes(1)
 RECV_SIZE = 65507
 
-class GenericUdpTransport:
-    DOMAIN: ClassVar[TransportDomain]
+class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
+    def __init__(self) -> None:
+        self.r = None
+        self.w = None
+        self.sockets: Dict[int, UdpSocket] = {}
 
-    def __init__(self, host: str = "", port: int = 0) -> None:
-        address_family = self.DOMAIN.address_family
-        self.socket = socket.socket(address_family, socket.SOCK_DGRAM)
-        self.r      = socket.socket(address_family, socket.SOCK_DGRAM)
-        self.w      = socket.socket(address_family, socket.SOCK_DGRAM)
+    def register(self, sock: UdpSocket) -> None:
+        if self.w is None:
+            address_family = sock.DOMAIN.address_family
+            loopback_address = sock.DOMAIN.loopback_address
 
-        self.socket.setblocking(False)
-        self.r     .setblocking(False)
+            self.r = socket(address_family, SOCK_DGRAM)
+            self.w = socket(address_family, SOCK_DGRAM)
 
-        self.socket.bind((host, port))
-        self.r.bind((self.DOMAIN.loopback_address, 0))
-        self.w.bind((self.DOMAIN.loopback_address, 0))
+            self.r.setblocking(False)
+            self.r.bind((loopback_address, 0))
+            self.w.bind((loopback_address, 0))
 
-    def close(self) -> None:
-        self.w.close()
-        self.r.close()
-        self.socket.close()
+        self.sockets[sock.fileno] = sock
 
     def listen(self, listener: TransportListener) -> None:
-        sock = self.socket.fileno()
-        stop = self.r.fileno()
+        readfds = []
 
-        done = False
+        if self.r is not None:
+            readfds.append(self.r.fileno())
+
+        for fileno in self.sockets.keys():
+            readfds.append(fileno)
+
+        done = not readfds
         while not done:
-            ready = select.select([sock, stop], [], [])[0]
+            ready = select.select(readfds, [], [])[0]
             for fd in ready:
-                if fd == sock:
-                    data, addr = self.socket.recvfrom(RECV_SIZE)
-                    listener.hear(self, addr, data)
-                elif fd == stop:
-                    data, addr = self.r.recvfrom(len(STOPMSG))
-                    if addr == self.w.getsockname() and data == STOPMSG:
-                        done = True
-
-    def send(self, addr: Tuple[str, int], packet: bytes) -> None:
-        self.socket.sendto(packet, addr)
+                try:
+                    sock = self.sockets[fd]
+                except KeyError:
+                    if fd == self.r.fileno():
+                        data, addr = self.r.recvfrom(len(STOPMSG))
+                        done = addr == self.w.getsockname() and data == STOPMSG
+                else:
+                    addr, data = sock.receive(RECV_SIZE)
+                    listener.hear(sock, addr, data)
 
     def stop(self) -> None:
-        self.w.sendto(STOPMSG, self.r.getsockname())
+        if self.w is not None:
+            self.w.sendto(STOPMSG, self.r.getsockname())
 
-class UdpIPv4Transport(GenericUdpTransport):
-    DOMAIN = TransportDomain.UDP_IPv4
+    def close(self) -> None:
+        for sock in self.sockets.values():
+            sock.close()
 
-class UdpIPv6Transport(GenericUdpTransport):
-    DOMAIN = TransportDomain.UDP_IPv6
+        if self.w is not None:
+            self.w.close()
+            self.r.close()
+
+UdpMultiplexor = GenericUdpMultiplexor

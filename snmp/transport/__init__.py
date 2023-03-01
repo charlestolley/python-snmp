@@ -1,4 +1,4 @@
-__all__ = ["TransportDomain", "TransportListener"]
+__all__ = ["TransportDomain", "TransportListener", "TransportMultiplexor"]
 
 from abc import abstractmethod
 from collections import namedtuple
@@ -38,21 +38,31 @@ class Transport(Generic[T]):
     def close(self) -> None:
         ...
 
-    #@abstractmethod
-    #def listen(self, listener: "TransportListener") -> None:
-    #    ...
-
     @abstractmethod
     def send(self, address: T, data: bytes) -> None:
         ...
 
-    #@abstractmethod
-    #def stop(self) -> None:
-    #    ...
-
 class TransportListener:
     @abstractmethod
     def hear(self, transport: Transport[T], address: T, data: bytes) -> None:
+        ...
+
+TransportType = TypeVar("TransportType", bound=Transport)
+class TransportMultiplexor(Generic[TransportType]):
+    @abstractmethod
+    def register(self, sock: TransportType) -> None:
+        ...
+
+    @abstractmethod
+    def listen(self, listener: TransportListener) -> None:
+        ...
+
+    @abstractmethod
+    def stop(self) -> None:
+        ...
+
+    @abstractmethod
+    def close(self) -> None:
         ...
 
 supported = ("posix")
