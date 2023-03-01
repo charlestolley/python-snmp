@@ -10,7 +10,7 @@ from snmp.transport import Transport, package
 from snmp.typing import *
 
 class UdpSocket(Transport[Tuple[str, int]]):
-    DOMAIN = ClassVar[TransportDomain]
+    DOMAIN: ClassVar[TransportDomain]
     DEFAULT_PORT: ClassVar[int] = 161
 
     @classmethod
@@ -37,14 +37,14 @@ class UdpSocket(Transport[Tuple[str, int]]):
         return addr, port
 
     @property
-    def fileno(self):
+    def fileno(self) -> int:
         return self.socket.fileno()
 
     @property
-    def port(self):
-        return self.socket.getsockname()[1]
+    def port(self) -> int:
+        return cast(int, self.socket.getsockname()[1])
 
-    def __init__(self, host: str = "", port = 0) -> None:
+    def __init__(self, host: str = "", port: int = 0) -> None:
         self.socket = socket(self.DOMAIN.address_family, SOCK_DGRAM)
         self.socket.setblocking(False)
         self.socket.bind((host, port))

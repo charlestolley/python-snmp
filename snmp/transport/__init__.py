@@ -47,7 +47,7 @@ class TransportListener:
     def hear(self, transport: Transport[T], address: T, data: bytes) -> None:
         ...
 
-TransportType = TypeVar("TransportType", bound=Transport)
+TransportType = TypeVar("TransportType", bound=Transport[Tuple[str, int]])
 class TransportMultiplexor(Generic[TransportType]):
     @abstractmethod
     def register(self, sock: TransportType) -> None:
