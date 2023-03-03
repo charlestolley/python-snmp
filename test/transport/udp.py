@@ -137,6 +137,29 @@ def declareUdpMultiplexorTest(Multiplexor):
             self.assertFalse(self.listener.heard)
             self.testHearIPv6()
 
+        def testInterruption(self):
+            ipv4 = UdpIPv4Socket()
+            self.multiplexor.register(ipv4)
+
+            thread = self.spawnThread()
+            self.multiplexor.stop()
+            thread.join(timeout=self.timeout)
+
+            addr = (ipv4.DOMAIN.loopback_address, ipv4.port)
+            ipv4.send(addr, b"Interruption test")
+            self.listener.wait(self.timeout)
+            self.assertFalse(self.listener.heard)
+
+            ipv6 = UdpIPv6Socket()
+            self.multiplexor.register(ipv6)
+
+            thread = self.spawnThread()
+            self.listener.wait(self.timeout)
+            self.multiplexor.stop()
+            thread.join(timeout=self.timeout)
+
+            self.assertTrue(self.listener.heard)
+
     return UdpMultiplexorTest
 
 ipv4TestAddr = "12.84.238.117"
