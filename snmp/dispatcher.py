@@ -15,8 +15,8 @@ class Dispatcher(TransportListener):
     def __init__(self, multiplexor):
         self.lock = threading.Lock()
         self.msgProcessors = {}
-        self.transports = {}
 
+        self.transports = {}
         self.multiplexor = multiplexor
         self.thread = None
 
@@ -26,27 +26,25 @@ class Dispatcher(TransportListener):
 
     def connectTransport(self, transport):
         domain = transport.DOMAIN
+        if domain in self.transports:
+            if self.transports.get(domain) is transport:
+                return
 
-        with self.lock:
-            if domain in self.transports:
-                if self.transports.get(domain) is transport:
-                    return
+            errmsg = "This {} instance is already connected to {}"
+            raise ValueError(errmsg.format(typename(self), str(domain)))
 
-                errmsg = "This {} instance is already connected to {}"
-                raise ValueError(errmsg.format(typename(self), str(domain)))
+        if self.thread is not None:
+            self.multiplexor.stop()
+            self.thread.join()
 
-            if self.thread is not None:
-                self.multiplexor.stop()
-                self.thread.join()
+        self.multiplexor.register(transport)
+        self.thread = threading.Thread(
+            target=self.multiplexor.listen,
+            args=(self,)
+        )
 
-            self.multiplexor.register(transport)
-            self.thread = threading.Thread(
-                target=self.multiplexor.listen,
-                args=(self,)
-            )
-
-            self.thread.start()
-            self.transports[domain] = transport
+        self.thread.start()
+        self.transports[domain] = transport
 
     def hear(self, transport, address, data):
         try:
@@ -73,13 +71,13 @@ class Dispatcher(TransportListener):
             pass
 
     def sendPdu(self, locator, mpm, pdu, handle, *args, **kwargs):
-        with self.lock:
-            try:
-                transport = self.transports[locator.domain]
-            except KeyError as err:
-                domain = str(TransportDomain(locator.domain))
-                raise ValueError("{} is not enabled".format(domain)) from err
+        try:
+            transport = self.transports[locator.domain]
+        except KeyError as err:
+            domain = str(TransportDomain(locator.domain))
+            raise ValueError("{} is not enabled".format(domain)) from err
 
+        with self.lock:
             try:
                 mp = self.msgProcessors[mpm]
             except KeyError as err:
@@ -90,10 +88,10 @@ class Dispatcher(TransportListener):
         transport.send(locator.address, msg)
 
     def shutdown(self):
-        with self.lock:
-            if self.thread is not None:
-                self.multiplexor.stop()
-                self.thread.join()
+        if self.thread is not None:
+            self.multiplexor.stop()
+            self.thread.join()
 
-            self.multiplexor.close()
-            self.thread = None
+        self.multiplexor.close()
+        self.transports.clear()
+        self.thread = None
