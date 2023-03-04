@@ -26,6 +26,9 @@ class MessageProcessingModel(enum.IntEnum):
     SNMPv2c = 1
     SNMPv3  = 3
 
+    # Python 3.11 changes IntEnum.__str__()
+    __str__ = enum.Enum.__str__
+
 class MessageVersion(Sequence):
     def __init__(self, version: MessageProcessingModel) -> None:
         self.version = version
