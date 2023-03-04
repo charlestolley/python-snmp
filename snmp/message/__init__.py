@@ -1,5 +1,5 @@
 __all__ = [
-    "Message", "MessageBase", "MessageProcessor",
+    "Message", "MessageBase", "MessageProcessor", "MessageVersion",
     "MessageProcessingModel", "RequestHandle",
 ]
 
@@ -16,11 +16,42 @@ T = TypeVar("T")
 TPDU = TypeVar("TPDU", bound=AnyPDU)
 TMessage = TypeVar("TMessage", bound="Message")
 TMessageBase = TypeVar("TMessageBase", bound="MessageBase")
+TMessageVersion = TypeVar("TMessageVersion", bound="MessageVersion")
+
+@final
+class BadVersion(ParseError):
+    pass
 
 class MessageProcessingModel(enum.IntEnum):
     SNMPv1  = 0
     SNMPv2c = 1
     SNMPv3  = 3
+
+class MessageVersion(Sequence):
+    def __init__(self, version: MessageProcessingModel) -> None:
+        self.version = version
+
+    def __iter__(self) -> Iterator[Asn1Encodable]:
+        yield Integer(self.version)
+
+    def __len__(self) -> int:
+        return 1
+
+    def __repr__(self) -> str:
+        return f"{typename(self)}({str(self.version)})"
+
+    @classmethod
+    def deserialize(cls: Type[TMessageVersion],
+        data: Asn1Data,
+    ) -> TMessageVersion:
+        msgVersion, _ = Integer.decode(data, leftovers=True)
+
+        try:
+            version = MessageProcessingModel(msgVersion.value)
+        except ValueError as err:
+            raise BadVersion(msgVersion.value) from err
+
+        return cls(version)
 
 class MessageBase(Sequence):
     @staticmethod

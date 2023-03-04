@@ -1,4 +1,5 @@
 import test.ber
+import test.message
 import test.pdu
 import test.security
 import test.security.levels
@@ -16,8 +17,9 @@ modules = [
     test.utils,
     test.ber,
     test.types,
-    test.pdu,
     test.smi,
+    test.pdu,
+    test.message,
     test.security,
     test.security.levels,
     test.security.usm,
