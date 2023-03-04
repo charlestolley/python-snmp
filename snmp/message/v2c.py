@@ -76,9 +76,9 @@ class SNMPv2cMessageProcessor(MessageProcessor[Message, AnyPDU]):
                 pass
 
     def prepareDataElements(self,
-        msg: subbytes,
+        msg: Asn1Data,
     ) -> Tuple[Message, RequestHandle[Message]]:
-        message = Message.decodeBody(msg, pduTypes)
+        message = Message.decode(msg, types=pduTypes)
 
         if isinstance(message.pdu, ResponsePDU):
             try:

@@ -1,5 +1,5 @@
 __all__ = [
-    "Message", "MessageBase", "MessageProcessor", "MessageVersion",
+    "BadVersion", "Message", "MessageProcessor", "MessageVersion",
     "MessageProcessingModel", "RequestHandle",
 ]
 
@@ -15,7 +15,6 @@ from snmp.utils import *
 T = TypeVar("T")
 TPDU = TypeVar("TPDU", bound=AnyPDU)
 TMessage = TypeVar("TMessage", bound="Message")
-TMessageBase = TypeVar("TMessageBase", bound="MessageBase")
 TMessageVersion = TypeVar("TMessageVersion", bound="MessageVersion")
 
 @final
@@ -53,31 +52,9 @@ class MessageVersion(Sequence):
 
         return cls(version)
 
-class MessageBase(Sequence):
-    @staticmethod
-    def decodeVersion(data: Asn1Data) -> Tuple[int, subbytes]:
-        ptr = decode(data, expected=SEQUENCE, leftovers=False, copy=False)
-        version, ptr = Integer.decode(ptr, leftovers=True)
-        return version.value, ptr
+class Message(Sequence):
+    VERSIONS = (MessageProcessingModel.SNMPv1, MessageProcessingModel.SNMPv2c)
 
-    @classmethod
-    @abstractmethod
-    def decodeBody(cls: Type[TMessageBase],
-        data: subbytes,
-        types: Optional[Mapping[Identifier, Type[AnyPDU]]],
-        version: MessageProcessingModel = MessageProcessingModel.SNMPv1,
-    ) -> TMessageBase:
-        ...
-
-    @classmethod
-    def deserialize(cls: Type[TMessageBase], # type: ignore[override]
-        data: Asn1Data,
-        types: Optional[Mapping[Identifier, Type[AnyPDU]]],
-    ) -> TMessageBase:
-        version, ptr = cls.decodeVersion(data)
-        return cls.decodeBody(ptr, types, MessageProcessingModel(version))
-
-class Message(MessageBase):
     def __init__(self,
         version: MessageProcessingModel,
         community: bytes,
@@ -96,7 +73,12 @@ class Message(MessageBase):
         return 3
 
     def __repr__(self) -> str:
-        return f"{typename(self)}({self.community!r}, {repr(self.pdu)})"
+        return "{}({}, {!r}, {})".format(
+            typename(self),
+            str(self.version),
+            self.community,
+            repr(self.pdu),
+        )
 
     def __str__(self) -> str:
         return self.toString()
@@ -111,23 +93,32 @@ class Message(MessageBase):
         ))
 
     @classmethod
-    def decodeBody(cls: Type[TMessage],
+    def deserialize(cls: Type[TMessage],
         data: Asn1Data,
-        types: Optional[Mapping[Identifier, Type[AnyPDU]]],
-        version: MessageProcessingModel = MessageProcessingModel.SNMPv1,
+        types: Optional[Mapping[Identifier, Type[AnyPDU]]] = None,
     ) -> TMessage:
+        msgVersion, ptr = Integer.decode(data, leftovers=True)
+
+        try:
+            version = MessageProcessingModel(msgVersion.value)
+        except ValueError as err:
+            raise BadVersion(msgVersion.value) from err
+
+        if version not in cls.VERSIONS:
+            raise BadVersion(f"{typename} does not support {version.name}")
+
+        community, ptr = OctetString.decode(ptr, leftovers=True)
+        identifier = Identifier.decode(subbytes(ptr))
+
         if types is None:
             types = dict()
-
-        community, data = OctetString.decode(data, leftovers=True)
-        identifier = Identifier.decode(subbytes(data))
 
         try:
             pduType = types[identifier]
         except KeyError as err:
             raise ParseError(f"Invalid PDU type: {identifier}") from err
 
-        return cls(version, cast(bytes, community.data), pduType.decode(data))
+        return cls(version, cast(bytes, community.data), pduType.decode(ptr))
 
 class RequestHandle(Generic[T]):
     @abstractmethod

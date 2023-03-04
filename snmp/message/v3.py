@@ -352,8 +352,15 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
                     self.defaultSecurityModel = module.MODEL
 
     def prepareDataElements(self,
-        msg: subbytes,
+        msg: Asn1Data,
     ) -> Tuple[SNMPv3Message, RequestHandle[SNMPv3Message]]:
+        msg = decode(msg, expected=SEQUENCE, copy=False)
+        msgVersion, msg = Integer.decode(msg, leftovers=True)
+
+        if msgVersion.value != MessageProcessingModel.SNMPv3:
+            ver = MessageProcessingModel(msgVersion.value)
+            raise BadVersion(f"{typename(self)} does not support {ver.name}")
+
         msgGlobalData, msg = HeaderData.decode(msg, leftovers=True)
 
         with self.securityLock:

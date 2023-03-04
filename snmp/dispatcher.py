@@ -49,7 +49,7 @@ class Dispatcher(TransportListener):
     def hear(self, transport, address, data):
         try:
             try:
-                msgVersion, message = MessageBase.decodeVersion(data)
+                msgVersion = MessageVersion.decode(data).version
             except ParseError:
                 return
 
@@ -60,7 +60,7 @@ class Dispatcher(TransportListener):
                     return
 
             try:
-                message, handle = mp.prepareDataElements(message)
+                message, handle = mp.prepareDataElements(data)
                 handle.push(message)
             except IncomingMessageError:
                 return
