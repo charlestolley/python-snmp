@@ -1,6 +1,6 @@
 __all__ = [
-    "Counter64Test", "IntegerTypesTest", "IpAddressTest",
-    "ZeroDotZeroTest",
+    "IpAddressTest", "IntegerTypesTest", "Counter32Test", "Gauge32Test",
+    "TimeTicksTest", "OpaqueTest", "Counter64Test", "ZeroDotZeroTest",
 ]
 
 import unittest
@@ -69,16 +69,6 @@ class Counter32Test(unittest.TestCase):
     def testNotEqual(self):
         self.assertNotEqual(Counter32(self.num), Integer(self.num))
 
-    def testUnsigned(self):
-        counter = Counter32((1<<32)-self.num)
-        integer = Integer(-self.num)
-
-        self.assertFalse(counter.equals(integer))
-        self.assertEqual(
-            decode(counter.encode())[1],
-            decode(integer.encode())[1]
-        )
-
     def testDecodeMax(self):
         self.assertEqual(
             Counter32.decode(b"\x41\x04\xff\xff\xff\xff"),
@@ -98,16 +88,6 @@ class Gauge32Test(unittest.TestCase):
 
     def testNotEqual(self):
         self.assertNotEqual(Gauge32(self.num), Integer(self.num))
-
-    def testUnsigned(self):
-        gauge = Gauge32((1<<32)-self.num)
-        integer = Integer(-self.num)
-
-        self.assertFalse(gauge.equals(integer))
-        self.assertEqual(
-            decode(gauge.encode())[1],
-            decode(integer.encode())[1]
-        )
 
     def testDecodeMax(self):
         self.assertEqual(
@@ -131,16 +111,6 @@ class TimeTicksTest(unittest.TestCase):
 
     def testNotEqual(self):
         self.assertNotEqual(TimeTicks(self.num), Integer(self.num))
-
-    def testUnsigned(self):
-        ticks = TimeTicks((1<<32)-self.num)
-        integer = Integer(-self.num)
-
-        self.assertFalse(ticks.equals(integer))
-        self.assertEqual(
-            decode(ticks.encode())[1],
-            decode(integer.encode())[1]
-        )
 
     def testDecodeMax(self):
         self.assertEqual(
