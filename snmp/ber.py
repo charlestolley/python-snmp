@@ -12,14 +12,17 @@ from snmp.utils import subbytes
 
 Asn1Data = Union[bytes, subbytes]
 
+@final
 class EncodeError(SNMPException):
     """Failure to encode a payload under ASN.1 Basic Encoding Rules."""
     pass
 
+@final
 class ParseError(IncomingMessageError):
     """Failure to translate a byte string into an ASN.1 object."""
     pass
 
+@final
 class Class(IntEnum):
     """Named constants for the class bits of an ASN.1 BER identifier."""
     UNIVERSAL         = 0
@@ -27,6 +30,7 @@ class Class(IntEnum):
     CONTEXT_SPECIFIC  = 2
     PRIVATE           = 3
 
+@final
 class Structure(IntEnum):
     """Named constants for the constructed bit of an ASN.1 BER identifier."""
     PRIMITIVE     = 0

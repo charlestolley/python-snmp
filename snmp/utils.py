@@ -15,6 +15,7 @@ class SelfComparable(metaclass=ABCMeta):
 T = TypeVar("T")
 V = TypeVar("V", bound=SelfComparable)
 
+@final
 class ComparableWeakRef(Generic[T, V]):
     """Allow weakly-referenced objects to be used in sorted data structures.
 
@@ -58,6 +59,7 @@ class ComparableWeakRef(Generic[T, V]):
         """Compare this object to another ComparableWeakRef."""
         return self.value < other.value
 
+@final
 class NumberGenerator:
     """Generate integers spanning a specific range.
 
@@ -96,6 +98,7 @@ class NumberGenerator:
 
         return self.previous
 
+@final
 class subbytes:
     """Operate on a slice of a bytes-like object without copying any data.
 
