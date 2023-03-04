@@ -249,7 +249,7 @@ class UserBasedSecurityModule(SecurityModule):
             user = self.users.getUser(engineID, securityName)
 
             if not user.auth:
-                userName = securityName.decode
+                userName = securityName.decode()
                 errmsg = f"Authentication is disabled for user \"{userName}\""
                 raise InvalidSecurityLevel(errmsg)
 
@@ -260,7 +260,7 @@ class UserBasedSecurityModule(SecurityModule):
 
             if securityLevel.priv:
                 if not user.priv:
-                    userName = securityName.decode
+                    userName = securityName.decode()
                     errmsg = f"Privacy is disabled for user \"{userName}\""
                     raise InvalidSecurityLevel(errmsg)
 
