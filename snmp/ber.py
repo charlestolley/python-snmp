@@ -73,28 +73,28 @@ class Identifier(NamedTuple):
 
         return cls(Class(class_), Structure(structure), tag)
 
-def encode_identifier(i: Identifier) -> bytes:
-    """Encode an Identifier under ASN.1 Basic Encoding Rules."""
-    byte = (
-        ((i.cls       << 6) & 0xc0) |
-        ((i.structure << 5) & 0x20)
-    )
+    def encode(self) -> bytes:
+        """Encode an Identifier under ASN.1 Basic Encoding Rules."""
+        byte = (
+            ((self.cls       << 6) & 0xc0) |
+            ((self.structure << 5) & 0x20)
+        )
 
-    arr = bytearray()
-    if i.tag < 0x1f:
-        byte |= i.tag
-    else:
-        byte |= 0x1f
+        arr = bytearray()
+        if self.tag < 0x1f:
+            byte |= self.tag
+        else:
+            byte |= 0x1f
 
-        tag = i.tag
-        indicator = 0
-        while tag:
-            arr.append(indicator | (tag & 0x7f))
-            indicator = 0x80
-            tag >>= 7
+            tag = self.tag
+            indicator = 0
+            while tag:
+                arr.append(indicator | (tag & 0x7f))
+                indicator = 0x80
+                tag >>= 7
 
-    arr.append(byte)
-    return bytes(reversed(arr))
+        arr.append(byte)
+        return bytes(reversed(arr))
 
 def decode_length(data: subbytes) -> int:
     """Decode the length field of an ASN.1 BER string.
@@ -274,4 +274,4 @@ def decode(
 
 def encode(identifier: Identifier, data: bytes) -> bytes:
     """Encode a message under ASN.1 Basic Encoding Rules."""
-    return encode_identifier(identifier) + encode_length(len(data)) + data
+    return identifier.encode() + encode_length(len(data)) + data
