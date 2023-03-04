@@ -1,7 +1,7 @@
 __all__ = [
     "EncodeError", "ParseError",
     "Asn1Data", "Class", "Structure", "Identifier",
-    "decode_identifier", "decode", "encode",
+    "decode", "encode",
 ]
 
 from enum import IntEnum
@@ -32,42 +32,46 @@ class Structure(IntEnum):
     PRIMITIVE     = 0
     CONSTRUCTED   = 1
 
+TIdentifier = TypeVar("TIdentifier", bound="Identifier")
+
+@final
 class Identifier(NamedTuple):
     """Represents an ASN.1 BER identifier."""
     cls: Class
     structure: Structure
     tag: int
 
-def decode_identifier(data: subbytes) -> Identifier:
-    """Extract the identifier from an ASN.1 BER string.
+    @classmethod
+    def decode(cls: Type[TIdentifier], data: subbytes) -> TIdentifier:
+        """Extract the identifier from an ASN.1 BER string.
 
-    This function decodes the identifier portion of a BER string an returns
-    it as an :class:`Identifier` object. As a side-effect, it advances the
-    start of the `data` argument to point to the byte immediately after the
-    identifier.
-    """
-    try:
-        byte = data.consume()
-    except IndexError as err:
-        raise ParseError("Missing identifier") from err
+        This function decodes the identifier portion of a BER string an returns
+        it as an :class:`Identifier` object. As a side-effect, it advances the
+        start of the `data` argument to point to the byte immediately after the
+        identifier.
+        """
+        try:
+            byte = data.consume()
+        except IndexError as err:
+            raise ParseError("Missing identifier") from err
 
-    cls         = (byte & 0xc0) >> 6
-    structure   = (byte & 0x20) >> 5
-    tag         = (byte & 0x1f)
+        class_      = (byte & 0xc0) >> 6
+        structure   = (byte & 0x20) >> 5
+        tag         = (byte & 0x1f)
 
-    if tag == 0x1f:
-        tag = 0
-        byte = 0x80
-        while byte & 0x80:
-            try:
-                byte = data.consume()
-            except IndexError as err:
-                raise ParseError("Incomplete identifier") from err
+        if tag == 0x1f:
+            tag = 0
+            byte = 0x80
+            while byte & 0x80:
+                try:
+                    byte = data.consume()
+                except IndexError as err:
+                    raise ParseError("Incomplete identifier") from err
 
-            tag <<= 7
-            tag |= byte & 0x7f
+                tag <<= 7
+                tag |= byte & 0x7f
 
-    return Identifier(Class(cls), Structure(structure), tag)
+        return cls(Class(class_), Structure(structure), tag)
 
 def encode_identifier(i: Identifier) -> bytes:
     """Encode an Identifier under ASN.1 Basic Encoding Rules."""
@@ -97,7 +101,7 @@ def decode_length(data: subbytes) -> int:
 
     The provided `data` argument should contain most of a BER string,
     starting after the identifier. The most natural way to use it is to pass
-    the same object first to :func:`decode_identifier` and then to
+    the same object first to :func:`Identifier.decode` and then to
     :func:`decode_length`. This function will decode the length field and
     return it as an :class:`int`, modifying the `data` argument to start
     immediately after the length field.
@@ -242,7 +246,7 @@ def decode(
     preserve a reference to the complete message.
     """
     data = subbytes(data)
-    identifier = decode_identifier(data)
+    identifier = Identifier.decode(data)
 
     if expected is not None and identifier != expected:
         raise ParseError("Identifier does not match expected type")

@@ -231,7 +231,7 @@ class ScopedPDU(Sequence):
 
         contextEngineID, data = OctetString.decode(data, leftovers=True)
         contextName,     data = OctetString.decode(data, leftovers=True)
-        identifier = decode_identifier(subbytes(data))
+        identifier = Identifier.decode(subbytes(data))
 
         try:
             pduType = types[identifier]

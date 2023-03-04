@@ -89,7 +89,7 @@ class Message(MessageBase):
             types = dict()
 
         community, data = OctetString.decode(data, leftovers=True)
-        identifier = decode_identifier(subbytes(data))
+        identifier = Identifier.decode(subbytes(data))
 
         try:
             pduType = types[identifier]
