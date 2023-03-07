@@ -34,8 +34,7 @@ class ComparableWeakRefTest(unittest.TestCase):
         alive = ComparableWeakRef(i, self.Integer.toInt)
 
         if dead() is not None:
-            reason = "Ephemeral object was not immediately garbage-collected"
-            self.skipTest(reason)
+            self.skipTest("Ephemeral object was not immediately destroyed")
 
         self.assertLess(alive, dead)
         self.assertFalse(dead < alive)
