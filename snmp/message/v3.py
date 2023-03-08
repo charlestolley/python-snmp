@@ -1,3 +1,5 @@
+__all__ = ["MessageFlags"]
+
 import threading
 import weakref
 

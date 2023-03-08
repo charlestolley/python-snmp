@@ -2,6 +2,7 @@ import test.ber
 import test.message
 import test.message.v1
 import test.message.v2c
+import test.message.v3
 import test.pdu
 import test.security
 import test.security.levels
@@ -24,6 +25,7 @@ modules = [
     test.message,
     test.message.v1,
     test.message.v2c,
+    test.message.v3,
     test.security,
     test.security.levels,
     test.security.usm,
