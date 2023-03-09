@@ -59,17 +59,17 @@ class MessageFlags(OctetString):
         return f"{typename(self)}({self.securityLevel}, {self.reportableFlag})"
 
     def __str__(self) -> str:
-        flags = []
-        if self.authFlag:
-            flags.append("AUTH")
+        return self.toString()
 
-        if self.privFlag:
-            flags.append("PRIV")
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+        indent = tab * depth
+        subindent = indent + tab
 
-        if self.reportableFlag:
-            flags.append("REPORTABLE")
-
-        return f"<{','.join(flags)}>"
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            f"{subindent}Security Level: {self.securityLevel}",
+            f"{subindent}Reportable: {self.reportableFlag}",
+        ))
 
     @classmethod
     def interpret(cls, data: Asn1Data = b"") -> "MessageFlags":
@@ -162,11 +162,12 @@ class HeaderData(Sequence):
         indent = tab * depth
         subindent = indent + tab
         securityModel = SecurityModel(self.securityModel)
+
         return "\n".join((
             f"{indent}{typename(self)}:",
             f"{subindent}Message ID: {self.id}",
             f"{subindent}Sender Message Size Limit: {self.maxSize}",
-            f"{subindent}Flags: {self.flags}",
+            f"{self.flags.toString(depth+1, tab)}",
             f"{subindent}Security Model: {securityModel.name}"
         ))
 
