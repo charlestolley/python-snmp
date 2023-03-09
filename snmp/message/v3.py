@@ -1,4 +1,4 @@
-__all__ = ["MessageFlags"]
+__all__ = ["HeaderData", "MessageFlags", "ScopedPDU"]
 
 import threading
 import weakref
