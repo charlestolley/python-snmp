@@ -1,7 +1,12 @@
 __all__ = ["DiscoveredEngineTest", "TimeKeeperTest"]
 
-from snmp.security.usm import DiscoveredEngine, TimeKeeper
 import unittest
+
+from snmp.security.usm import (
+    Credentials, DiscoveredEngine,
+    InvalidEngineID, InvalidUserName,
+    TimeKeeper, UserTable,
+)
 
 class DiscoveredEngineTest(unittest.TestCase):
     def setUp(self):
@@ -46,7 +51,7 @@ class DiscoveredEngineTest(unittest.TestCase):
 
 class TimeKeeperTest(unittest.TestCase):
     def setUp(self):
-        self.engineID = b"engineID"
+        self.engineID = b"someEngineID"
         self.engineBoots = 4887
         self.engineTime = 1942
         self.timestamp = 8264.0
@@ -168,6 +173,37 @@ class TimeKeeperTest(unittest.TestCase):
         )
 
         self.assertFalse(valid)
+
+class UserTableTest(unittest.TestCase):
+    def setUp(self):
+        self.credentials = Credentials()
+        self.engineID = b"someEngineID"
+        self.user = b"someUser"
+        self.users = UserTable()
+
+    def testUnknownEngine(self):
+        self.assertRaises(
+            InvalidEngineID,
+            self.users.getUser,
+            self.engineID,
+            self.user,
+        )
+
+    def testUnknownUser(self):
+        self.users.addUser(self.engineID, self.user, self.credentials)
+        self.assertRaises(
+            InvalidUserName,
+            self.users.getUser,
+            self.engineID,
+            b"invalidUser",
+        )
+
+    def testGetUser(self):
+        self.users.addUser(self.engineID, self.user, self.credentials)
+        self.assertIs(
+            self.users.getUser(self.engineID, self.user),
+            self.credentials,
+        )
 
 if __name__ == '__main__':
     unittest.main()
