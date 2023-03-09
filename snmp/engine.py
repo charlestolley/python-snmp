@@ -44,7 +44,7 @@ class Engine:
     @property
     def usm(self):
         if self._usm is None:
-            self._usm = UsmAdmin()
+            self._usm = UserBasedSecurityModule()
         return self._usm
 
     def __enter__(self):
@@ -121,7 +121,7 @@ class Engine:
                     namespace,
                 )
 
-            self.mpv3.addSecurityModuleIfNeeded(self.usm.securityModule)
+            self.mpv3.addSecurityModuleIfNeeded(self.usm)
 
             return SNMPv3UsmManager(
                 self.dispatcher,

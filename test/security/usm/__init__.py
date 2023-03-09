@@ -184,24 +184,34 @@ class UserTableTest(unittest.TestCase):
     def testUnknownEngine(self):
         self.assertRaises(
             InvalidEngineID,
-            self.users.getUser,
+            self.users.getCredentials,
             self.engineID,
             self.user,
         )
 
     def testUnknownUser(self):
-        self.users.addUser(self.engineID, self.user, self.credentials)
+        self.users.assignCredentials(
+            self.engineID,
+            self.user,
+            self.credentials,
+        )
+
         self.assertRaises(
             InvalidUserName,
-            self.users.getUser,
+            self.users.getCredentials,
             self.engineID,
             b"invalidUser",
         )
 
     def testGetUser(self):
-        self.users.addUser(self.engineID, self.user, self.credentials)
+        self.users.assignCredentials(
+            self.engineID,
+            self.user,
+            self.credentials,
+        )
+
         self.assertIs(
-            self.users.getUser(self.engineID, self.user),
+            self.users.getCredentials(self.engineID, self.user),
             self.credentials,
         )
 
