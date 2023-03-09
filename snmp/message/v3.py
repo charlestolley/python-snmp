@@ -1,4 +1,4 @@
-__all__ = ["HeaderData", "MessageFlags", "ScopedPDU"]
+__all__ = ["HeaderData", "MessageFlags", "ScopedPDU", "SNMPv3Message"]
 
 import threading
 import weakref
@@ -246,7 +246,99 @@ class ScopedPDU(Sequence):
             contextName     = cast(bytes, contextName.data),
         )
 
-class SNMPv3Message:
+class SNMPv3Message(Sequence):
+    VERSION = MessageProcessingModel.SNMPv3
+
+    def __init__(self,
+        header: HeaderData,
+        securityParameters: OctetString,
+        scopedPDU: Optional[ScopedPDU] = None,
+        encryptedPDU: Optional[OctetString] = None,
+    ) -> None:
+        self.header = header
+        self.securityParameters = securityParameters
+        self.scopedPDU = scopedPDU
+        self.encryptedPDU = encryptedPDU
+
+    def __iter__(self) -> Iterator[Asn1Encodable]:
+        yield Integer(self.VERSION)
+        yield self.header
+        yield self.securityParameters
+
+        if self.header.flags.privFlag:
+            yield self.encryptedPDU
+        else:
+            yield self.scopedPDU
+
+    def __len__(self) -> int:
+        return 4;
+
+    def __repr__(self) -> str:
+        args = [
+            repr(self.header),
+            repr(self.securityParameters),
+        ]
+
+        if self.header.flags.privFlag:
+            args.append(f"encryptedPDU={repr(self.encryptedPDU)}")
+        else:
+            args.append(f"scopedPDU={repr(self.scopedPDU)}")
+
+        return f"{typename(self)}({', '.join(args)})"
+
+    def __str__(self) -> str:
+        return self.toString()
+
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+        indent = tab * depth
+        subindent = indent + tab
+
+        if self.header.flags.privFlag:
+            payload = f"{subindent}Encrypted Data: {self.encryptedPDU}"
+        else:
+            payload = self.scopedPDU.toString(depth+1, tab)
+
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            f"{self.header.toString(depth+1, tab)}",
+            f"{subindent}Security Parameters: {self.securityParameters}",
+            payload,
+        ))
+
+    @classmethod
+    def decode(cls, data, leftovers=False, copy=False, **kwargs):
+        return super().decode(data, leftovers, copy, **kwargs)
+
+    @classmethod
+    def deserialize(cls, data: Asn1Data):
+        msgVersion, ptr = Integer.decode(data, leftovers=True)
+
+        try:
+            version = MessageProcessingModel(msgVersion.value)
+        except ValueError as err:
+            raise BadVersion(msgVersion.value) from err
+
+        if version != cls.VERSION:
+            raise BadVersion(f"{typename} does not support {version.name}")
+
+        msgGlobalData, ptr = HeaderData.decode(ptr, leftovers=True)
+        msgSecurityData, ptr = OctetString.decode(ptr, True, copy=False)
+
+        scopedPDU = None
+        encryptedPDU = None
+        if msgGlobalData.flags.privFlag:
+            encryptedPDU = OctetString.decode(ptr)
+        else:
+            scopedPDU = ScopedPDU.decode(ptr, types=pduTypes)
+
+        return cls(
+            msgGlobalData,
+            msgSecurityData,
+            scopedPDU=scopedPDU,
+            encryptedPDU=encryptedPDU,
+        )
+
+class OldSNMPv3Message:
     def __init__(self,
         msgID: int,
         securityLevel: SecurityLevel,
@@ -288,7 +380,7 @@ class CacheEntry:
     def __init__(self,
         engineID: bytes,
         contextName: bytes,
-        handle: RequestHandle[SNMPv3Message],
+        handle: RequestHandle[OldSNMPv3Message],
         securityName: bytes,
         securityModel: SecurityModel,
         securityLevel: SecurityLevel,
@@ -300,7 +392,7 @@ class CacheEntry:
         self.securityModel = securityModel
         self.securityLevel = securityLevel
 
-class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
+class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
     VERSION = MessageProcessingModel.SNMPv3
 
     def __init__(self) -> None:
@@ -355,7 +447,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
 
     def prepareDataElements(self,
         msg: Asn1Data,
-    ) -> Tuple[SNMPv3Message, RequestHandle[SNMPv3Message]]:
+    ) -> Tuple[OldSNMPv3Message, RequestHandle[OldSNMPv3Message]]:
         msg = decode(msg, expected=SEQUENCE, copy=False)
         msgVersion, msg = Integer.decode(msg, leftovers=True)
 
@@ -413,12 +505,12 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
             raise UnsupportedFeature("Received a non-response PDU type")
 
         message = \
-            SNMPv3Message(msgGlobalData.id, securityLevel, security, scopedPDU)
+            OldSNMPv3Message(msgGlobalData.id, securityLevel, security, scopedPDU)
         return message, handle
 
     def prepareOutgoingMessage(self,    # type: ignore[override]
         pdu: AnyPDU,
-        handle: RequestHandle[SNMPv3Message],
+        handle: RequestHandle[OldSNMPv3Message],
         engineID: bytes,
         securityName: bytes,
         securityLevel: SecurityLevel = noAuthNoPriv,
