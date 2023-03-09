@@ -47,13 +47,16 @@ class MessageFlags(OctetString):
     AUTH_FLAG: ClassVar[int]        = (1 << 0)
     PRIV_FLAG: ClassVar[int]        = (1 << 1)
     REPORTABLE_FLAG: ClassVar[int]  = (1 << 2)
-    ALL_FLAGS: ClassVar[int]        = AUTH_FLAG | PRIV_FLAG | REPORTABLE_FLAG
 
-    def __init__(self, byte: int = 0) -> None:
-        self.byte = byte & self.ALL_FLAGS
+    def __init__(self,
+        securityLevel: SecurityLevel = noAuthNoPriv,
+        reportable: bool = False,
+    ) -> None:
+        self.securityLevel = securityLevel
+        self.reportableFlag = reportable
 
     def __repr__(self) -> str:
-        return f"{typename(self)}({self.byte})"
+        return f"{typename(self)}({self.securityLevel}, {self.reportableFlag})"
 
     def __str__(self) -> str:
         flags = []
@@ -70,44 +73,55 @@ class MessageFlags(OctetString):
 
     @classmethod
     def interpret(cls, data: Asn1Data = b"") -> "MessageFlags":
-        return cls(byte=data[0])
+        byte = data[0]
+        securityLevel = SecurityLevel(
+            byte & cls.AUTH_FLAG,
+            byte & cls.PRIV_FLAG,
+        )
+
+        reportable = (byte & cls.REPORTABLE_FLAG != 0)
+        return cls(securityLevel, reportable)
 
     @property
     def data(self) -> bytes:
-        return bytes((self.byte,))
+        byte = 0
+
+        if self.authFlag:
+            byte |= self.AUTH_FLAG
+
+        if self.privFlag:
+            byte |= self.PRIV_FLAG
+
+        if self.reportableFlag:
+            byte |= self.REPORTABLE_FLAG
+
+        return bytes((byte,))
 
     @property
     def authFlag(self) -> bool:
-        return bool(self.byte & self.AUTH_FLAG)
+        return self.securityLevel.auth
 
     @authFlag.setter
     def authFlag(self, value: Any) -> None:
-        if value:
-            self.byte |= self.AUTH_FLAG
-        else:
-            self.byte &= ~self.AUTH_FLAG
+        auth = bool(value)
+        if auth != self.securityLevel.auth:
+            self.securityLevel = SecurityLevel(
+                auth,
+                self.securityLevel.priv,
+            )
 
     @property
     def privFlag(self) -> bool:
-        return bool(self.byte & self.PRIV_FLAG)
+        return self.securityLevel.priv
 
     @privFlag.setter
     def privFlag(self, value: Any) -> None:
-        if value:
-            self.byte |= self.PRIV_FLAG
-        else:
-            self.byte &= ~self.PRIV_FLAG
-
-    @property
-    def reportableFlag(self) -> bool:
-        return bool(self.byte & self.REPORTABLE_FLAG)
-
-    @reportableFlag.setter
-    def reportableFlag(self, value: Any) -> None:
-        if value:
-            self.byte |= self.REPORTABLE_FLAG
-        else:
-            self.byte &= ~self.REPORTABLE_FLAG
+        priv = bool(value)
+        if priv != self.securityLevel.priv:
+            self.securityLevel = SecurityLevel(
+                self.securityLevel.auth,
+                priv,
+            )
 
 @final
 class HeaderData(Sequence):

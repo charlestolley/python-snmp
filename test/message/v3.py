@@ -11,39 +11,43 @@ from snmp.message.v3 import *
 from snmp.message.v3 import pduTypes
 from snmp.pdu import *
 from snmp.security import *
+from snmp.security.levels import *
 from snmp.types import *
 
 class MessageFlagsTest(unittest.TestCase):
-    def testAuthFlagInit(self):
-        flags = MessageFlags(1)
+    def testDefaultConstructor(self):
+        flags = MessageFlags()
+        self.assertFalse(flags.authFlag)
+        self.assertFalse(flags.privFlag)
+        self.assertFalse(flags.reportableFlag)
+
+    def testNoAuthNoPriv(self):
+        flags = MessageFlags(noAuthNoPriv)
+        self.assertFalse(flags.authFlag)
+        self.assertFalse(flags.privFlag)
+        self.assertFalse(flags.reportableFlag)
+
+    def testAuthNoPriv(self):
+        flags = MessageFlags(authNoPriv)
         self.assertTrue(flags.authFlag)
         self.assertFalse(flags.privFlag)
         self.assertFalse(flags.reportableFlag)
 
-    def testPrivFlagInit(self):
-        flags = MessageFlags(3)
+    def testAuthPriv(self):
+        flags = MessageFlags(authPriv)
         self.assertTrue(flags.authFlag)
         self.assertTrue(flags.privFlag)
         self.assertFalse(flags.reportableFlag)
 
     def testReportableFlagInit(self):
-        flags = MessageFlags(4)
+        flags = MessageFlags(reportable=True)
         self.assertFalse(flags.authFlag)
         self.assertFalse(flags.privFlag)
         self.assertTrue(flags.reportableFlag)
 
-    def testUnusedFlagInit(self):
-        flags = MessageFlags(9)
-        self.assertTrue(flags.authFlag)
-        self.assertFalse(flags.privFlag)
-        self.assertFalse(flags.reportableFlag)
-
     def testRepr(self):
-        flags = MessageFlags(3)
+        flags = MessageFlags(authPriv, True)
         self.assertEqual(eval(repr(flags)), flags)
-
-    def testDecodeEmpty(self):
-        self.assertRaises(ParseError, MessageFlags.decode, b"\x04\x00")
 
     def testDecodeEmpty(self):
         self.assertRaises(ParseError, MessageFlags.decode, b"\x04\x00")
@@ -60,23 +64,48 @@ class MessageFlagsTest(unittest.TestCase):
         self.assertTrue(flags.privFlag)
         self.assertTrue(flags.reportableFlag)
 
-    def testSetAuthFlag(self):
+    def testDecodeUnknownFlag(self):
+        flags = MessageFlags.decode(b"\x04\x01\x09")
+        self.assertTrue(flags.authFlag)
+        self.assertFalse(flags.privFlag)
+        self.assertFalse(flags.reportableFlag)
+
+    def testSetAuth(self):
         flags = MessageFlags()
-        self.assertFalse(flags.authFlag)
         flags.authFlag = True
         self.assertTrue(flags.authFlag)
 
-    def testSetPrivFlag(self):
+    def testUnsetAuth(self):
+        flags = MessageFlags(authNoPriv)
+        flags.authFlag = False
+        self.assertFalse(flags.authFlag)
+
+    def testSetPrivInvalid(self):
+        def assignPrivFlag(flags, priv):
+            flags.privFlag = priv
+
         flags = MessageFlags()
-        self.assertFalse(flags.privFlag)
+        self.assertRaises(ValueError, assignPrivFlag, flags, True)
+
+    def testSetPriv(self):
+        flags = MessageFlags(authNoPriv)
         flags.privFlag = True
         self.assertTrue(flags.privFlag)
 
+    def testUnsetAuth(self):
+        flags = MessageFlags(authPriv)
+        flags.privFlag = False
+        self.assertFalse(flags.privFlag)
+
     def testSetReportableFlag(self):
         flags = MessageFlags()
-        self.assertFalse(flags.reportableFlag)
         flags.reportableFlag = True
         self.assertTrue(flags.reportableFlag)
+
+    def testUnSetReportableFlag(self):
+        flags = MessageFlags(reportable=True)
+        flags.reportableFlag = False
+        self.assertFalse(flags.reportableFlag)
 
 class HeaderDataTest(unittest.TestCase):
     def setUp(self):
@@ -91,7 +120,7 @@ class HeaderDataTest(unittest.TestCase):
         self.header = HeaderData(
             0x17392745,
             1500,
-            MessageFlags(7),
+            MessageFlags(authPriv, True),
             SecurityModel.USM,
         )
 
@@ -201,7 +230,7 @@ class SNMPv3MessageTest(unittest.TestCase):
             HeaderData(
                 0x35b830e4,
                 1500,
-                MessageFlags(0),
+                MessageFlags(),
                 SecurityModel.USM,
             ),
             OctetString(
@@ -234,7 +263,7 @@ class SNMPv3MessageTest(unittest.TestCase):
             HeaderData(
                 0x6f1097b5,
                 1500,
-                MessageFlags(MessageFlags.AUTH_FLAG | MessageFlags.PRIV_FLAG),
+                MessageFlags(authPriv),
                 SecurityModel.USM,
             ),
             OctetString(
@@ -267,11 +296,9 @@ class SNMPv3MessageTest(unittest.TestCase):
         self.assertEqual(self.encryptedMessage.encode(), self.encrypted)
 
     def testPlainRepr(self):
-        print(self.plainMessage)
         self.assertEqual(eval(repr(self.plainMessage)), self.plainMessage)
 
     def testEncryptedRepr(self):
-        print(self.encryptedMessage)
         self.assertEqual(
             eval(repr(self.encryptedMessage)),
             self.encryptedMessage,
