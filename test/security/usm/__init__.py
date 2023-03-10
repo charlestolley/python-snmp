@@ -303,6 +303,17 @@ class UsmUserConfigTest(unittest.TestCase):
 
         self.usm = UserBasedSecurityModule()
 
+    def testNoUsers(self):
+        self.assertRaises(ValueError, self.usm.getDefaultUser)
+
+    def testInvalidUser(self):
+        self.usm.addUser(self.user)
+        self.assertRaises(
+            ValueError,
+            self.usm.getDefaultSecurityLevel,
+            "invalidUser",
+        )
+
     def testUserNameOnly(self):
         self.usm.addUser(self.user)
 
