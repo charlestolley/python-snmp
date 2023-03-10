@@ -1,4 +1,7 @@
-__all__ = ["DiscoveredEngineTest", "TimeKeeperTest"]
+__all__ = [
+    "DiscoveredEngineTest", "TimeKeeperTest", "UserTableTest",
+    "UsmLocalizeTest",
+]
 
 import unittest
 
@@ -204,7 +207,7 @@ class UserTableTest(unittest.TestCase):
             b"invalidUser",
         )
 
-    def testGetUser(self):
+    def testGetCredentials(self):
         self.users.assignCredentials(
             self.engineID,
             self.user,
@@ -216,7 +219,7 @@ class UserTableTest(unittest.TestCase):
             self.credentials,
         )
 
-class UsmLocalizationTest(unittest.TestCase):
+class UsmLocalizeTest(unittest.TestCase):
     class privProtocol(PrivProtocol):
         def __init__(self, key):
             self.key = key
@@ -263,7 +266,7 @@ class UsmLocalizationTest(unittest.TestCase):
         self.assertIsNone(credentials.auth)
         self.assertIsNone(credentials.priv)
 
-    def testPrivLocalization(self):
+    def testFullLocalization(self):
         authProtocol = HmacSha
         key = bytes.fromhex("6695febc9288e36282235fc7151f128497b38f3f")
 
