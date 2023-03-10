@@ -287,7 +287,7 @@ class UserBasedSecurityModule(SecurityModule):
         authSecret: Optional[bytes] = None,
         privProtocol: Optional[Type[PrivProtocol]] = None,
         privSecret: Optional[bytes] = None,
-    ) -> Tuple[Optional[AuthProtocol], Optional[PrivProtocol]]:
+    ) -> Credentials:
         auth = None
         priv = None
 
@@ -301,7 +301,7 @@ class UserBasedSecurityModule(SecurityModule):
                 privKey = authProtocol.localize(privSecret, engineID)
                 priv = privProtocol(privKey)
 
-        return auth, priv
+        return Credentials(auth, priv)
 
     def addUser(self,
         userName: str,
@@ -401,12 +401,10 @@ class UserBasedSecurityModule(SecurityModule):
             if not initialized and assigned:
                 ns = self.namespaces[namespace]
                 for userName, entry in ns:
-                    auth, priv = self.localize(engineID, **entry.credentials)
-                    credentials = Credentials(auth, priv)
                     self.users.assignCredentials(
                         engineID,
                         userName.encode(),
-                        credentials,
+                        self.localize(engineID, **entry.credentials),
                     )
 
             return assigned

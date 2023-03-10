@@ -2,11 +2,12 @@ __all__ = ["DiscoveredEngineTest", "TimeKeeperTest"]
 
 import unittest
 
+from snmp.security.usm import *
 from snmp.security.usm import (
-    Credentials, DiscoveredEngine,
-    InvalidEngineID, InvalidUserName,
-    TimeKeeper, UserTable,
+    Credentials, DiscoveredEngine, PrivProtocol, TimeKeeper, UserTable,
 )
+
+from snmp.security.usm.auth import *
 
 class DiscoveredEngineTest(unittest.TestCase):
     def setUp(self):
@@ -214,6 +215,69 @@ class UserTableTest(unittest.TestCase):
             self.users.getCredentials(self.engineID, self.user),
             self.credentials,
         )
+
+class UsmLocalizationTest(unittest.TestCase):
+    class privProtocol(PrivProtocol):
+        def __init__(self, key):
+            self.key = key
+
+        def decrypt(self, data, engineBoots, engineTime, salt):
+            return data
+
+        def encrypt(self, data, engineBoots, engineTime):
+            return data, bytes(0)
+
+    def setUp(self):
+        self.secret = b"maplesyrup"
+        self.engineID = bytes.fromhex("000000000000000000000002")
+        self.usm = UserBasedSecurityModule()
+
+    def testUselessLocalization(self):
+        credentials = self.usm.localize(self.engineID)
+        self.assertIsNone(credentials.auth)
+        self.assertIsNone(credentials.priv)
+
+    def testAuthLocalization(self):
+        authProtocol = HmacMd5
+        key = bytes.fromhex("526f5eed9fcce26f8964c2930787d82b")
+
+        credentials = self.usm.localize(
+            self.engineID,
+            authProtocol,
+            self.secret,
+        )
+
+        self.assertIsInstance(credentials.auth, authProtocol)
+
+        # NOTE: relies on non-public attribute
+        self.assertEqual(credentials.auth.key, authProtocol(key).key)
+        self.assertIsNone(credentials.priv)
+
+    def testPrivLocalization(self):
+        credentials = self.usm.localize(
+            self.engineID,
+            privProtocol=self.privProtocol,
+            privSecret=b"doesn't matter",
+        )
+
+        self.assertIsNone(credentials.auth)
+        self.assertIsNone(credentials.priv)
+
+    def testPrivLocalization(self):
+        authProtocol = HmacSha
+        key = bytes.fromhex("6695febc9288e36282235fc7151f128497b38f3f")
+
+        credentials = self.usm.localize(
+            self.engineID,
+            authProtocol,
+            self.secret,
+            self.privProtocol,
+            self.secret,
+        )
+
+        self.assertIsNotNone(credentials.auth)
+        self.assertIsInstance(credentials.priv, self.privProtocol)
+        self.assertEqual(credentials.priv.key, key)
 
 if __name__ == '__main__':
     unittest.main()
