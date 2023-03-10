@@ -1,10 +1,11 @@
 __all__ = [
     "DiscoveredEngineTest", "TimeKeeperTest", "UserTableTest",
-    "UsmLocalizeTest",
+    "UsmLocalizeTest", "UsmUserConfigTest",
 ]
 
 import unittest
 
+from snmp.security.levels import *
 from snmp.security.usm import *
 from snmp.security.usm import (
     Credentials, DiscoveredEngine, PrivProtocol, TimeKeeper, UserTable,
@@ -281,6 +282,127 @@ class UsmLocalizeTest(unittest.TestCase):
         self.assertIsNotNone(credentials.auth)
         self.assertIsInstance(credentials.priv, self.privProtocol)
         self.assertEqual(credentials.priv.key, key)
+
+class UsmUserConfigTest(unittest.TestCase):
+    class privProtocol(PrivProtocol):
+        def __init__(self, key):
+            self.key = key
+
+        def decrypt(self, data, engineBoots, engineTime, salt):
+            return data
+
+        def encrypt(self, data, engineBoots, engineTime):
+            return data, bytes(0)
+
+    def setUp(self):
+        self.user = "someUser"
+        self.namespace = "someNamespace"
+        self.authProtocol = HmacSha512
+        self.authSecret = b"someAuthSecret"
+        self.privSecret = b"somePrivSecret"
+
+        self.usm = UserBasedSecurityModule()
+
+    def testUserNameOnly(self):
+        self.usm.addUser(self.user)
+
+        defaultSecurityLevel = self.usm.getDefaultSecurityLevel(self.user)
+        self.assertEqual(defaultSecurityLevel, noAuthNoPriv)
+        self.assertEqual(self.usm.getDefaultUser(), self.user)
+
+    def testAutomaticDefaultUser(self):
+        self.usm.addUser("user1")
+        self.usm.addUser("user2")
+        self.assertEqual(self.usm.getDefaultUser(), "user1")
+
+    def testDefaultUser(self):
+        self.usm.addUser("user1")
+        self.usm.addUser("user2", default=True)
+        self.assertEqual(self.usm.getDefaultUser(), "user2")
+
+    def testDuplicateUser(self):
+        self.usm.addUser(self.user)
+        self.assertRaises(ValueError, self.usm.addUser, self.user)
+
+    def testNamespaces(self):
+        self.usm.addUser(self.user)
+        self.usm.addUser(self.user, namespace=self.namespace)
+        self.usm.addUser("otherUser", default=True, namespace=self.namespace)
+
+        self.assertEqual(self.usm.getDefaultUser(), self.user)
+        self.assertEqual(self.usm.getDefaultUser(self.namespace), "otherUser")
+
+    def testAutomaticDefaultSecurityLevel(self):
+        self.usm.addUser(
+            self.user,
+            authProtocol=self.authProtocol,
+            authSecret=self.authSecret,
+        )
+
+        defaultSecurityLevel = self.usm.getDefaultSecurityLevel(self.user)
+        self.assertEqual(defaultSecurityLevel, authNoPriv)
+
+    def testDefaultSecurityLevel(self):
+        self.usm.addUser(
+            self.user,
+            authProtocol=self.authProtocol,
+            authSecret=self.authSecret,
+            privProtocol=self.authProtocol,
+            privSecret=self.authSecret,
+            defaultSecurityLevel=authNoPriv,
+        )
+
+        defaultSecurityLevel = self.usm.getDefaultSecurityLevel(self.user)
+        self.assertEqual(defaultSecurityLevel, authNoPriv)
+
+    def testInvalidDefaultSecurityLevel(self):
+        self.assertRaises(
+            ValueError,
+            self.usm.addUser,
+            self.user,
+            authProtocol=self.authProtocol,
+            authSecret=self.authSecret,
+            defaultSecurityLevel=authPriv,
+        )
+
+    def testNamespaceSecurityLevels(self):
+        self.usm.addUser(
+            self.user,
+            authProtocol=self.authProtocol,
+            authSecret=self.authSecret,
+            privProtocol=self.privProtocol,
+            privSecret=self.privSecret,
+        )
+
+        self.usm.addUser(
+            self.user,
+            namespace=self.namespace,
+        )
+
+        self.assertEqual(
+            self.usm.getDefaultSecurityLevel(self.user),
+            authPriv,
+        )
+
+        self.assertEqual(
+            self.usm.getDefaultSecurityLevel(self.user, self.namespace),
+            noAuthNoPriv,
+        )
+
+    def testSingleSecret(self):
+        secret = b"sharedSecret"
+        self.usm.addUser(
+            self.user,
+            authProtocol=self.authProtocol,
+            privProtocol=self.privProtocol,
+            secret=secret,
+        )
+
+        # NOTE: this block relies on non-public behavior
+        space = self.usm.getNameSpace()
+        credentials = space[self.user].credentials
+        self.assertEqual(credentials["authSecret"], secret)
+        self.assertEqual(credentials["privSecret"], secret)
 
 if __name__ == '__main__':
     unittest.main()
