@@ -149,7 +149,12 @@ class TimeKeeper:
                 self.table[engineID] = entry
 
             withinTimeWindow = False
-            if auth or not entry.authenticated:
+            if not entry.authenticated:
+                entry.snmpEngineBoots = msgBoots
+                entry.latestBootTime = timestamp - msgTime
+                entry.latestReceivedEngineTime = msgTime
+                withinTimeWindow = True
+            elif auth:
                 if msgBoots > entry.snmpEngineBoots:
                     entry.snmpEngineBoots = msgBoots
                     entry.latestBootTime = timestamp
@@ -431,7 +436,11 @@ class UserBasedSecurityModule(SecurityModule):
         engineID: bytes,
         securityName: bytes,
         securityLevel: SecurityLevel,
+        timestamp: Optional[float] = None,
     ) -> bytes:
+        if timestamp is None:
+            timestamp = time()
+
         if securityLevel.auth:
             with self.lock:
                 user = self.users.getCredentials(engineID, securityName)
@@ -441,8 +450,11 @@ class UserBasedSecurityModule(SecurityModule):
                 errmsg = f"Authentication is disabled for user \"{userName}\""
                 raise InvalidSecurityLevel(errmsg)
 
-            engineTimeParameters = self.timekeeper.getEngineTime(engineID)
-            snmpEngineBoots, snmpEngineTime = engineTimeParameters
+            snmpEngineBoots, snmpEngineTime = self.timekeeper.getEngineTime(
+                engineID,
+                timestamp=timestamp,
+            )
+
             msgAuthenticationParameters = user.auth.msgAuthenticationParameters
             msgPrivacyParameters = b''
 
@@ -462,7 +474,11 @@ class UserBasedSecurityModule(SecurityModule):
 
         else:
             if engineID == self.engineID:
-                engineTimeParameters = self.timekeeper.getEngineTime(engineID)
+                engineTimeParameters = self.timekeeper.getEngineTime(
+                    engineID,
+                    timestamp=timestamp,
+                )
+
                 snmpEngineBoots, snmpEngineTime = engineTimeParameters
             else:
                 snmpEngineBoots = 0

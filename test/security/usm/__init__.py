@@ -1,12 +1,15 @@
 __all__ = [
     "DiscoveredEngineTest", "TimeKeeperTest", "UserTableTest",
-    "UsmLocalizeTest", "UsmUserConfigTest", "UsmOutgoingTest",
+    "UsmLocalizeTest", "UsmUserConfigTest", "UsmOutgoingTest", "UsmSyncTest",
 ]
 
+import random
 import re
 import unittest
 
+from snmp.exception import *
 from snmp.message.v3 import *
+from snmp.message.v3 import pduTypes
 from snmp.pdu import *
 from snmp.security.levels import *
 from snmp.security.usm import *
@@ -16,6 +19,32 @@ from snmp.security.usm import (
 
 from snmp.security.usm.auth import *
 from snmp.types import *
+from snmp.utils import *
+
+class DummyAuthProtocol(AuthProtocol):
+    def __init__(self, key):
+        pass
+
+    @classmethod
+    def localize(cls, secret, engineID):
+        return bytes(0)
+
+    @property
+    def msgAuthenticationParameters(self):
+        return bytes(2)
+
+    def sign(self, data):
+        return len(data).to_bytes(2, "little", signed=False)
+
+class DummyPrivProtocol(PrivProtocol):
+    def __init__(self, key):
+        self.key = key
+
+    def decrypt(self, data, engineBoots, engineTime, salt):
+        return data
+
+    def encrypt(self, data, engineBoots, engineTime):
+        return data, b"salt"
 
 class DiscoveredEngineTest(unittest.TestCase):
     def setUp(self):
@@ -133,6 +162,57 @@ class TimeKeeperTest(unittest.TestCase):
         self.assertEqual(engineBoots, self.engineBoots)
         self.assertEqual(engineTime, self.engineTime + delta + 3)
 
+    def testAssumeLegitimacy(self):
+        delta = 5
+
+        self.timekeeper.update(
+            self.engineID,
+            self.engineBoots + 9,
+            3906,
+            timestamp = self.timestamp,
+        )
+
+        self.timekeeper.update(
+            self.engineID,
+            self.engineBoots,
+            self.engineTime + delta,
+            timestamp = self.timestamp + delta,
+        )
+
+        engineBoots, engineTime = self.timekeeper.getEngineTime(
+            self.engineID,
+            timestamp = self.timestamp + delta,
+        )
+
+        self.assertEqual(engineBoots, self.engineBoots)
+        self.assertEqual(engineTime, self.engineTime + delta)
+
+    def testCorrectIllegitimateTime(self):
+        delta = 5
+
+        self.timekeeper.update(
+            self.engineID,
+            self.engineBoots + 9,
+            3906,
+            timestamp = self.timestamp,
+        )
+
+        valid = self.timekeeper.updateAndVerify(
+            self.engineID,
+            self.engineBoots,
+            self.engineTime + delta,
+            timestamp = self.timestamp + delta,
+        )
+
+        engineBoots, engineTime = self.timekeeper.getEngineTime(
+            self.engineID,
+            timestamp = self.timestamp + delta,
+        )
+
+        self.assertTrue(valid)
+        self.assertEqual(engineBoots, self.engineBoots)
+        self.assertEqual(engineTime, self.engineTime + delta)
+
     def testReboot(self):
         newEngineBoots = self.engineBoots + 1
         newEngineTime = 3
@@ -225,19 +305,10 @@ class UserTableTest(unittest.TestCase):
         )
 
 class UsmLocalizeTest(unittest.TestCase):
-    class privProtocol(PrivProtocol):
-        def __init__(self, key):
-            self.key = key
-
-        def decrypt(self, data, engineBoots, engineTime, salt):
-            return data
-
-        def encrypt(self, data, engineBoots, engineTime):
-            return data, bytes(0)
-
     def setUp(self):
         self.secret = b"maplesyrup"
         self.engineID = bytes.fromhex("000000000000000000000002")
+        self.privProtocol = DummyPrivProtocol
         self.usm = UserBasedSecurityModule()
 
     def testUselessLocalization(self):
@@ -288,20 +359,11 @@ class UsmLocalizeTest(unittest.TestCase):
         self.assertEqual(credentials.priv.key, key)
 
 class UsmUserConfigTest(unittest.TestCase):
-    class privProtocol(PrivProtocol):
-        def __init__(self, key):
-            self.key = key
-
-        def decrypt(self, data, engineBoots, engineTime, salt):
-            return data
-
-        def encrypt(self, data, engineBoots, engineTime):
-            return data, bytes(0)
-
     def setUp(self):
         self.user = "someUser"
         self.namespace = "someNamespace"
         self.authProtocol = HmacSha512
+        self.privProtocol = DummyPrivProtocol
         self.authSecret = b"someAuthSecret"
         self.privSecret = b"somePrivSecret"
 
@@ -420,36 +482,14 @@ class UsmUserConfigTest(unittest.TestCase):
         self.assertEqual(credentials["privSecret"], secret)
 
 class UsmOutgoingTest(unittest.TestCase):
-    class authProtocol(AuthProtocol):
-        def __init__(self, key):
-            pass
-
-        @classmethod
-        def localize(cls, secret, engineID):
-            return bytes(0)
-
-        @property
-        def msgAuthenticationParameters(self):
-            return bytes(2)
-
-        def sign(self, data):
-            return len(data).to_bytes(2, "little", signed=False)
-
-    class privProtocol(PrivProtocol):
-        def __init__(self, key):
-            pass
-
-        def decrypt(self, data, engineBoots, engineTime, salt):
-            return data
-
-        def encrypt(self, data, engineBoots, engineTime):
-            return data, b"salt"
-
     def setUp(self):
         self.noAuthUser = "noAuthUser"
         self.noPrivUser = "noPrivUser"
         self.user = "authPrivUser"
         self.engineID = b"remoteEngineID"
+
+        self.authProtocol = DummyAuthProtocol
+        self.privProtocol = DummyPrivProtocol
 
         self.usm = UserBasedSecurityModule()
         self.usm.addUser(self.noAuthUser)
@@ -628,6 +668,220 @@ class UsmOutgoingTest(unittest.TestCase):
             self.engineID,
             self.noPrivUser.encode(),
             authPriv,
+        )
+
+class UsmSyncTest(unittest.TestCase):
+    def setUp(self):
+        self.authProtocol = DummyAuthProtocol
+        self.privProtocol = DummyPrivProtocol
+        self.engineID = b"remoteEngineID"
+        self.user = "someUser"
+
+        self.usm = UserBasedSecurityModule()
+        self.usm.addUser(
+            self.user,
+            authProtocol=self.authProtocol,
+            privProtocol=self.privProtocol,
+        )
+
+        self.discoveryTimestamp = 29516.0
+        self.illegitimateTimestamp = self.discoveryTimestamp + 0.25
+        self.misledTimestamp = self.illegitimateTimestamp + 0.25
+        self.reportTimestamp = self.misledTimestamp + 0.25
+        self.requestTimestamp = self.reportTimestamp + 0.25
+        self.responseTimestamp = self.requestTimestamp + 0.25
+
+        self.reportEncoding = bytes.fromhex(re.sub("\n", "", """
+            30 67
+               02 01 03
+               30 10
+                  02 04 6a e4 ed dd
+                  02 02 05 dc
+                  04 01 00
+                  02 01 03
+               04 1f
+                  30 1d
+                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                     02 01 1d
+                     02 02 03 c1
+                     04 00
+                     04 00
+                     04 00
+               30 33
+                  04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                  04 00
+                  a8 1f
+                     02 04 c3 e5 47 40
+                     02 01 00
+                     02 01 00
+                     30 11
+                        30 0f
+                           06 0a 2b 06 01 06 03 0f 01 01 04 00
+                           02 01 01
+        """))
+
+        self.reportMsg = subbytes(self.reportEncoding, 23)
+        self.reportScopedPDU = ScopedPDU(
+            ReportPDU(
+                VarBind("1.3.6.1.6.3.15.1.1.4.0", Integer(1)),
+                requestID=-0x3c1ab8c0,
+            ),
+            self.engineID,
+        )
+
+        self.requestMessage = SNMPv3Message(
+            HeaderData(
+                0x7090fb77,
+                1500,
+                MessageFlags(authNoPriv, reportable=True),
+                self.usm.MODEL,
+            ),
+            OctetString(bytes.fromhex(re.sub("\n", "", """
+                30 27
+                   04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                   02 01 1d
+                   02 02 03 c1
+                   04 08 73 6f 6d 65 55 73 65 72
+                   04 02 73 00
+                   04 00
+            """))),
+            ScopedPDU(
+                GetRequestPDU("1.3.6.1.2.1.1.0", requestID=0x26cf6e26),
+                self.engineID,
+            ),
+        )
+
+        self.responseEncoding = bytes.fromhex(re.sub("\n", "", """
+            30 81 90
+               02 01 03
+               30 10 02 04 70 90 fb 77 02 02 05 dc 04 01 01 02 01 03
+               04 29
+                  30 27
+                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                     02 01 1d
+                     02 02 03 c2
+                     04 08 73 6f 6d 65 55 73 65 72
+                     04 02 93 00
+                     04 00
+               30 4e
+                  04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                  04 00
+                  a2 3a
+                     02 04 26 cf 6e 26
+                     02 01 00
+                     02 01 00
+                     30 2c
+                        30 2a
+                           06 07 2b 06 01 02 01 01 00
+                           04 1f 54 68 69 73 20 73 74 72 69 6e 67 20 64 65 73
+                              63 72 69 62 65 73 20 6d 79 20 73 79 73 74 65 6d
+        """))
+
+        self.responseMsg = subbytes(self.responseEncoding, 24)
+        self.responseScopedPDU = ScopedPDU(
+            ResponsePDU(
+                VarBind(
+                    "1.3.6.1.2.1.1.0",
+                    OctetString(b"This string describes my system"),
+                ),
+                requestID=0x26cf6e26,
+            ),
+            self.engineID,
+        )
+
+    def testBasicIncomingMessage(self):
+        securityParameters, data = self.usm.processIncoming(
+            self.reportMsg,
+            noAuthNoPriv,
+            timestamp=self.reportTimestamp,
+        )
+
+        self.assertEqual(securityParameters.securityEngineID, self.engineID)
+        self.assertEqual(securityParameters.securityName, b"")
+
+        scopedPDU = ScopedPDU.decode(data, types=pduTypes)
+        self.assertEqual(scopedPDU, self.reportScopedPDU)
+
+    def testTimeSync(self):
+        securityParameters, data = self.usm.processIncoming(
+            self.reportMsg,
+            noAuthNoPriv,
+            timestamp=self.reportTimestamp,
+        )
+
+        _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
+
+        msgVersion = Integer(self.requestMessage.VERSION).encode()
+        requestEncoding = self.usm.prepareOutgoing(
+            msgVersion + self.requestMessage.header.encode(),
+            self.requestMessage.scopedPDU.encode(),
+            self.engineID,
+            self.user.encode(),
+            authNoPriv,
+            timestamp=self.requestTimestamp,
+        )
+
+        self.assertEqual(requestEncoding, self.requestMessage.encode())
+
+    def testResponse(self):
+        securityParameters, data = self.usm.processIncoming(
+            self.reportMsg,
+            noAuthNoPriv,
+            timestamp=self.reportTimestamp,
+        )
+
+        _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
+
+        msgVersion = Integer(self.requestMessage.VERSION).encode()
+        requestEncoding = self.usm.prepareOutgoing(
+            msgVersion + self.requestMessage.header.encode(),
+            self.requestMessage.scopedPDU.encode(),
+            self.engineID,
+            self.user.encode(),
+            authNoPriv,
+            timestamp=self.requestTimestamp,
+        )
+
+        securityParameters, data = self.usm.processIncoming(
+            self.responseMsg,
+            authNoPriv,
+            timestamp=self.responseTimestamp,
+        )
+
+        scopedPDU = ScopedPDU.decode(data, types=pduTypes)
+        self.assertEqual(scopedPDU, self.responseScopedPDU)
+
+    def testLateResponse(self):
+        securityParameters, data = self.usm.processIncoming(
+            self.reportMsg,
+            noAuthNoPriv,
+            timestamp=self.reportTimestamp,
+        )
+
+        _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
+
+        msgVersion = Integer(self.requestMessage.VERSION).encode()
+        requestEncoding = self.usm.prepareOutgoing(
+            msgVersion + self.requestMessage.header.encode(),
+            self.requestMessage.scopedPDU.encode(),
+            self.engineID,
+            self.user.encode(),
+            authNoPriv,
+            timestamp=self.requestTimestamp,
+        )
+
+        securityParameters, data = self.usm.processIncoming(
+            self.responseMsg,
+            authNoPriv,
+            timestamp=self.responseTimestamp,
+        )
+
+        self.assertRaises(
+            IncomingMessageError,
+            self.usm.processIncoming,
+            self.responseMsg,
+            authNoPriv,
+            timestamp=self.responseTimestamp+TimeKeeper.TIME_WINDOW_SIZE+1,
         )
 
 if __name__ == '__main__':
