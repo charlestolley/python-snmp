@@ -68,4 +68,4 @@ class DesCbc(PrivProtocol):
             self.salt.to_bytes(self.SALTLEN, self.BYTEORDER),
         ))
 
-        return salt, self.compute(self.pad(data), salt, lib.DES_ENCRYPT)
+        return self.compute(self.pad(data), salt, lib.DES_ENCRYPT), salt

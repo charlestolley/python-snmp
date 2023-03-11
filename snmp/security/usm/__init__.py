@@ -446,7 +446,7 @@ class UserBasedSecurityModule(SecurityModule):
                     errmsg = f"Privacy is disabled for user \"{userName}\""
                     raise InvalidSecurityLevel(errmsg)
 
-                msgPrivacyParameters, ciphertext = user.priv.encrypt(
+                ciphertext, msgPrivacyParameters = user.priv.encrypt(
                     data,
                     snmpEngineBoots,
                     snmpEngineTime,

@@ -65,7 +65,7 @@ else:
             priv = self.privProtocol(privKey)
 
             original = encode(SEQUENCE, self.data)
-            msgPrivParameters, ciphertext = priv.encrypt(
+            ciphertext, msgPrivParameters = priv.encrypt(
                 original,
                 self.engineBoots,
                 self.engineTime,
@@ -134,7 +134,7 @@ else:
             priv = self.privProtocol(privKey)
 
             original = encode(SEQUENCE, self.data)
-            msgPrivParameters, ciphertext = priv.encrypt(
+            ciphertext, msgPrivParameters = priv.encrypt(
                 original,
                 self.engineBoots,
                 self.engineTime,

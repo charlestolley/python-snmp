@@ -65,4 +65,4 @@ class Aes128Cfb(PrivProtocol):
         self.salt = (self.salt + 1) % self.SALTWRAP
         salt = self.salt.to_bytes(self.SALTLEN, self.BYTEORDER)
         iv = self.packIV(engineBoots, engineTime, salt)
-        return salt, self.compute(data, iv, lib.AES_ENCRYPT)
+        return self.compute(data, iv, lib.AES_ENCRYPT), salt
