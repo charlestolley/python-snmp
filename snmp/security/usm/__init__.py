@@ -1,6 +1,6 @@
 __all__ = [
     "InvalidEngineID", "InvalidUserName", "InvalidSecurityLevel",
-    "UserBasedSecurityModule",
+    "AuthProtocol", "PrivProtocol", "UserBasedSecurityModule",
 ]
 
 from abc import abstractmethod
@@ -387,7 +387,10 @@ class UserBasedSecurityModule(SecurityModule):
 
             raise ValueError(errmsg) from err
 
-    def registerRemoteEngine(self, engineID: bytes, namespace: str) -> bool:
+    def registerRemoteEngine(self,
+        engineID: bytes,
+        namespace: str = "",
+    ) -> bool:
         with self.lock:
             try:
                 engine = self.engines[engineID]
@@ -409,7 +412,10 @@ class UserBasedSecurityModule(SecurityModule):
 
             return assigned
 
-    def unregisterRemoteEngine(self, engineID: bytes, namespace: str) -> None:
+    def unregisterRemoteEngine(self,
+        engineID: bytes,
+        namespace: str = "",
+    ) -> None:
         with self.lock:
             try:
                 engine = self.engines[engineID]

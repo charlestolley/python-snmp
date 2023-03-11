@@ -1,10 +1,13 @@
 __all__ = [
     "DiscoveredEngineTest", "TimeKeeperTest", "UserTableTest",
-    "UsmLocalizeTest", "UsmUserConfigTest",
+    "UsmLocalizeTest", "UsmUserConfigTest", "UsmOutgoingTest",
 ]
 
+import re
 import unittest
 
+from snmp.message.v3 import *
+from snmp.pdu import *
 from snmp.security.levels import *
 from snmp.security.usm import *
 from snmp.security.usm import (
@@ -12,6 +15,7 @@ from snmp.security.usm import (
 )
 
 from snmp.security.usm.auth import *
+from snmp.types import *
 
 class DiscoveredEngineTest(unittest.TestCase):
     def setUp(self):
@@ -414,6 +418,217 @@ class UsmUserConfigTest(unittest.TestCase):
         credentials = space[self.user].credentials
         self.assertEqual(credentials["authSecret"], secret)
         self.assertEqual(credentials["privSecret"], secret)
+
+class UsmOutgoingTest(unittest.TestCase):
+    class authProtocol(AuthProtocol):
+        def __init__(self, key):
+            pass
+
+        @classmethod
+        def localize(cls, secret, engineID):
+            return bytes(0)
+
+        @property
+        def msgAuthenticationParameters(self):
+            return bytes(2)
+
+        def sign(self, data):
+            return len(data).to_bytes(2, "little", signed=False)
+
+    class privProtocol(PrivProtocol):
+        def __init__(self, key):
+            pass
+
+        def decrypt(self, data, engineBoots, engineTime, salt):
+            return data
+
+        def encrypt(self, data, engineBoots, engineTime):
+            return data, b"salt"
+
+    def setUp(self):
+        self.noAuthUser = "noAuthUser"
+        self.noPrivUser = "noPrivUser"
+        self.user = "authPrivUser"
+        self.engineID = b"remoteEngineID"
+
+        self.usm = UserBasedSecurityModule()
+        self.usm.addUser(self.noAuthUser)
+        self.usm.addUser(self.noPrivUser, authProtocol=self.authProtocol)
+        self.usm.addUser(
+            self.user,
+            authProtocol=self.authProtocol,
+            privProtocol=self.privProtocol,
+            default=True,
+        )
+
+        self.usm.registerRemoteEngine(self.engineID)
+
+        self.noAuthNoPrivEncoding = bytes.fromhex(re.sub("\n", "", """
+            30 7d
+               02 01 03
+               30 10
+                  02 04 43 23 71 5b
+                  02 02 05 dc
+                  04 01 04
+                  02 01 03
+               04 2a
+                  30 28
+                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                     02 01 00
+                     02 01 00
+                     04 0c 61 75 74 68 50 72 69 76 55 73 65 72
+                     04 00
+                     04 00
+               30 3a
+                  04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                  04 0b 73 6f 6d 65 43 6f 6e 74 65 78 74
+                  a0 1b
+                     02 04 e2 a3 05 ef
+                     02 01 00
+                     02 01 00
+                     30 0d
+                        30 0b
+                           06 07 2b 06 01 02 01 01 00
+                           05 00
+        """))
+
+        self.authNoPrivEncoding = bytes.fromhex(re.sub("\n", "", """
+            30 7f
+               02 01 03
+               30 10
+                  02 04 43 23 71 5b
+                  02 02 05 dc
+                  04 01 05
+                  02 01 03
+               04 2c
+                  30 2a
+                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                     02 01 00
+                     02 01 00
+                     04 0c 61 75 74 68 50 72 69 76 55 73 65 72
+                     04 02 81 00
+                     04 00
+               30 3a
+                  04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                  04 0b 73 6f 6d 65 43 6f 6e 74 65 78 74
+                  a0 1b
+                     02 04 e2 a3 05 ef
+                     02 01 00
+                     02 01 00
+                     30 0d
+                        30 0b
+                           06 07 2b 06 01 02 01 01 00
+                           05 00
+        """))
+
+        self.authPrivEncoding = bytes.fromhex(re.sub("\n", "", """
+            30 81 85
+               02 01 03
+               30 10
+                  02 04 43 23 71 5b
+                  02 02 05 dc
+                  04 01 07
+                  02 01 03
+               04 30
+                  30 2e
+                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                     02 01 00
+                     02 01 00
+                     04 0c 61 75 74 68 50 72 69 76 55 73 65 72
+                     04 02 88 00
+                     04 04 73 61 6c 74
+               04 3c
+                  30 3a
+                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                     04 0b 73 6f 6d 65 43 6f 6e 74 65 78 74
+                     a0 1b
+                        02 04 e2 a3 05 ef
+                        02 01 00
+                        02 01 00
+                        30 0d
+                           30 0b
+                              06 07 2b 06 01 02 01 01 00
+                              05 00
+        """))
+
+        self.message = SNMPv3Message(
+            HeaderData(
+                0x4323715b,
+                1500,
+                MessageFlags(reportable=True),
+                self.usm.MODEL,
+            ),
+            OctetString(),
+            ScopedPDU(
+                GetRequestPDU("1.3.6.1.2.1.1.0", requestID=-0x1d5cfa11),
+                self.engineID,
+                b"someContext",
+            ),
+        )
+
+    def tearDown(self):
+        self.usm.unregisterRemoteEngine(self.engineID)
+
+    def testOutgoingNoAuthNoPriv(self):
+        msgVersion = Integer(self.message.VERSION).encode()
+        wholeMsg = self.usm.prepareOutgoing(
+            msgVersion + self.message.header.encode(),
+            self.message.scopedPDU.encode(),
+            self.engineID,
+            self.user.encode(),
+            noAuthNoPriv,
+        )
+
+        self.assertEqual(wholeMsg, self.noAuthNoPrivEncoding)
+
+    def testOutgoingAuthNoPriv(self):
+        self.message.header.flags.authFlag = True
+        msgVersion = Integer(self.message.VERSION).encode()
+        wholeMsg = self.usm.prepareOutgoing(
+            msgVersion + self.message.header.encode(),
+            self.message.scopedPDU.encode(),
+            self.engineID,
+            self.user.encode(),
+            authNoPriv,
+        )
+
+        self.assertEqual(wholeMsg, self.authNoPrivEncoding)
+
+    def testOutgoingAuthPriv(self):
+        self.message.header.flags.authFlag = True
+        self.message.header.flags.privFlag = True
+        msgVersion = Integer(self.message.VERSION).encode()
+        wholeMsg = self.usm.prepareOutgoing(
+            msgVersion + self.message.header.encode(),
+            self.message.scopedPDU.encode(),
+            self.engineID,
+            self.user.encode(),
+            authPriv,
+        )
+
+        self.assertEqual(wholeMsg, self.authPrivEncoding)
+
+    def testNoAuthUser(self):
+        self.assertRaises(
+            InvalidSecurityLevel,
+            self.usm.prepareOutgoing,
+            b"",
+            b"",
+            self.engineID,
+            self.noAuthUser.encode(),
+            authNoPriv,
+        )
+
+    def testNoPrivUser(self):
+        self.assertRaises(
+            InvalidSecurityLevel,
+            self.usm.prepareOutgoing,
+            b"",
+            b"",
+            self.engineID,
+            self.noPrivUser.encode(),
+            authPriv,
+        )
 
 if __name__ == '__main__':
     unittest.main()
