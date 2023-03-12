@@ -266,10 +266,13 @@ class SNMPv3Message(Sequence):
 
     def __init__(self,
         header: HeaderData,
-        securityParameters: OctetString,
         scopedPDU: Optional[ScopedPDU] = None,
         encryptedPDU: Optional[OctetString] = None,
+        securityParameters: Optional[OctetString] = None,
     ) -> None:
+        if securityParameters is None:
+            securityParameters = OctetString()
+
         self.header = header
         self.securityParameters = securityParameters
         self.scopedPDU = scopedPDU
@@ -289,15 +292,14 @@ class SNMPv3Message(Sequence):
         return 4;
 
     def __repr__(self) -> str:
-        args = [
-            repr(self.header),
-            repr(self.securityParameters),
-        ]
+        args = [repr(self.header)]
 
         if self.header.flags.privFlag:
             args.append(f"encryptedPDU={repr(self.encryptedPDU)}")
         else:
             args.append(f"scopedPDU={repr(self.scopedPDU)}")
+
+        args.append(f"securityParameters={repr(self.securityParameters)}")
 
         return f"{typename(self)}({', '.join(args)})"
 
@@ -348,9 +350,9 @@ class SNMPv3Message(Sequence):
 
         return cls(
             msgGlobalData,
-            msgSecurityData,
             scopedPDU=scopedPDU,
             encryptedPDU=encryptedPDU,
+            securityParameters=msgSecurityData,
         )
 
 class OldSNMPv3Message:

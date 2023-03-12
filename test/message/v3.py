@@ -233,17 +233,6 @@ class SNMPv3MessageTest(unittest.TestCase):
                 MessageFlags(),
                 SecurityModel.USM,
             ),
-            OctetString(
-                bytes.fromhex(re.sub(r"\n", "", """
-                    30 24
-                       04 0c 73 6f 6d 65 45 6e 67 69 6e 65 49 44
-                       02 01 66
-                       02 03 11 d7 6d
-                       04 08 73 6f 6d 65 55 73 65 72
-                       04 00
-                       04 00
-                """))
-            ),
             ScopedPDU(
                 ResponsePDU(
                     requestID=-110363965,
@@ -257,16 +246,7 @@ class SNMPv3MessageTest(unittest.TestCase):
                 b"someEngineID",
                 b"someContext",
             ),
-        )
-
-        self.encryptedMessage = SNMPv3Message(
-            HeaderData(
-                0x6f1097b5,
-                1500,
-                MessageFlags(authPriv),
-                SecurityModel.USM,
-            ),
-            OctetString(
+            securityParameters = OctetString(
                 bytes.fromhex(re.sub(r"\n", "", """
                     30 24
                        04 0c 73 6f 6d 65 45 6e 67 69 6e 65 49 44
@@ -277,7 +257,27 @@ class SNMPv3MessageTest(unittest.TestCase):
                        04 00
                 """))
             ),
-            encryptedPDU=OctetString(b"This data is encrypted"),
+        )
+
+        self.encryptedMessage = SNMPv3Message(
+            HeaderData(
+                0x6f1097b5,
+                1500,
+                MessageFlags(authPriv),
+                SecurityModel.USM,
+            ),
+            encryptedPDU = OctetString(b"This data is encrypted"),
+            securityParameters = OctetString(
+                bytes.fromhex(re.sub(r"\n", "", """
+                    30 24
+                       04 0c 73 6f 6d 65 45 6e 67 69 6e 65 49 44
+                       02 01 66
+                       02 03 11 d7 6d
+                       04 08 73 6f 6d 65 55 73 65 72
+                       04 00
+                       04 00
+                """))
+            ),
         )
 
     def testDecodePlain(self):

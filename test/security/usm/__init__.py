@@ -598,7 +598,6 @@ class UsmOutgoingTest(unittest.TestCase):
                 MessageFlags(reportable=True),
                 self.usm.MODEL,
             ),
-            OctetString(),
             ScopedPDU(
                 GetRequestPDU("1.3.6.1.2.1.1.0", requestID=-0x1d5cfa11),
                 self.engineID,
@@ -726,18 +725,20 @@ class UsmSyncTest(unittest.TestCase):
                 MessageFlags(authNoPriv, reportable=True),
                 self.usm.MODEL,
             ),
-            OctetString(bytes.fromhex(re.sub("\n", "", """
-                30 27
-                   04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
-                   02 01 1d
-                   02 02 03 c1
-                   04 08 73 6f 6d 65 55 73 65 72
-                   04 02 73 00
-                   04 00
-            """))),
             ScopedPDU(
                 GetRequestPDU("1.3.6.1.2.1.1.0", requestID=0x26cf6e26),
                 self.engineID,
+            ),
+            securityParameters = OctetString(
+                bytes.fromhex(re.sub("\n", "", """
+                    30 27
+                       04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                       02 01 1d
+                       02 02 03 c1
+                       04 08 73 6f 6d 65 55 73 65 72
+                       04 02 73 00
+                       04 00
+                """))
             ),
         )
 
