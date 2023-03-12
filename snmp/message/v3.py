@@ -273,14 +273,19 @@ class SNMPv3Message(Sequence):
         scopedPDU: Optional[ScopedPDU] = None,
         encryptedPDU: Optional[OctetString] = None,
         securityParameters: Optional[OctetString] = None,
+        securityEngineID: Optional[bytes] = None,
+        securityName: Optional[bytes] = None,
     ) -> None:
+        self.header = header
+        self.scopedPDU = scopedPDU
+        self.encryptedPDU = encryptedPDU
+
         if securityParameters is None:
             securityParameters = OctetString()
 
-        self.header = header
         self.securityParameters = securityParameters
-        self.scopedPDU = scopedPDU
-        self.encryptedPDU = encryptedPDU
+        self.securityEngineID = securityEngineID
+        self.securityName = securityName
 
     def __iter__(self) -> Iterator[Asn1Encodable]:
         yield Integer(self.VERSION)

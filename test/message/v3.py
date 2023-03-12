@@ -304,5 +304,11 @@ class SNMPv3MessageTest(unittest.TestCase):
             self.encryptedMessage,
         )
 
+    def testSecurityParameters(self):
+        self.assertIsNone(self.plainMessage.securityEngineID)
+        self.assertIsNone(self.plainMessage.securityName)
+        self.assertIsNone(self.encryptedMessage.securityEngineID)
+        self.assertIsNone(self.encryptedMessage.securityName)
+
 if __name__ == "__main__":
     unittest.main()
