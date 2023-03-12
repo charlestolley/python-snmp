@@ -557,19 +557,9 @@ class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
         msgID = self.cache(entry)
         handle.addCallback(self.uncache, msgID)
 
-        flags = MessageFlags()
-        flags.authFlag = securityLevel.auth
-        flags.privFlag = securityLevel.priv
-        flags.reportableFlag = isinstance(pdu, Confirmed)
-
-        msgGlobalData = HeaderData(msgID, 1472, flags, securityModel)
-        header = Integer(self.VERSION).encode() + msgGlobalData.encode()
+        flags = MessageFlags(securityLevel, isinstance(pdu, Confirmed))
+        header = HeaderData(msgID, 1472, flags, securityModel)
         scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
+        message = SNMPv3Message(header, scopedPDU)
 
-        return securityModule.prepareOutgoing(
-            header,
-            scopedPDU.encode(),
-            engineID,
-            securityName,
-            securityLevel,
-        )
+        return securityModule.prepareOutgoing(message, engineID, securityName)
