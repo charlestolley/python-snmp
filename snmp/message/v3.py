@@ -74,10 +74,14 @@ class MessageFlags(OctetString):
     @classmethod
     def interpret(cls, data: Asn1Data = b"") -> "MessageFlags":
         byte = data[0]
-        securityLevel = SecurityLevel(
-            byte & cls.AUTH_FLAG,
-            byte & cls.PRIV_FLAG,
-        )
+
+        try:
+            securityLevel = SecurityLevel(
+                byte & cls.AUTH_FLAG,
+                byte & cls.PRIV_FLAG,
+            )
+        except ValueError as err:
+            raise InvalidMessage(f"Invalid msgFlags: {err}") from err
 
         reportable = (byte & cls.REPORTABLE_FLAG != 0)
         return cls(securityLevel, reportable)
@@ -477,46 +481,32 @@ class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
     def prepareDataElements(self,
         msg: Asn1Data,
     ) -> Tuple[OldSNMPv3Message, RequestHandle[OldSNMPv3Message]]:
-        msg = decode(msg, expected=SEQUENCE, copy=False)
-        msgVersion, msg = Integer.decode(msg, leftovers=True)
-
-        if msgVersion.value != MessageProcessingModel.SNMPv3:
-            ver = MessageProcessingModel(msgVersion.value)
-            raise BadVersion(f"{typename(self)} does not support {ver.name}")
-
-        msgGlobalData, msg = HeaderData.decode(msg, leftovers=True)
+        message = SNMPv3Message.decode(msg)
 
         with self.securityLock:
             try:
                 securityModule = self.securityModules[
-                    msgGlobalData.securityModel
+                    message.header.securityModel
                 ]
             except KeyError as e:
-                raise UnknownSecurityModel(msgGlobalData.securityModel) from e
+                securityModel = self.message.header.securityModel
+                raise UnknownSecurityModel(securityModel) from e
 
-        try:
-            securityLevel = SecurityLevel(
-                auth=msgGlobalData.flags.authFlag,
-                priv=msgGlobalData.flags.privFlag)
-        except ValueError as err:
-            raise InvalidMessage(f"Invalid msgFlags: {err}") from err
-
-        security, data = securityModule.processIncoming(msg, securityLevel)
-        scopedPDU, _ = ScopedPDU.decode(data, types=pduTypes, leftovers=True)
-
-        if isinstance(scopedPDU.pdu, Response):
+        security = securityModule.processIncoming(message)
+        if isinstance(message.scopedPDU.pdu, Response):
             try:
-                entry = self.retrieve(msgGlobalData.id)
+                entry = self.retrieve(message.header.id)
             except KeyError as err:
-                errmsg = f"Unknown msgID: {msgGlobalData.id}"
+                errmsg = f"Unknown msgID: {message.header.id}"
                 raise ResponseMismatch(errmsg) from err
 
             handle = entry.handle()
             if handle is None:
                 raise LateResponse("Handle has already been released")
 
-            report = isinstance(scopedPDU.pdu, Internal)
-            if not report and entry.securityLevel < securityLevel:
+            report = isinstance(message.scopedPDU.pdu, Internal)
+            if (not report
+            and entry.securityLevel < message.header.flags.securityLevel):
                 raise ResponseMismatch.byField("Security Level")
 
             if not report and entry.engineID != security.securityEngineID:
@@ -525,16 +515,22 @@ class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
             if entry.securityName != security.securityName:
                 raise ResponseMismatch.byField("Security Name")
 
-            if not report and entry.engineID != scopedPDU.contextEngineID:
+            if (not report
+            and entry.engineID != message.scopedPDU.contextEngineID):
                 raise ResponseMismatch.byField("Context Engine ID")
 
-            if entry.context != scopedPDU.contextName:
+            if entry.context != message.scopedPDU.contextName:
                 raise ResponseMismatch.byField("Context Name")
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
-        message = \
-            OldSNMPv3Message(msgGlobalData.id, securityLevel, security, scopedPDU)
+        message = OldSNMPv3Message(
+            message.header.id,
+            message.header.flags.securityLevel,
+            security,
+            message.scopedPDU,
+        )
+
         return message, handle
 
     def prepareOutgoingMessage(self,    # type: ignore[override]
