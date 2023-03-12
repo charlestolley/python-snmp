@@ -80,10 +80,9 @@ class SecurityModule(Generic[TMessage]):
 
     @abstractmethod
     def processIncoming(self,
-        msg: subbytes,
-        securityLevel: SecurityLevel,
+        message: TMessage,
         timestamp: Optional[float] = None,
-    ) -> Tuple[SecurityParameters, bytes]:
+    ) -> SecurityParameters:
         ...
 
     @abstractmethod

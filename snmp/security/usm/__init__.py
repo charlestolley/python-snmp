@@ -521,18 +521,14 @@ class UserBasedSecurityModule(SecurityModule):
         return wholeMsg
 
     def processIncoming(self,
-        msg: subbytes,
-        securityLevel: SecurityLevel,
+        message: SNMPv3Message,
         timestamp: Optional[float] = None,
-    ) -> Tuple[SecurityParameters, bytes]:
+    ) -> SecurityParameters:
         if timestamp is None:
             timestamp = time()
 
-        msgSecurityParameters, msgData = \
-            OctetString.decode(msg, leftovers=True, copy=False)
-
         ptr = decode(
-            msgSecurityParameters.data,
+            message.securityParameters.data,
             expected=SEQUENCE,
             leftovers=False,
             copy=False,
@@ -555,7 +551,7 @@ class UserBasedSecurityModule(SecurityModule):
 
         remoteIsAuthoritative = (engineID != self.engineID)
 
-        if not securityLevel.auth:
+        if not message.header.flags.authFlag:
             if remoteIsAuthoritative:
                 self.timekeeper.update(
                     engineID,
@@ -564,7 +560,7 @@ class UserBasedSecurityModule(SecurityModule):
                     timestamp=timestamp
                 )
 
-            return securityParameters, msgData[:]
+            return securityParameters
 
         try:
             with self.lock:
@@ -578,7 +574,7 @@ class UserBasedSecurityModule(SecurityModule):
             username = userName.decode()
             errmsg = f"Authentication is disabled for user \"{username}\""
             raise UnsupportedSecLevel(errmsg)
-        elif securityLevel.priv and user.priv is None:
+        elif message.header.flags.privFlag and user.priv is None:
             username = userName.decode()
             errmsg = f"Data privacy is disabled for user \"{username}\""
             raise UnsupportedSecLevel(errmsg)
@@ -587,11 +583,11 @@ class UserBasedSecurityModule(SecurityModule):
         if len(msgAuthenticationParameters.data) != len(padding):
             raise WrongDigest("Invalid signature length")
 
-        wholeMsg = b''.join((
-            msg.data[:msgAuthenticationParametersIndex],
-            padding,
-            msg.data[msgAuthenticationParametersIndex + len(padding):]
-        ))
+        wholeMsg = bytearray(message.securityParameters.data.data)
+
+        start = msgAuthenticationParametersIndex
+        stop = start + len(padding)
+        wholeMsg[start:stop] = padding
 
         if user.auth.sign(wholeMsg) != msgAuthenticationParameters.data:
             raise WrongDigest("Invalid signature")
@@ -611,17 +607,15 @@ class UserBasedSecurityModule(SecurityModule):
         except InvalidEngineID as err:
             raise UnknownEngineID(engineID) from err
 
-        if securityLevel.priv:
+        if message.header.flags.privFlag:
             try:
-                payload = cast(PrivProtocol, user.priv).decrypt(
-                    cast(bytes, OctetString.decode(msgData).data),
+                message.plaintext = cast(PrivProtocol, user.priv).decrypt(
+                    cast(bytes, message.encryptedPDU.data),
                     msgAuthoritativeEngineBoots.value,
                     msgAuthoritativeEngineTime.value,
                     cast(bytes, msgPrivacyParameters.data),
                 )
             except ValueError as err:
                 raise DecryptionError(str(err)) from err
-        else:
-            payload = msgData[:]
 
-        return securityParameters, payload
+        return securityParameters

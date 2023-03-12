@@ -355,6 +355,18 @@ class SNMPv3Message(Sequence):
             securityParameters=msgSecurityData,
         )
 
+    @property
+    def plaintext(self) -> bytes:
+        return self.scopedPDU.encode()
+
+    @plaintext.setter
+    def plaintext(self, data: bytes) -> None:
+        self.scopedPDU, _ = ScopedPDU.decode(
+            data,
+            leftovers=True,
+            types=pduTypes,
+        )
+
 class OldSNMPv3Message:
     def __init__(self,
         msgID: int,

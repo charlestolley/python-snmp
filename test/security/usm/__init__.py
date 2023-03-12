@@ -681,7 +681,7 @@ class UsmSyncTest(unittest.TestCase):
         self.responseTimestamp = self.requestTimestamp + 0.25
 
         self.reportEncoding = bytes.fromhex(re.sub("\n", "", """
-            30 67
+            30 6b
                02 01 03
                30 10
                   02 04 6a e4 ed dd
@@ -709,14 +709,7 @@ class UsmSyncTest(unittest.TestCase):
                            02 01 01
         """))
 
-        self.reportMsg = subbytes(self.reportEncoding, 23)
-        self.reportScopedPDU = ScopedPDU(
-            ReportPDU(
-                VarBind("1.3.6.1.6.3.15.1.1.4.0", Integer(1)),
-                requestID=-0x3c1ab8c0,
-            ),
-            self.engineID,
-        )
+        self.reportMessage = SNMPv3Message.decode(self.reportEncoding)
 
         self.requestMessage = SNMPv3Message(
             HeaderData(
@@ -743,32 +736,39 @@ class UsmSyncTest(unittest.TestCase):
         )
 
         self.responseEncoding = bytes.fromhex(re.sub("\n", "", """
-            30 81 90
+            30 81 96
                02 01 03
-               30 10 02 04 70 90 fb 77 02 02 05 dc 04 01 01 02 01 03
-               04 29
-                  30 27
+               30 10
+                  02 04 70 90 fb 77
+                  02 02 05 dc
+                  04 01 03
+                  02 01 03
+               04 2d
+                  30 2b
                      04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
                      02 01 1d
                      02 02 03 c2
                      04 08 73 6f 6d 65 55 73 65 72
-                     04 02 93 00
+                     04 02 99 00
+                     04 04 73 61 6c 74
+               04 50
+                  30 4e
+                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
                      04 00
-               30 4e
-                  04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
-                  04 00
-                  a2 3a
-                     02 04 26 cf 6e 26
-                     02 01 00
-                     02 01 00
-                     30 2c
-                        30 2a
-                           06 07 2b 06 01 02 01 01 00
-                           04 1f 54 68 69 73 20 73 74 72 69 6e 67 20 64 65 73
-                              63 72 69 62 65 73 20 6d 79 20 73 79 73 74 65 6d
+                     a2 3a
+                        02 04 26 cf 6e 26
+                        02 01 00
+                        02 01 00
+                        30 2c
+                           30 2a
+                              06 07 2b 06 01 02 01 01 00
+                              04 1f 54 68 69 73 20 73 74 72 69 6e 67
+                                    20 64 65 73 63 72 69 62 65 73 20
+                                    6d 79 20 73 79 73 74 65 6d
         """))
 
-        self.responseMsg = subbytes(self.responseEncoding, 24)
+        self.responseMessage = SNMPv3Message.decode(self.responseEncoding)
+
         self.responseScopedPDU = ScopedPDU(
             ResponsePDU(
                 VarBind(
@@ -781,22 +781,17 @@ class UsmSyncTest(unittest.TestCase):
         )
 
     def testBasicIncomingMessage(self):
-        securityParameters, data = self.usm.processIncoming(
-            self.reportMsg,
-            noAuthNoPriv,
+        securityParameters = self.usm.processIncoming(
+            self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
         self.assertEqual(securityParameters.securityEngineID, self.engineID)
         self.assertEqual(securityParameters.securityName, b"")
 
-        scopedPDU = ScopedPDU.decode(data, types=pduTypes)
-        self.assertEqual(scopedPDU, self.reportScopedPDU)
-
     def testTimeSync(self):
-        securityParameters, data = self.usm.processIncoming(
-            self.reportMsg,
-            noAuthNoPriv,
+        securityParameters = self.usm.processIncoming(
+            self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
@@ -812,9 +807,8 @@ class UsmSyncTest(unittest.TestCase):
         self.assertEqual(requestEncoding, self.requestMessage.encode())
 
     def testResponse(self):
-        securityParameters, data = self.usm.processIncoming(
-            self.reportMsg,
-            noAuthNoPriv,
+        securityParameters = self.usm.processIncoming(
+            self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
@@ -827,19 +821,19 @@ class UsmSyncTest(unittest.TestCase):
             timestamp=self.requestTimestamp,
         )
 
-        securityParameters, data = self.usm.processIncoming(
-            self.responseMsg,
-            authNoPriv,
+        securityParameters = self.usm.processIncoming(
+            self.responseMessage,
             timestamp=self.responseTimestamp,
         )
 
-        scopedPDU = ScopedPDU.decode(data, types=pduTypes)
-        self.assertEqual(scopedPDU, self.responseScopedPDU)
+        self.assertEqual(
+            self.responseMessage.scopedPDU,
+            self.responseScopedPDU,
+        )
 
     def testLateResponse(self):
-        securityParameters, data = self.usm.processIncoming(
-            self.reportMsg,
-            noAuthNoPriv,
+        securityParameters = self.usm.processIncoming(
+            self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
@@ -852,17 +846,15 @@ class UsmSyncTest(unittest.TestCase):
             timestamp=self.requestTimestamp,
         )
 
-        securityParameters, data = self.usm.processIncoming(
-            self.responseMsg,
-            authNoPriv,
+        securityParameters = self.usm.processIncoming(
+            self.responseMessage,
             timestamp=self.responseTimestamp,
         )
 
         self.assertRaises(
             IncomingMessageError,
             self.usm.processIncoming,
-            self.responseMsg,
-            authNoPriv,
+            self.responseMessage,
             timestamp=self.responseTimestamp+TimeKeeper.TIME_WINDOW_SIZE+1,
         )
 
