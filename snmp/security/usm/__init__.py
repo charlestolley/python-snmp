@@ -9,9 +9,10 @@ import threading
 from time import time
 from snmp.ber import decode, encode
 from snmp.exception import IncomingMessageError
-from snmp.types import *
+from snmp.message.v3 import *
 from snmp.security import *
 from snmp.security.levels import *
+from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 
@@ -431,17 +432,15 @@ class UserBasedSecurityModule(SecurityModule):
                     del self.engines[engineID]
 
     def prepareOutgoing(self,
-        header: bytes,
-        data: bytes,
+        message: SNMPv3Message,
         engineID: bytes,
         securityName: bytes,
-        securityLevel: SecurityLevel,
         timestamp: Optional[float] = None,
     ) -> bytes:
         if timestamp is None:
             timestamp = time()
 
-        if securityLevel.auth:
+        if message.header.flags.authFlag:
             with self.lock:
                 user = self.users.getCredentials(engineID, securityName)
 
@@ -458,19 +457,19 @@ class UserBasedSecurityModule(SecurityModule):
             msgAuthenticationParameters = user.auth.msgAuthenticationParameters
             msgPrivacyParameters = b''
 
-            if securityLevel.priv:
+            if message.header.flags.privFlag:
                 if not user.priv:
                     userName = securityName.decode
                     errmsg = f"Privacy is disabled for user \"{userName}\""
                     raise InvalidSecurityLevel(errmsg)
 
                 ciphertext, msgPrivacyParameters = user.priv.encrypt(
-                    data,
+                    message.scopedPDU.encode(),
                     snmpEngineBoots,
                     snmpEngineTime,
                 )
 
-                data = OctetString(ciphertext).encode()
+                message.encryptedPDU = OctetString(ciphertext)
 
         else:
             if engineID == self.engineID:
@@ -487,7 +486,6 @@ class UserBasedSecurityModule(SecurityModule):
             msgAuthenticationParameters = b''
             msgPrivacyParameters = b''
 
-        encodedPrivacyParams = OctetString(msgPrivacyParameters).encode()
         securityParameters = encode(
             SEQUENCE,
             b''.join((
@@ -496,23 +494,29 @@ class UserBasedSecurityModule(SecurityModule):
                 Integer(snmpEngineTime).encode(),
                 OctetString(securityName).encode(),
                 OctetString(msgAuthenticationParameters).encode(),
-                encodedPrivacyParams,
+                OctetString(msgPrivacyParameters).encode(),
             ))
         )
 
-        msgSecurityParameters = OctetString(securityParameters).encode()
-        body = b''.join((header, msgSecurityParameters, data))
-        wholeMsg = encode(SEQUENCE, body)
+        message.securityParameters = OctetString(securityParameters)
+        wholeMsg = message.encode()
 
-        if securityLevel.auth:
+        if message.header.flags.authFlag:
             signature = cast(AuthProtocol, user.auth).sign(wholeMsg)
-            endIndex = len(wholeMsg) - len(data) - len(encodedPrivacyParams)
-            startIndex = endIndex - len(signature)
-            wholeMsg = b''.join((
-                wholeMsg[:startIndex],
-                signature,
-                wholeMsg[endIndex:]
-            ))
+            securityParameters = encode(
+                SEQUENCE,
+                b''.join((
+                    OctetString(engineID).encode(),
+                    Integer(snmpEngineBoots).encode(),
+                    Integer(snmpEngineTime).encode(),
+                    OctetString(securityName).encode(),
+                    OctetString(signature).encode(),
+                    OctetString(msgPrivacyParameters).encode(),
+                ))
+            )
+
+            message.securityParameters = OctetString(securityParameters)
+            wholeMsg = message.encode()
 
         return wholeMsg
 

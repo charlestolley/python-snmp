@@ -610,26 +610,20 @@ class UsmOutgoingTest(unittest.TestCase):
         self.usm.unregisterRemoteEngine(self.engineID)
 
     def testOutgoingNoAuthNoPriv(self):
-        msgVersion = Integer(self.message.VERSION).encode()
         wholeMsg = self.usm.prepareOutgoing(
-            msgVersion + self.message.header.encode(),
-            self.message.scopedPDU.encode(),
+            self.message,
             self.engineID,
             self.user.encode(),
-            noAuthNoPriv,
         )
 
         self.assertEqual(wholeMsg, self.noAuthNoPrivEncoding)
 
     def testOutgoingAuthNoPriv(self):
         self.message.header.flags.authFlag = True
-        msgVersion = Integer(self.message.VERSION).encode()
         wholeMsg = self.usm.prepareOutgoing(
-            msgVersion + self.message.header.encode(),
-            self.message.scopedPDU.encode(),
+            self.message,
             self.engineID,
             self.user.encode(),
-            authNoPriv,
         )
 
         self.assertEqual(wholeMsg, self.authNoPrivEncoding)
@@ -637,37 +631,33 @@ class UsmOutgoingTest(unittest.TestCase):
     def testOutgoingAuthPriv(self):
         self.message.header.flags.authFlag = True
         self.message.header.flags.privFlag = True
-        msgVersion = Integer(self.message.VERSION).encode()
         wholeMsg = self.usm.prepareOutgoing(
-            msgVersion + self.message.header.encode(),
-            self.message.scopedPDU.encode(),
+            self.message,
             self.engineID,
             self.user.encode(),
-            authPriv,
         )
 
         self.assertEqual(wholeMsg, self.authPrivEncoding)
 
     def testNoAuthUser(self):
+        self.message.header.flags.authFlag = True
         self.assertRaises(
             InvalidSecurityLevel,
             self.usm.prepareOutgoing,
-            b"",
-            b"",
+            self.message,
             self.engineID,
             self.noAuthUser.encode(),
-            authNoPriv,
         )
 
     def testNoPrivUser(self):
+        self.message.header.flags.authFlag = True
+        self.message.header.flags.privFlag = True
         self.assertRaises(
             InvalidSecurityLevel,
             self.usm.prepareOutgoing,
-            b"",
-            b"",
+            self.message,
             self.engineID,
             self.noPrivUser.encode(),
-            authPriv,
         )
 
 class UsmSyncTest(unittest.TestCase):
@@ -811,13 +801,10 @@ class UsmSyncTest(unittest.TestCase):
 
         _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
 
-        msgVersion = Integer(self.requestMessage.VERSION).encode()
         requestEncoding = self.usm.prepareOutgoing(
-            msgVersion + self.requestMessage.header.encode(),
-            self.requestMessage.scopedPDU.encode(),
+            self.requestMessage,
             self.engineID,
             self.user.encode(),
-            authNoPriv,
             timestamp=self.requestTimestamp,
         )
 
@@ -832,13 +819,10 @@ class UsmSyncTest(unittest.TestCase):
 
         _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
 
-        msgVersion = Integer(self.requestMessage.VERSION).encode()
         requestEncoding = self.usm.prepareOutgoing(
-            msgVersion + self.requestMessage.header.encode(),
-            self.requestMessage.scopedPDU.encode(),
+            self.requestMessage,
             self.engineID,
             self.user.encode(),
-            authNoPriv,
             timestamp=self.requestTimestamp,
         )
 
@@ -860,13 +844,10 @@ class UsmSyncTest(unittest.TestCase):
 
         _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
 
-        msgVersion = Integer(self.requestMessage.VERSION).encode()
         requestEncoding = self.usm.prepareOutgoing(
-            msgVersion + self.requestMessage.header.encode(),
-            self.requestMessage.scopedPDU.encode(),
+            self.requestMessage,
             self.engineID,
             self.user.encode(),
-            authNoPriv,
             timestamp=self.requestTimestamp,
         )
 

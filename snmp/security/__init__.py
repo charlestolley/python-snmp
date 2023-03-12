@@ -5,8 +5,11 @@ __all__ = [
 from abc import abstractmethod
 import enum
 
+from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
+
+TMessage = TypeVar("TMessage", bound="Sequence")
 
 class SecurityLevel:
     def __init__(self, auth: Any = False, priv: Any = False) -> None:
@@ -72,7 +75,7 @@ class SecurityParameters:
             self.securityName,
         )
 
-class SecurityModule:
+class SecurityModule(Generic[TMessage]):
     MODEL: ClassVar[SecurityModel]
 
     @abstractmethod
@@ -85,10 +88,8 @@ class SecurityModule:
 
     @abstractmethod
     def prepareOutgoing(self,
-        header: bytes,
-        data: bytes,
+        message: TMessage,
         engineID: bytes,
         securityName: bytes,
-        securityLevel: SecurityLevel,
     ) -> bytes:
         ...
