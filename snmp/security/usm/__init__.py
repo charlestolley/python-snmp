@@ -1,13 +1,14 @@
 __all__ = [
     "InvalidEngineID", "InvalidUserName", "InvalidSecurityLevel",
-    "AuthProtocol", "PrivProtocol", "UserBasedSecurityModule",
+    "AuthProtocol", "PrivProtocol",
+    "UsmSecurityParameters", "UserBasedSecurityModule",
 ]
 
 from abc import abstractmethod
 import threading
 
 from time import time
-from snmp.ber import decode, encode
+from snmp.ber import *
 from snmp.exception import IncomingMessageError
 from snmp.message.v3 import *
 from snmp.security import *
@@ -309,6 +310,84 @@ class NameSpace:
 
     def __setitem__(self, key: str, item: UserEntry) -> None:
         return self.users.__setitem__(key, item)
+
+class UsmSecurityParameters(Sequence):
+    def __init__(self,
+        engineID: bytes,
+        engineBoots: int,
+        engineTime: int,
+        userName: bytes,
+        authenticationParameters: bytes,
+        privacyParameters: bytes,
+    ):
+        self.engineID = engineID
+        self.engineBoots = engineBoots
+        self.engineTime = engineTime
+        self.userName = userName
+        self.authenticationParameters = authenticationParameters
+        self.privacyParameters = privacyParameters
+
+    def __iter__(self) -> Iterator[Asn1Encodable]:
+        yield OctetString(self.engineID)
+        yield Integer(self.engineBoots)
+        yield Integer(self.engineTime)
+        yield OctetString(self.userName)
+        yield OctetString(self.authenticationParameters)
+        yield OctetString(self.privacyParameters)
+
+    def __len__(self) -> int:
+        return 6
+
+    def __repr__(self) -> str:
+        args = (
+            str(self.engineID),
+            str(self.engineBoots),
+            str(self.engineTime),
+            str(self.userName),
+            str(self.authenticationParameters),
+            str(self.privacyParameters),
+        )
+
+        return f"{typename(self)}({', '.join(args)})"
+
+    def __str__(self) -> str:
+        return self.toString()
+
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+        indent = tab * depth
+        subindent = indent + tab
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            f"{subindent}Authoritative Engine ID: {self.engineID!r}",
+            f"{subindent}Authoritative Engine Boots: {self.engineBoots}",
+            f"{subindent}Authoritative Engine Time: {self.engineTime}",
+            f"{subindent}User Name: {self.userName}",
+            f"{subindent}Signature: {self.authenticationParameters}",
+            f"{subindent}Encryption Salt: {self.privacyParameters}",
+        ))
+
+    @classmethod
+    def decode(cls, data, leftovers=False, copy=False, **kwargs):
+        return super().decode(data, leftovers, copy, **kwargs)
+
+    @classmethod
+    def deserialize(cls, data: Asn1Data):
+        engineID, ptr = OctetString.decode(data, leftovers=True)
+        engineBoots, ptr  = Integer.decode(ptr, leftovers=True)
+        engineTime,  ptr  = Integer.decode(ptr, leftovers=True)
+        userName, ptr = OctetString.decode(ptr, leftovers=True)
+
+        authenticationParameters, ptr = OctetString.decode(ptr, leftovers=True)
+        privacyParameters = OctetString.decode(ptr)
+
+        return cls(
+            cast(bytes, engineID.data),
+            engineBoots.value,
+            engineTime.value,
+            cast(bytes, userName.data),
+            cast(bytes, authenticationParameters.data),
+            cast(bytes, privacyParameters.data),
+        )
 
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM

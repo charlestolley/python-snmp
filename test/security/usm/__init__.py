@@ -1,5 +1,6 @@
 __all__ = [
-    "DiscoveredEngineTest", "TimeKeeperTest", "UserTableTest",
+    "DiscoveredEngineTest", "TimeKeeperTest",
+    "UserTableTest", "UsmSecurityParametersTest",
     "UsmLocalizeTest", "UsmUserConfigTest", "UsmOutgoingTest", "UsmSyncTest",
 ]
 
@@ -307,6 +308,45 @@ class UserTableTest(unittest.TestCase):
         self.assertIs(
             self.users.getCredentials(self.engineID, self.user),
             self.credentials,
+        )
+
+class UsmSecurityParametersTest(unittest.TestCase):
+    def setUp(self):
+        self.encoding = bytes.fromhex(re.sub("\n", "", """
+            30 2a
+               04 0c 73 6f 6d 65 45 6e 67 69 6e 65 49 44
+               02 02 05 d4
+               02 02 14 d0
+               04 08 73 6f 6d 65 55 73 65 72
+               04 02 99 00
+               04 04 73 61 6c 74
+        """))
+
+        self.securityParameters = UsmSecurityParameters(
+            b"someEngineID",
+            1492,
+            5328,
+            b"someUser",
+            b"\x99\x00",
+            b"salt",
+        )
+
+    def testDecode(self):
+        self.assertEqual(
+            UsmSecurityParameters.decode(self.encoding),
+            self.securityParameters,
+        )
+
+    def testEncode(self):
+        self.assertEqual(
+            self.securityParameters.encode(),
+            self.encoding,
+        )
+
+    def testRepr(self):
+        self.assertEqual(
+            eval(repr(self.securityParameters)),
+            self.securityParameters,
         )
 
 class UsmLocalizeTest(unittest.TestCase):
