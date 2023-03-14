@@ -523,7 +523,7 @@ class UserBasedSecurityModule(SecurityModule):
     def processIncoming(self,
         message: SNMPv3Message,
         timestamp: Optional[float] = None,
-    ) -> SecurityParameters:
+    ) -> None:
         if timestamp is None:
             timestamp = time()
 
@@ -547,7 +547,9 @@ class UserBasedSecurityModule(SecurityModule):
 
         engineID = cast(bytes, msgAuthoritativeEngineID.data)
         userName = cast(bytes, msgUserName.data)
-        securityParameters = SecurityParameters(engineID, userName)
+
+        message.securityEngineID = engineID
+        message.securityName     = userName
 
         remoteIsAuthoritative = (engineID != self.engineID)
 
@@ -560,7 +562,7 @@ class UserBasedSecurityModule(SecurityModule):
                     timestamp=timestamp
                 )
 
-            return securityParameters
+            return
 
         try:
             with self.lock:
@@ -617,5 +619,3 @@ class UserBasedSecurityModule(SecurityModule):
                 )
             except ValueError as err:
                 raise DecryptionError(str(err)) from err
-
-        return securityParameters

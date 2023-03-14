@@ -376,49 +376,11 @@ class SNMPv3Message(Sequence):
             types=pduTypes,
         )
 
-class OldSNMPv3Message:
-    def __init__(self,
-        msgID: int,
-        securityLevel: SecurityLevel,
-        securityParameters: SecurityParameters,
-        data: ScopedPDU,
-    ):
-        self.id = msgID
-        self.securityLevel = securityLevel
-        self.securityEngineID = securityParameters.securityEngineID
-        self.securityName = securityParameters.securityName
-        self.data = data
-
-    def __repr__(self) -> str:
-        args = (repr(member) for member in (
-            self.id,
-            self.securityLevel,
-            SecurityParameters(self.securityEngineID, self.securityName),
-            self.data,
-        ))
-
-        return f"{typename(self)}({', '.join(args)})"
-
-    def __str__(self) -> str:
-        return self.toString()
-
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
-        indent = tab * depth
-        subindent = indent + tab
-        return "\n".join((
-            f"{indent}{typename(self)}:",
-            f"{subindent}Message ID: {self.id}",
-            f"{subindent}Security Engine ID: {self.securityEngineID!r}",
-            f"{subindent}Security Level: {self.securityLevel}",
-            f"{subindent}Security Name: {self.securityName!r}",
-            f"{self.data.toString(depth+1, tab)}",
-        ))
-
 class CacheEntry:
     def __init__(self,
         engineID: bytes,
         contextName: bytes,
-        handle: RequestHandle[OldSNMPv3Message],
+        handle: RequestHandle[SNMPv3Message],
         securityName: bytes,
         securityModel: SecurityModel,
         securityLevel: SecurityLevel,
@@ -430,7 +392,7 @@ class CacheEntry:
         self.securityModel = securityModel
         self.securityLevel = securityLevel
 
-class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
+class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
     VERSION = MessageProcessingModel.SNMPv3
 
     def __init__(self) -> None:
@@ -485,7 +447,7 @@ class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
 
     def prepareDataElements(self,
         msg: Asn1Data,
-    ) -> Tuple[OldSNMPv3Message, RequestHandle[OldSNMPv3Message]]:
+    ) -> Tuple[SNMPv3Message, RequestHandle[SNMPv3Message]]:
         message = SNMPv3Message.decode(msg)
 
         with self.securityLock:
@@ -497,7 +459,7 @@ class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
                 securityModel = self.message.header.securityModel
                 raise UnknownSecurityModel(securityModel) from e
 
-        security = securityModule.processIncoming(message)
+        securityModule.processIncoming(message)
         if isinstance(message.scopedPDU.pdu, Response):
             try:
                 entry = self.retrieve(message.header.id)
@@ -514,10 +476,10 @@ class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
             and entry.securityLevel < message.header.flags.securityLevel):
                 raise ResponseMismatch.byField("Security Level")
 
-            if not report and entry.engineID != security.securityEngineID:
+            if not report and entry.engineID != message.securityEngineID:
                 raise ResponseMismatch.byField("Security Engine ID")
 
-            if entry.securityName != security.securityName:
+            if entry.securityName != message.securityName:
                 raise ResponseMismatch.byField("Security Name")
 
             if (not report
@@ -529,18 +491,11 @@ class SNMPv3MessageProcessor(MessageProcessor[OldSNMPv3Message, AnyPDU]):
         else:
             raise UnsupportedFeature("Received a non-response PDU type")
 
-        message = OldSNMPv3Message(
-            message.header.id,
-            message.header.flags.securityLevel,
-            security,
-            message.scopedPDU,
-        )
-
         return message, handle
 
     def prepareOutgoingMessage(self,    # type: ignore[override]
         pdu: AnyPDU,
-        handle: RequestHandle[OldSNMPv3Message],
+        handle: RequestHandle[SNMPv3Message],
         engineID: bytes,
         securityName: bytes,
         securityLevel: SecurityLevel = noAuthNoPriv,

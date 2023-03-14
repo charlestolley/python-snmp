@@ -781,21 +781,21 @@ class UsmSyncTest(unittest.TestCase):
         )
 
     def testBasicIncomingMessage(self):
-        securityParameters = self.usm.processIncoming(
+        self.usm.processIncoming(
             self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
-        self.assertEqual(securityParameters.securityEngineID, self.engineID)
-        self.assertEqual(securityParameters.securityName, b"")
+        self.assertEqual(self.reportMessage.securityEngineID, self.engineID)
+        self.assertEqual(self.reportMessage.securityName, b"")
 
     def testTimeSync(self):
-        securityParameters = self.usm.processIncoming(
+        self.usm.processIncoming(
             self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
-        _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
+        _ = self.usm.registerRemoteEngine(self.reportMessage.securityEngineID)
 
         requestEncoding = self.usm.prepareOutgoing(
             self.requestMessage,
@@ -807,12 +807,12 @@ class UsmSyncTest(unittest.TestCase):
         self.assertEqual(requestEncoding, self.requestMessage.encode())
 
     def testResponse(self):
-        securityParameters = self.usm.processIncoming(
+        self.usm.processIncoming(
             self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
-        _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
+        _ = self.usm.registerRemoteEngine(self.reportMessage.securityEngineID)
 
         requestEncoding = self.usm.prepareOutgoing(
             self.requestMessage,
@@ -821,7 +821,7 @@ class UsmSyncTest(unittest.TestCase):
             timestamp=self.requestTimestamp,
         )
 
-        securityParameters = self.usm.processIncoming(
+        self.usm.processIncoming(
             self.responseMessage,
             timestamp=self.responseTimestamp,
         )
@@ -832,12 +832,12 @@ class UsmSyncTest(unittest.TestCase):
         )
 
     def testLateResponse(self):
-        securityParameters = self.usm.processIncoming(
+        self.usm.processIncoming(
             self.reportMessage,
             timestamp=self.reportTimestamp,
         )
 
-        _ = self.usm.registerRemoteEngine(securityParameters.securityEngineID)
+        _ = self.usm.registerRemoteEngine(self.reportMessage.securityEngineID)
 
         requestEncoding = self.usm.prepareOutgoing(
             self.requestMessage,
@@ -846,7 +846,7 @@ class UsmSyncTest(unittest.TestCase):
             timestamp=self.requestTimestamp,
         )
 
-        securityParameters = self.usm.processIncoming(
+        self.usm.processIncoming(
             self.responseMessage,
             timestamp=self.responseTimestamp,
         )

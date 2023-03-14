@@ -41,7 +41,8 @@ class UsmStatsReport(UnhandledReport):
 
 class UnsupportedSecurityLevelReport(UsmStatsReport):
     def __init__(self, message, varbind):
-        errmsg = f"Remote Engine does not support {message.securityLevel}"
+        securityLevel = message.header.flags.securityLevel
+        errmsg = f"Remote Engine does not support {securityLevel}"
         super().__init__(errmsg, varbind)
 
 class UnknownUserNameReport(UsmStatsReport):
@@ -200,11 +201,11 @@ class RequestMessage(RequestHandle):
         self.messageID = msgID
 
     def push(self, response):
-        pdu = response.data.pdu
+        pdu = response.scopedPDU.pdu
 
         if isinstance(pdu, ReportPDU):
-            securityLevel = response.securityLevel
-            varbind = response.data.pdu.variableBindings[0]
+            securityLevel = response.header.flags.securityLevel
+            varbind = response.scopedPDU.pdu.variableBindings[0]
 
             oid = varbind.name
             if oid == usmStatsUnknownEngineIDsInstance:
@@ -221,7 +222,7 @@ class RequestMessage(RequestHandle):
                 else:
                     exception = exc_type(response, varbind)
 
-                auth = response.securityLevel.auth
+                auth = response.header.flags.authFlag
                 self.request.processException(exception, auth)
         else:
             self.request.processResponse(response)
@@ -394,7 +395,7 @@ class Request:
                     break
 
             if self.event.is_set() and self.response is not None:
-                return self.response.data.pdu
+                return self.response.scopedPDU.pdu
             else:
                 if self.exception is not None:
                     raise self.exception
@@ -556,7 +557,7 @@ class SNMPv3UsmManager:
 
     def processResponse(self, request, response):
         with self.lock:
-            auth = response.securityLevel.auth
+            auth = response.header.flags.authFlag
             engineID = response.securityEngineID
             if self.state.onResponse(engineID, auth):
                 self.engineID = engineID
