@@ -317,23 +317,31 @@ class UsmSecurityParameters(Sequence):
         engineBoots: int,
         engineTime: int,
         userName: bytes,
-        authenticationParameters: bytes,
-        privacyParameters: bytes,
+        signature: Asn1Data,
+        salt: bytes,
     ):
         self.engineID = engineID
         self.engineBoots = engineBoots
         self.engineTime = engineTime
         self.userName = userName
-        self.authenticationParameters = authenticationParameters
-        self.privacyParameters = privacyParameters
+        self.salt = salt
+
+        if isinstance(signature, subbytes):
+            self.signature = signature[:]
+            self.signatureIndex = signature.start
+            self.wholeMsg = signature.data
+        else:
+            self.signature = signature
+            self.signatureIndex = None
+            self.wholeMsg = None
 
     def __iter__(self) -> Iterator[Asn1Encodable]:
         yield OctetString(self.engineID)
         yield Integer(self.engineBoots)
         yield Integer(self.engineTime)
         yield OctetString(self.userName)
-        yield OctetString(self.authenticationParameters)
-        yield OctetString(self.privacyParameters)
+        yield OctetString(self.signature)
+        yield OctetString(self.salt)
 
     def __len__(self) -> int:
         return 6
@@ -344,8 +352,8 @@ class UsmSecurityParameters(Sequence):
             str(self.engineBoots),
             str(self.engineTime),
             str(self.userName),
-            str(self.authenticationParameters),
-            str(self.privacyParameters),
+            str(self.signature),
+            str(self.salt),
         )
 
         return f"{typename(self)}({', '.join(args)})"
@@ -362,8 +370,8 @@ class UsmSecurityParameters(Sequence):
             f"{subindent}Authoritative Engine Boots: {self.engineBoots}",
             f"{subindent}Authoritative Engine Time: {self.engineTime}",
             f"{subindent}User Name: {self.userName}",
-            f"{subindent}Signature: {self.authenticationParameters}",
-            f"{subindent}Encryption Salt: {self.privacyParameters}",
+            f"{subindent}Signature: {self.signature}",
+            f"{subindent}Encryption Salt: {self.salt}",
         ))
 
     @classmethod
@@ -372,21 +380,22 @@ class UsmSecurityParameters(Sequence):
 
     @classmethod
     def deserialize(cls, data: Asn1Data):
-        engineID, ptr = OctetString.decode(data, leftovers=True)
-        engineBoots, ptr  = Integer.decode(ptr, leftovers=True)
-        engineTime,  ptr  = Integer.decode(ptr, leftovers=True)
-        userName, ptr = OctetString.decode(ptr, leftovers=True)
+        copy = not isinstance(data, subbytes)
 
-        authenticationParameters, ptr = OctetString.decode(ptr, leftovers=True)
-        privacyParameters = OctetString.decode(ptr)
+        engineID, ptr = OctetString.decode(data, leftovers=True)
+        engineBoots, ptr   = Integer.decode(ptr, leftovers=True)
+        engineTime,  ptr   = Integer.decode(ptr, leftovers=True)
+        userName,  ptr = OctetString.decode(ptr, leftovers=True)
+        signature, ptr = OctetString.decode(ptr, leftovers=True, copy=copy)
+        salt           = OctetString.decode(ptr)
 
         return cls(
             cast(bytes, engineID.data),
             engineBoots.value,
             engineTime.value,
             cast(bytes, userName.data),
-            cast(bytes, authenticationParameters.data),
-            cast(bytes, privacyParameters.data),
+            signature.data,
+            cast(bytes, salt.data),
         )
 
 class UserBasedSecurityModule(SecurityModule):
@@ -651,38 +660,21 @@ class UserBasedSecurityModule(SecurityModule):
         if timestamp is None:
             timestamp = time()
 
-        ptr = decode(
+        securityParameters = UsmSecurityParameters.decode(
             message.securityParameters.data,
-            expected=SEQUENCE,
-            leftovers=False,
-            copy=False,
         )
 
-        msgAuthoritativeEngineID, ptr = OctetString.decode(ptr, leftovers=True)
-        msgAuthoritativeEngineBoots, ptr  = Integer.decode(ptr, leftovers=True)
-        msgAuthoritativeEngineTime,  ptr  = Integer.decode(ptr, leftovers=True)
-        msgUserName,              ptr = OctetString.decode(ptr, leftovers=True)
+        message.securityEngineID = securityParameters.engineID
+        message.securityName     = securityParameters.userName
 
-        msgAuthenticationParameters, ptr = \
-            OctetString.decode(ptr, leftovers=True)
-        msgAuthenticationParametersIndex = \
-            ptr.start - len(msgAuthenticationParameters.data)
-        msgPrivacyParameters = OctetString.decode(ptr)
-
-        engineID = cast(bytes, msgAuthoritativeEngineID.data)
-        userName = cast(bytes, msgUserName.data)
-
-        message.securityEngineID = engineID
-        message.securityName     = userName
-
-        remoteIsAuthoritative = (engineID != self.engineID)
+        remoteIsAuthoritative = (securityParameters.engineID != self.engineID)
 
         if not message.header.flags.authFlag:
             if remoteIsAuthoritative:
                 self.timekeeper.update(
-                    engineID,
-                    msgAuthoritativeEngineBoots.value,
-                    msgAuthoritativeEngineTime.value,
+                    securityParameters.engineID,
+                    securityParameters.engineBoots,
+                    securityParameters.engineTime,
                     timestamp=timestamp
                 )
 
@@ -690,56 +682,59 @@ class UserBasedSecurityModule(SecurityModule):
 
         try:
             with self.lock:
-                user = self.users.getCredentials(engineID, userName)
+                user = self.users.getCredentials(
+                    securityParameters.engineID,
+                    securityParameters.userName,
+                )
         except InvalidEngineID as err:
-            raise UnknownEngineID(engineID) from err
+            raise UnknownEngineID(securityParameters.engineID) from err
         except InvalidUserName as err:
-            raise UnknownUserName(userName) from err
+            raise UnknownUserName(securityParameters.userName) from err
 
         if user.auth is None:
-            username = userName.decode()
+            username = securityParameters.userName.decode()
             errmsg = f"Authentication is disabled for user \"{username}\""
             raise UnsupportedSecLevel(errmsg)
         elif message.header.flags.privFlag and user.priv is None:
-            username = userName.decode()
+            username = securityParameters.userName.decode()
             errmsg = f"Data privacy is disabled for user \"{username}\""
             raise UnsupportedSecLevel(errmsg)
 
         padding = user.auth.msgAuthenticationParameters
-        if len(msgAuthenticationParameters.data) != len(padding):
+        if len(securityParameters.signature) != len(padding):
             raise WrongDigest("Invalid signature length")
 
-        wholeMsg = bytearray(message.securityParameters.data.data)
+        wholeMsg = bytearray(securityParameters.wholeMsg)
 
-        start = msgAuthenticationParametersIndex
+        start = securityParameters.signatureIndex
         stop = start + len(padding)
         wholeMsg[start:stop] = padding
 
-        if user.auth.sign(wholeMsg) != msgAuthenticationParameters.data:
+        if user.auth.sign(wholeMsg) != securityParameters.signature:
             raise WrongDigest("Invalid signature")
 
         try:
             if not self.timekeeper.updateAndVerify(
-                engineID,
-                msgAuthoritativeEngineBoots.value,
-                msgAuthoritativeEngineTime.value,
+                securityParameters.engineID,
+                securityParameters.engineBoots,
+                securityParameters.engineTime,
                 timestamp=timestamp,
             ):
                 raise NotInTimeWindow((
-                    engineID,
-                    msgAuthoritativeEngineBoots.value,
-                    msgAuthoritativeEngineTime.value,
+                    securityParameters.engineID,
+                    securityParameters.engineBoots,
+                    securityParameters.engineTime,
                 ))
         except InvalidEngineID as err:
-            raise UnknownEngineID(engineID) from err
+            raise UnknownEngineID(securityParameters.engineID) from err
 
         if message.header.flags.privFlag:
             try:
                 message.plaintext = cast(PrivProtocol, user.priv).decrypt(
                     cast(bytes, message.encryptedPDU.data),
-                    msgAuthoritativeEngineBoots.value,
-                    msgAuthoritativeEngineTime.value,
-                    cast(bytes, msgPrivacyParameters.data),
+                    securityParameters.engineBoots,
+                    securityParameters.engineTime,
+                    securityParameters.salt,
                 )
             except ValueError as err:
                 raise DecryptionError(str(err)) from err
