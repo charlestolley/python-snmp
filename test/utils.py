@@ -214,6 +214,12 @@ class SubbytesTest(unittest.TestCase):
         self.assertEqual(data, self.data[self.start:self.stop])
         self.assertEqual(tail, b"")
 
+    def testReplace(self):
+        data = subbytes(self.data, self.start, self.stop)
+        replacement = b"something something"
+        result = self.data[:self.start] + replacement + self.data[self.stop:]
+        self.assertEqual(data.replace(replacement), result)
+
 class TypenameTest(unittest.TestCase):
     class Inner:
         pass

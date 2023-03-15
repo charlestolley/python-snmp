@@ -276,6 +276,15 @@ class subbytes:
         self.stop = removed.start
         return removed
 
+    def replace(self, replacement: bytes) -> bytes:
+        """Substitute the given string in place of the current sequence
+
+        This method produces a copy of the wrapped object, in which the
+        current sequence has been replaced with the contents of the
+        `replacement` argument.
+        """
+        return self.data[:self.start] + replacement + self.data[self.stop:]
+
 def typename(cls: Any, qualified: bool = False) -> str:
     """Query an object to determine its type.
 
