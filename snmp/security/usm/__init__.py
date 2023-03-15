@@ -1,7 +1,6 @@
 __all__ = [
     "InvalidEngineID", "InvalidUserName", "InvalidSecurityLevel",
-    "AuthProtocol", "PrivProtocol",
-    "UsmSecurityParameters", "UserBasedSecurityModule",
+    "AuthProtocol", "PrivProtocol", "UserBasedSecurityModule",
 ]
 
 from abc import abstractmethod

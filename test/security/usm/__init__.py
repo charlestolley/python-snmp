@@ -18,7 +18,7 @@ from snmp.security.levels import *
 from snmp.security.usm import *
 from snmp.security.usm import (
     Credentials, DiscoveredEngine, LocalizedCredentials,
-    PrivProtocol, TimeKeeper, UserTable,
+    PrivProtocol, TimeKeeper, UserTable, UsmSecurityParameters,
 )
 
 from snmp.security.usm.auth import *
