@@ -23,8 +23,17 @@ class AuthProtocol:
 
     @classmethod
     @abstractmethod
-    def localize(cls, secret: bytes, engineID: bytes) -> bytes:
+    def computeKey(cls, secret: bytes) -> bytes:
         ...
+
+    @classmethod
+    @abstractmethod
+    def localizeKey(cls, key: bytes, engineID: bytes) -> bytes:
+        ...
+
+    @classmethod
+    def localize(cls, secret: bytes, engineID: bytes) -> bytes:
+        return cls.localizeKey(cls.computeKey(secret), engineID)
 
     @property
     @abstractmethod
@@ -185,6 +194,32 @@ class TimeKeeper:
 
 class Credentials:
     def __init__(self,
+        authProtocol: Optional[Type[AuthProtocol]] = None,
+        authSecret: Optional[bytes] = None,
+        privProtocol: Optional[PrivProtocol] = None,
+        privSecret: Optional[bytes] = None,
+        secret: bytes = b"",
+    ) -> None:
+        self.authProtocol = None
+        self.authKey = None
+        self.privProtocol = None
+        self.privKey = None
+
+        if authProtocol is None:
+            self.maxSecurityLevel = noAuthNoPriv
+        else:
+            if privProtocol is None:
+                self.maxSecurityLevel = authNoPriv
+            else:
+                self.maxSecurityLevel = authPriv
+                self.privProtocol = privProtocol
+                self.privKey = authProtocol.computeKey(privSecret or secret)
+
+            self.authProtocol = authProtocol
+            self.authKey = authProtocol.computeKey(authSecret or secret)
+
+class LocalizedCredentials:
+    def __init__(self,
         auth: Optional[AuthProtocol] = None,
         priv: Optional[PrivProtocol] = None,
     ) -> None:
@@ -221,12 +256,12 @@ class DiscoveredEngine:
 
 class UserTable:
     def __init__(self) -> None:
-        self.engines: Dict[bytes, Dict[bytes, Credentials]] = {}
+        self.engines: Dict[bytes, Dict[bytes, LocalizedCredentials]] = {}
 
     def assignCredentials(self,
         engineID: bytes,
         userName: bytes,
-        credentials: Credentials,
+        credentials: LocalizedCredentials,
     ) -> None:
         try:
             users = self.engines[engineID]
@@ -236,7 +271,10 @@ class UserTable:
 
         users[userName] = credentials
 
-    def getCredentials(self, engineID: bytes, userName: bytes) -> Credentials:
+    def getCredentials(self,
+        engineID: bytes,
+        userName: bytes,
+    ) -> LocalizedCredentials:
         try:
             users = self.engines[engineID]
         except KeyError as err:
@@ -250,7 +288,7 @@ class UserTable:
 class UserEntry:
     def __init__(self,
         defaultSecurityLevel: SecurityLevel,
-        credentials: Mapping[str, Any],
+        credentials: Credentials
     ) -> None:
         self.credentials = credentials
         self.defaultSecurityLevel = defaultSecurityLevel
@@ -287,27 +325,35 @@ class UserBasedSecurityModule(SecurityModule):
             self.timekeeper.update(self.engineID)
 
     @staticmethod
-    def localize(
+    def localizeCredentials(
         engineID: bytes,
-        authProtocol: Optional[Type[AuthProtocol]] = None,
-        authSecret: Optional[bytes] = None,
-        privProtocol: Optional[Type[PrivProtocol]] = None,
-        privSecret: Optional[bytes] = None,
-    ) -> Credentials:
+        credentials: Optional[Credentials] = None,
+    ) -> LocalizedCredentials:
+        if credentials is None:
+           credentials = Credentials()
+
         auth = None
         priv = None
 
-        if authProtocol is not None:
-            assert authSecret is not None
-            authKey = authProtocol.localize(authSecret, engineID)
-            auth = authProtocol(authKey)
+        if credentials.authProtocol is not None:
+            assert credentials.authKey is not None
+            auth = credentials.authProtocol(
+                credentials.authProtocol.localizeKey(
+                    credentials.authKey,
+                    engineID,
+                )
+            )
 
-            if privProtocol is not None:
-                assert privSecret is not None
-                privKey = authProtocol.localize(privSecret, engineID)
-                priv = privProtocol(privKey)
+            if credentials.privProtocol is not None:
+                assert credentials.privKey is not None
+                priv = credentials.privProtocol(
+                    credentials.authProtocol.localizeKey(
+                        credentials.privKey,
+                        engineID,
+                    )
+                )
 
-        return Credentials(auth, priv)
+        return LocalizedCredentials(auth, priv)
 
     def addUser(self,
         userName: str,
@@ -320,25 +366,24 @@ class UserBasedSecurityModule(SecurityModule):
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         namespace: str = "",
     ) -> None:
-        credentials: Dict[str, Any] = dict()
-        if authProtocol is None:
-            maxSecurityLevel = noAuthNoPriv
-        else:
-            if privProtocol is None:
-                maxSecurityLevel = authNoPriv
-            else:
-                maxSecurityLevel = authPriv
-                credentials["privProtocol"] = privProtocol
-                credentials["privSecret"] = privSecret or secret
-
-            credentials["authProtocol"] = authProtocol
-            credentials["authSecret"] = authSecret or secret
+        credentials = Credentials(
+            authProtocol,
+            authSecret,
+            privProtocol,
+            privSecret,
+            secret,
+        )
 
         if defaultSecurityLevel is None:
-            defaultSecurityLevel = maxSecurityLevel
-        elif defaultSecurityLevel > maxSecurityLevel:
+            defaultSecurityLevel = credentials.maxSecurityLevel
+        elif defaultSecurityLevel > credentials.maxSecurityLevel:
             errmsg = "Unable to support {} without the \"{}\" argument"
-            param = "privProtocol" if maxSecurityLevel.auth else "authProtocol"
+
+            if credentials.maxSecurityLevel.auth:
+                param = "privProtocol"
+            else:
+                param = "authProtocol"
+
             raise ValueError(errmsg.format(defaultSecurityLevel, param))
 
         with self.lock:
@@ -413,7 +458,7 @@ class UserBasedSecurityModule(SecurityModule):
                     self.users.assignCredentials(
                         engineID,
                         userName.encode(),
-                        self.localize(engineID, **entry.credentials),
+                        self.localizeCredentials(engineID, entry.credentials)
                     )
 
             return assigned

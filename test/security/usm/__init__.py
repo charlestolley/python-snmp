@@ -14,7 +14,8 @@ from snmp.pdu import *
 from snmp.security.levels import *
 from snmp.security.usm import *
 from snmp.security.usm import (
-    Credentials, DiscoveredEngine, PrivProtocol, TimeKeeper, UserTable,
+    Credentials, DiscoveredEngine, LocalizedCredentials,
+    PrivProtocol, TimeKeeper, UserTable,
 )
 
 from snmp.security.usm.auth import *
@@ -26,7 +27,11 @@ class DummyAuthProtocol(AuthProtocol):
         pass
 
     @classmethod
-    def localize(cls, secret, engineID):
+    def computeKey(cls, secret):
+        return secret
+
+    @classmethod
+    def localizeKey(cls, key, engineID):
         return bytes(0)
 
     @property
@@ -265,7 +270,7 @@ class TimeKeeperTest(unittest.TestCase):
 
 class UserTableTest(unittest.TestCase):
     def setUp(self):
-        self.credentials = Credentials()
+        self.credentials = LocalizedCredentials()
         self.engineID = b"someEngineID"
         self.user = b"someUser"
         self.users = UserTable()
@@ -312,7 +317,7 @@ class UsmLocalizeTest(unittest.TestCase):
         self.usm = UserBasedSecurityModule()
 
     def testUselessLocalization(self):
-        credentials = self.usm.localize(self.engineID)
+        credentials = self.usm.localizeCredentials(self.engineID)
         self.assertIsNone(credentials.auth)
         self.assertIsNone(credentials.priv)
 
@@ -320,10 +325,12 @@ class UsmLocalizeTest(unittest.TestCase):
         authProtocol = HmacMd5
         key = bytes.fromhex("526f5eed9fcce26f8964c2930787d82b")
 
-        credentials = self.usm.localize(
+        credentials = self.usm.localizeCredentials(
             self.engineID,
-            authProtocol,
-            self.secret,
+            Credentials(
+                authProtocol,
+                self.secret,
+            ),
         )
 
         self.assertIsInstance(credentials.auth, authProtocol)
@@ -333,25 +340,27 @@ class UsmLocalizeTest(unittest.TestCase):
         self.assertIsNone(credentials.priv)
 
     def testPrivLocalization(self):
-        credentials = self.usm.localize(
+        credentials = self.usm.localizeCredentials(
             self.engineID,
-            privProtocol=self.privProtocol,
-            privSecret=b"doesn't matter",
+            Credentials(
+                privProtocol=self.privProtocol,
+                privSecret=b"doesn't matter",
+            ),
         )
 
         self.assertIsNone(credentials.auth)
         self.assertIsNone(credentials.priv)
 
     def testFullLocalization(self):
-        authProtocol = HmacSha
         key = bytes.fromhex("6695febc9288e36282235fc7151f128497b38f3f")
 
-        credentials = self.usm.localize(
+        credentials = self.usm.localizeCredentials(
             self.engineID,
-            authProtocol,
-            self.secret,
-            self.privProtocol,
-            self.secret,
+            Credentials(
+                authProtocol=HmacSha,
+                privProtocol=self.privProtocol,
+                secret=self.secret,
+            )
         )
 
         self.assertIsNotNone(credentials.auth)
@@ -468,6 +477,7 @@ class UsmUserConfigTest(unittest.TestCase):
 
     def testSingleSecret(self):
         secret = b"sharedSecret"
+        key = self.authProtocol.computeKey(secret)
         self.usm.addUser(
             self.user,
             authProtocol=self.authProtocol,
@@ -478,8 +488,8 @@ class UsmUserConfigTest(unittest.TestCase):
         # NOTE: this block relies on non-public behavior
         space = self.usm.getNameSpace()
         credentials = space[self.user].credentials
-        self.assertEqual(credentials["authSecret"], secret)
-        self.assertEqual(credentials["privSecret"], secret)
+        self.assertEqual(credentials.authKey, key)
+        self.assertEqual(credentials.privKey, key)
 
 class UsmOutgoingTest(unittest.TestCase):
     def setUp(self):

@@ -35,10 +35,6 @@ class HmacAuthProtocol(AuthProtocol):
         context.update(key)
         return context.digest()
 
-    @classmethod
-    def localize(cls, secret: bytes, engineID: bytes) -> bytes:
-        return cls.localizeKey(cls.computeKey(secret), engineID)
-
     @property
     def msgAuthenticationParameters(self) -> bytes:
         return bytes(self.N)
