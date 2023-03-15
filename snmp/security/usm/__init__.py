@@ -619,36 +619,23 @@ class UserBasedSecurityModule(SecurityModule):
             msgAuthenticationParameters = b''
             msgPrivacyParameters = b''
 
-        securityParameters = encode(
-            SEQUENCE,
-            b''.join((
-                OctetString(engineID).encode(),
-                Integer(snmpEngineBoots).encode(),
-                Integer(snmpEngineTime).encode(),
-                OctetString(securityName).encode(),
-                OctetString(msgAuthenticationParameters).encode(),
-                OctetString(msgPrivacyParameters).encode(),
-            ))
+        securityParameters = UsmSecurityParameters(
+            engineID,
+            snmpEngineBoots,
+            snmpEngineTime,
+            securityName,
+            msgAuthenticationParameters,
+            msgPrivacyParameters,
         )
 
-        message.securityParameters = OctetString(securityParameters)
+        message.securityParameters = OctetString(securityParameters.encode())
         wholeMsg = message.encode()
 
         if message.header.flags.authFlag:
             signature = cast(AuthProtocol, user.auth).sign(wholeMsg)
-            securityParameters = encode(
-                SEQUENCE,
-                b''.join((
-                    OctetString(engineID).encode(),
-                    Integer(snmpEngineBoots).encode(),
-                    Integer(snmpEngineTime).encode(),
-                    OctetString(securityName).encode(),
-                    OctetString(signature).encode(),
-                    OctetString(msgPrivacyParameters).encode(),
-                ))
-            )
-
-            message.securityParameters = OctetString(securityParameters)
+            securityParameters.signature = signature
+            encoding = securityParameters.encode()
+            message.securityParameters = OctetString(encoding)
             wholeMsg = message.encode()
 
         return wholeMsg

@@ -380,6 +380,10 @@ class UsmSecurityParametersTest(unittest.TestCase):
         self.assertIs(securityParameters.wholeMsg, self.message)
         self.assertEqual(securityParameters.signatureIndex, 64)
 
+    def testMissingSignatureIndex(self):
+        self.assertIsNone(self.securityParameters.wholeMsg)
+        self.assertIsNone(self.securityParameters.signatureIndex)
+
 class UsmLocalizeTest(unittest.TestCase):
     def setUp(self):
         self.secret = b"maplesyrup"
