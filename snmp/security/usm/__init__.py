@@ -398,6 +398,16 @@ class UsmSecurityParameters(Sequence):
             cast(bytes, salt.data),
         )
 
+    @classmethod
+    def findSignature(self, msgSecurityParameters: subbytes) -> subbytes:
+        ptr = decode(msgSecurityParameters, expected=SEQUENCE, copy=False)
+        _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+        ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+        return ptr
+
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM
 
@@ -632,11 +642,12 @@ class UserBasedSecurityModule(SecurityModule):
         wholeMsg = message.encode()
 
         if message.header.flags.authFlag:
+            location = UsmSecurityParameters.findSignature(
+                SNMPv3Message.findSecurityParameters(wholeMsg)
+            )
+
             signature = cast(AuthProtocol, user.auth).sign(wholeMsg)
-            securityParameters.signature = signature
-            encoding = securityParameters.encode()
-            message.securityParameters = OctetString(encoding)
-            wholeMsg = message.encode()
+            wholeMsg = location.replace(signature)
 
         return wholeMsg
 

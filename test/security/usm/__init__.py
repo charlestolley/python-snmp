@@ -384,6 +384,10 @@ class UsmSecurityParametersTest(unittest.TestCase):
         self.assertIsNone(self.securityParameters.wholeMsg)
         self.assertIsNone(self.securityParameters.signatureIndex)
 
+    def testFindSignature(self):
+        signature = UsmSecurityParameters.findSignature(self.encoding)
+        self.assertEqual(signature, subbytes(self.encoding, 38, 40))
+
 class UsmLocalizeTest(unittest.TestCase):
     def setUp(self):
         self.secret = b"maplesyrup"
@@ -820,6 +824,8 @@ class UsmSyncTest(unittest.TestCase):
             ),
         )
 
+        self.requestEncoding = self.requestMessage.encode()
+
         self.responseEncoding = bytes.fromhex(re.sub("\n", "", """
             30 81 96
                02 01 03
@@ -889,7 +895,7 @@ class UsmSyncTest(unittest.TestCase):
             timestamp=self.requestTimestamp,
         )
 
-        self.assertEqual(requestEncoding, self.requestMessage.encode())
+        self.assertEqual(requestEncoding, self.requestEncoding)
 
     def testResponse(self):
         self.usm.processIncoming(

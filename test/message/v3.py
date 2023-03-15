@@ -13,6 +13,7 @@ from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.types import *
+from snmp.utils import *
 
 class MessageFlagsTest(unittest.TestCase):
     def testDefaultConstructor(self):
@@ -309,6 +310,13 @@ class SNMPv3MessageTest(unittest.TestCase):
         self.assertIsNone(self.plainMessage.securityName)
         self.assertIsNone(self.encryptedMessage.securityEngineID)
         self.assertIsNone(self.encryptedMessage.securityName)
+
+    def testFindSecurityParameters(self):
+        plainIndex = SNMPv3Message.findSecurityParameters(self.plain)
+        encryptedIndex = SNMPv3Message.findSecurityParameters(self.encrypted)
+
+        self.assertEqual(plainIndex, subbytes(self.plain, 26, 64))
+        self.assertEqual(encryptedIndex, subbytes(self.encrypted, 25, 63))
 
 if __name__ == "__main__":
     unittest.main()

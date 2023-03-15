@@ -364,6 +364,15 @@ class SNMPv3Message(Sequence):
             securityParameters=msgSecurityData,
         )
 
+    @classmethod
+    def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
+        ptr = decode(wholeMsg, expected=self.TYPE, copy=False)
+        _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=SEQUENCE,     leftovers=True, copy=False)
+        ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+
+        return ptr
+
     @property
     def plaintext(self) -> bytes:
         return self.scopedPDU.encode()
