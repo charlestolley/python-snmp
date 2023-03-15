@@ -1,7 +1,8 @@
 __all__ = [
     "DiscoveredEngineTest", "TimeKeeperTest",
     "UserTableTest", "UsmSecurityParametersTest",
-    "UsmLocalizeTest", "UsmUserConfigTest", "UsmOutgoingTest", "UsmSyncTest",
+    "UsmLocalizeTest", "UsmUserConfigTest",
+    "UsmOutgoingTest", "UsmSyncTest", "UsmIncomingTest",
 ]
 
 import random
@@ -12,6 +13,7 @@ from snmp.exception import *
 from snmp.message.v3 import *
 from snmp.message.v3 import pduTypes
 from snmp.pdu import *
+from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm import *
 from snmp.security.usm import (
@@ -935,6 +937,58 @@ class UsmSyncTest(unittest.TestCase):
             self.usm.processIncoming,
             self.responseMessage,
             timestamp=self.responseTimestamp+TimeKeeper.TIME_WINDOW_SIZE+1,
+        )
+
+class UsmIncomingTest(unittest.TestCase):
+    def setUp(self):
+        self.authProtocol = DummyAuthProtocol
+        self.privProtocol = DummyPrivProtocol
+        self.engineID = b"remoteEngineID"
+        self.user = "someUser"
+
+        self.usm = UserBasedSecurityModule()
+        self.usm.addUser(
+            self.user,
+            authProtocol=self.authProtocol,
+            privProtocol=self.privProtocol,
+        )
+
+        _ = self.usm.registerRemoteEngine(self.engineID)
+
+        self.inauthentic = SNMPv3Message(
+            HeaderData(
+                0x7090fb77,
+                1500,
+                MessageFlags(authPriv, False),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind(
+                        "1.3.6.1.2.1.1.0",
+                        OctetString(b"This string describes my system"),
+                    ),
+                    requestID=0x26cf6e26,
+                ),
+                b'remoteEngineID',
+            ),
+            securityParameters=OctetString(bytes.fromhex(re.sub("\n", "", """
+                30 2b
+                   04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
+                   02 01 1d
+                   02 02 03 c2
+                   04 08 73 6f 6d 65 55 73 65 72
+                   04 02 23 19
+                   04 04 73 61 6c 74
+            """))),
+        )
+
+    def testInvalidSignature(self):
+        self.assertRaisesRegex(
+            IncomingMessageError,
+            "[Ss]ignature",
+            self.usm.processIncoming,
+            self.inauthentic,
         )
 
 if __name__ == '__main__':
