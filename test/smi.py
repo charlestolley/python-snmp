@@ -96,7 +96,7 @@ class Gauge32Test(unittest.TestCase):
         )
 
     def testUnsigned32(self):
-        self.assertIs(Unsigned32, Gauge32)
+        self.assertEqual(Unsigned32.TYPE, Gauge32.TYPE)
 
 class TimeTicksTest(unittest.TestCase):
     def setUp(self):

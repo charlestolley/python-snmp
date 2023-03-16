@@ -49,11 +49,12 @@ class IpAddress(OctetString):
 class Counter32(Unsigned):
     TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 1)
 
-@final
 class Unsigned32(Unsigned):
     TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 2)
 
-Gauge32 = Unsigned32
+@final
+class Gauge32(Unsigned32):
+    pass
 
 @final
 class TimeTicks(Unsigned):

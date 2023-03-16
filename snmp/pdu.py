@@ -43,7 +43,7 @@ class VarBind(Sequence):
             OID,
             IpAddress,
             Counter32,
-            Unsigned32,
+            Gauge32,
             TimeTicks,
             Opaque,
             Counter64,
