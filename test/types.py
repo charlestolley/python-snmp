@@ -391,6 +391,18 @@ class OIDTest(unittest.TestCase):
         self.assertEqual(nextHopType, Integer(1))
         self.assertEqual(nextHop, OctetString(b"\x00\x00\x00\x00"))
 
+    def testStartsWith(self):
+        sysDescr = OID(1, 3, 6, 1, 2, 1, 1, 1)
+        self.assertTrue(sysDescr.startswith(self.internet))
+
+    def testDoesNotStartWith(self):
+        sysDescr = OID(1, 3, 6, 1, 2, 1, 1, 1)
+        self.assertFalse(sysDescr.startswith(OID(1, 2, 3, 4)))
+
+    def testLongPrefix(self):
+        sysDescr = OID(1, 3, 6, 1, 2, 1, 1, 1)
+        self.assertFalse(self.internet.startswith(sysDescr))
+
     def testDecodeEmpty(self):
         data = encode(OBJECT_IDENTIFIER, b"")
         self.assertRaises(ParseError, OID.decode, data)
