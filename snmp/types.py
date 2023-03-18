@@ -416,6 +416,9 @@ class OID(Primitive):
     ) -> TPrimitive:
         return self.extractIndex(prefix, cls)[0]
 
+    def startswith(self, prefix: "OID") -> bool:
+        return prefix.nums == self.nums[:len(prefix)]
+
     def equals(self, other: "OID") -> bool:
         return self.nums == other.nums
 

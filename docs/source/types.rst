@@ -160,6 +160,12 @@ Data Types
       of only a single object. Where that method returns a tuple of length 1,
       this method returns the object directly.
 
+   .. method:: startswith(prefix)
+
+      Similar to :meth:`str.startswith`, this method checks whether an OID
+      begins with `prefix`, indicating that `prefix` represents a parent node
+      in the conceptual MIB tree.
+
 ``snmp.smi``
 ------------
 
