@@ -25,7 +25,7 @@
 
 .. class:: Engine( \
       defaultVersion=SNMPv3, \
-      defaultDomain=TransportDomain.UDP, \
+      defaultDomain=TransportDomain.UDP_IPv4, \
       defaultSecurityModel=SecurityModel.USM, \
       defaultCommunity=b"", \
       autowait=True, \
@@ -144,10 +144,10 @@
       defaults to the :class:`Engine`'s `defaultVersion`.
 
       The data type of `address` depends on the `domain` (which defaults to the
-      :class:`Engine`'s `defaultDomain`). For UDP over IPv4, it it expects a
-      :class:`str` containing an IPv4 address. If the remote engine is listening
+      :class:`Engine`'s `defaultDomain`). For UDP over IP, it it expects a
+      :class:`str` containing the IP address. If the remote engine is listening
       on a non-standard port, this argument also accepts a 2-tuple, containing
-      the IPv4 address and UDP port number.
+      the IP address and UDP port number.
 
       The `autowait` parameter assigns a default value for the `wait` parameter
       to the ``Manager``'s request methods. If not given, its value falls back
