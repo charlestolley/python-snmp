@@ -97,7 +97,10 @@ class Request(RequestHandle):
         if pdu is None:
             raise Timeout()
         else:
-            return pdu
+            if pdu.errorStatus:
+                raise ErrorResponse(pdu.errorStatus, pdu.errorIndex, self.pdu)
+            else:
+                return pdu
 
 class SNMPv1Manager:
     def __init__(self, dispatcher, locator, community, autowait=True):

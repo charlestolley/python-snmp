@@ -7,11 +7,13 @@ __all__ = [
     "ResponsePDU", "ReportPDU",
     "InformRequestPDU", "TrapPDU", "SNMPv2TrapPDU",
     "Read", "Write", "Response", "Internal", "Notification", "Confirmed",
+    "ErrorStatus", "ErrorResponse",
 ]
 
 import enum
 
 from snmp.ber import *
+from snmp.exception import *
 from snmp.smi import *
 from snmp.types import *
 from snmp.typing import *
@@ -142,32 +144,32 @@ class VarBindList(Sequence):
 
         return cls(*objects)
 
-class PDU(Constructed):
-    class ErrorStatus(enum.IntEnum):
-        noError             = 0
-        tooBig              = 1
-        noSuchName          = 2
-        badValue            = 3
-        readOnly            = 4
-        genErr              = 5
-        noAccess            = 6
-        wrongType           = 7
-        wrongLength         = 8
-        wrongEncoding       = 9
-        wrongValue          = 10
-        noCreation          = 11
-        inconsistentValue   = 12
-        resourceUnavailable = 13
-        commitFailed        = 14
-        undoFailed          = 15
-        authorizationError  = 16
-        notWritable         = 17
-        inconsistentName    = 18
+class ErrorStatus(enum.IntEnum):
+    noError             = 0
+    tooBig              = 1
+    noSuchName          = 2
+    badValue            = 3
+    readOnly            = 4
+    genErr              = 5
+    noAccess            = 6
+    wrongType           = 7
+    wrongLength         = 8
+    wrongEncoding       = 9
+    wrongValue          = 10
+    noCreation          = 11
+    inconsistentValue   = 12
+    resourceUnavailable = 13
+    commitFailed        = 14
+    undoFailed          = 15
+    authorizationError  = 16
+    notWritable         = 17
+    inconsistentName    = 18
 
+class PDU(Constructed):
     def __init__(self,
         *args: Union[str, OID, VarBind],
         requestID: int = 0,
-        errorStatus: int = 0,
+        errorStatus: ErrorStatus = ErrorStatus.noError,
         errorIndex: int = 0,
         variableBindings: Optional[VarBindList] = None,
     ) -> None:
@@ -219,7 +221,7 @@ class PDU(Constructed):
         )).format(
             indent, typename(self),
             subindent, self.requestID,
-            subindent, self.errorStatus,
+            subindent, self.errorStatus.name,
             subindent, self.errorIndex,
             subindent, self.variableBindings.toString(subindent + tab)
         )
@@ -236,19 +238,19 @@ class PDU(Constructed):
         errorIndex = _errorIndex.value
 
         try:
-            errorStatus = cls.ErrorStatus(errorStatus)
+            errorStatus = ErrorStatus(errorStatus)
         except ValueError as err:
             msg = "Invalid errorStatus: {}"
             raise ParseError(msg.format(errorStatus)) from err
 
-        if errorStatus != cls.ErrorStatus.noError:
-            if errorIndex < 0 or errorIndex > len(variableBindings):
-                msg = "Error index {} not valid with {} variable bindings"
-                raise ParseError(msg.format(errorIndex, len(variableBindings)))
+        if (errorStatus != ErrorStatus.noError
+        and errorIndex < 0 or errorIndex > len(variableBindings)):
+            msg = "Error index {} not valid with {} variable bindings"
+            raise ParseError(msg.format(errorIndex, len(variableBindings)))
 
         return cls(
             requestID=requestID,
-            errorStatus=errorStatus,
+            errorStatus=ErrorStatus(errorStatus),
             errorIndex=errorIndex,
             variableBindings=variableBindings,
         )
@@ -385,3 +387,16 @@ class SNMPv2TrapPDU(PDU, Notification):
 @final
 class ReportPDU(PDU, Response, Internal):
     TYPE = Identifier(Class.CONTEXT_SPECIFIC, Structure.CONSTRUCTED, 8)
+
+class ErrorResponse(SNMPException):
+    def __init__(self,
+        status: ErrorStatus,
+        index: int,
+        request: "PDU",
+    ) -> None:
+        if index:
+            note = f": {request.variableBindings[index-1].name}"
+        else:
+            note = ""
+
+        super().__init__(f"{status.name}{note}\n{request.toString(1)}")

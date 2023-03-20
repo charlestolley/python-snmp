@@ -395,7 +395,15 @@ class Request:
                     break
 
             if self.event.is_set() and self.response is not None:
-                return self.response.scopedPDU.pdu
+                pdu = self.response.scopedPDU.pdu
+                if pdu.errorStatus:
+                    raise ErrorResponse(
+                        pdu.errorStatus,
+                        pdu.errorIndex,
+                        self.pdu,
+                    )
+                else:
+                    return pdu
             else:
                 if self.exception is not None:
                     raise self.exception
