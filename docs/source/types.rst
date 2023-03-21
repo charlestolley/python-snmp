@@ -140,7 +140,7 @@ Data Types
       :rfc:`2578#section-7.7`, and appends the encoding(s) to the end of the
       OID, returning a new object.
 
-   .. method:: extractIndex(prefix, * types)
+   .. method:: extractIndex(prefix, * types, implied=False)
 
       This method is the reverse of :meth:`appendIndex`. The `prefix` argument
       is an OID referring to an object definition in the MIB, and the `types`
@@ -154,7 +154,12 @@ Data Types
       :class:`snmp.types.OID.IndexDecodeError`. The index is returned as a tuple
       whose length matches the length of `types`.
 
-   .. method:: getIndex(prefix, cls=Integer)
+      The 'implied' argument affects the decoding of :class:`OctetString` and
+      :class:`OID` objects. The encoding normally begins with a length byte, but
+      the MIB may mark the final object in an ``INDEX`` with the ``IMPLIED``
+      keyword, indicating that the encoding occupies the remainder of the OID.
+
+   .. method:: getIndex(prefix, cls=Integer, implied=False)
 
       This method wraps a call to :meth:`extractIndex` for an index consisting
       of only a single object. Where that method returns a tuple of length 1,
