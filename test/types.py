@@ -294,6 +294,12 @@ class OIDTest(unittest.TestCase):
         result = oid.getIndex(self.internet, OctetString)
         self.assertEqual(result, OctetString(data))
 
+    def testIndexImpliedOctetString(self):
+        data = b"test string"
+        oid = self.internet.extend(*data)
+        result = oid.getIndex(self.internet, OctetString, implied=True)
+        self.assertEqual(result, OctetString(data))
+
     def testIndexIncompleteOctetString(self):
         data = b"test string"
         oid = self.internet.extend(len(data) + 1, *data)
@@ -319,6 +325,11 @@ class OIDTest(unittest.TestCase):
     def testIndexOID(self):
         oid = self.internet.extend(len(self.internet), *self.internet)
         self.assertEqual(oid.getIndex(self.internet, OID), self.internet)
+
+    def testIndexImpliedOID(self):
+        oid = self.internet.extend(*self.internet)
+        index = oid.getIndex(self.internet, OID, implied=True)
+        self.assertEqual(index, self.internet)
 
     def testIndexIncompleteOID(self):
         oid = self.internet.extend(len(self.internet) + 1, *self.internet)

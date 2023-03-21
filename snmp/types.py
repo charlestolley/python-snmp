@@ -98,6 +98,7 @@ class Primitive(Asn1Encodable):
     def decodeFromOID(
         cls: Type[TPrimitive],
         nums: Iterator[int],
+        implied: bool = False,
     ) -> TPrimitive:
         ...
 
@@ -126,7 +127,11 @@ class Integer(Primitive):
         return value.bit_length() <= cls.BITS - cls.SIGNED + (value < 0)
 
     @classmethod
-    def decodeFromOID(cls: Type[TInteger], nums: Iterator[int]) -> TInteger:
+    def decodeFromOID(
+        cls: Type[TInteger],
+        nums: Iterator[int],
+        implied: bool = False,
+    ) -> TInteger:
         value = next(nums)
 
         if not cls.inRange(value):
@@ -179,19 +184,27 @@ class OctetString(Primitive):
     def decodeFromOID(
         cls: Type[TOctetString],
         nums: Iterator[int],
+        implied: bool = False,
     ) -> TOctetString:
-        if cls.MIN_SIZE == cls.MAX_SIZE:
+        if implied:
+            length = OID.MAXLEN
+        elif cls.MIN_SIZE == cls.MAX_SIZE:
             length = cls.MAX_SIZE
         else:
             length = next(nums)
 
-        data = bytearray(length)
-
-        for i in range(length):
-            byte = next(nums)
+        data = bytearray()
+        while len(data) < length:
+            try:
+                byte = next(nums)
+            except StopIteration:
+                if implied:
+                    break
+                else:
+                    raise
 
             try:
-                data[i] = byte
+                data.append(byte)
             except ValueError as err:
                 errmsg = "Sub-identifier is too large for type \"{}\": {}"
                 raise OID.IndexDecodeError(
@@ -245,7 +258,11 @@ class Null(Primitive):
         return oid
 
     @classmethod
-    def decodeFromOID(cls: Type[TNull], nums: Iterator[int]) -> TNull:
+    def decodeFromOID(
+        cls: Type[TNull],
+        nums: Iterator[int],
+        implied: bool = False,
+    ) -> TNull:
         return cls()
 
     @classmethod
@@ -326,9 +343,10 @@ class OID(Primitive):
     def tryDecode(self,
         nums: Iterator[int],
         cls: Type[TPrimitive],
+        implied: bool = False,
     ) -> TPrimitive:
         try:
-            return cls.decodeFromOID(nums)
+            return cls.decodeFromOID(nums, implied=implied)
         except StopIteration as err:
             errmsg = f"Incomplete {typename(cls)} index"
             raise OID.IndexDecodeError(errmsg) from err
@@ -388,6 +406,7 @@ class OID(Primitive):
     def extractIndex(self,
         prefix: "OID",
         *types: Type[TPrimitive],
+        implied: bool = False,
     ) -> Tuple[TPrimitive, ...]:
         if len(self.nums) < len(prefix):
             errmsg = "\"{}\" is shorter than the given prefix \"{}\""
@@ -398,7 +417,13 @@ class OID(Primitive):
             raise self.BadPrefix(errmsg.format(self, prefix))
 
         nums = iter(self.nums[len(prefix):])
-        index = tuple(self.tryDecode(nums, cls) for cls in types)
+
+        index = []
+        for cls in types[:-1]:
+            index.append(self.tryDecode(nums, cls))
+
+        for cls in types[-1:]:
+            index.append(self.tryDecode(nums, cls, implied=implied))
 
         try:
             next(nums)
@@ -408,13 +433,14 @@ class OID(Primitive):
             errmsg = "Not all sub-identifiers were consumed"
             raise self.IndexDecodeError(errmsg)
 
-        return index
+        return tuple(index)
 
     def getIndex(self,
         prefix: "OID",
         cls: Type[TPrimitive] = Integer,
+        implied: bool = False,
     ) -> TPrimitive:
-        return self.extractIndex(prefix, cls)[0]
+        return self.extractIndex(prefix, cls, implied=implied)[0]
 
     def startswith(self, prefix: "OID") -> bool:
         return prefix.nums == self.nums[:len(prefix)]
@@ -426,12 +452,25 @@ class OID(Primitive):
         return oid.extend(len(self.nums), *self.nums)
 
     @classmethod
-    def decodeFromOID(cls: Type[TOID], nums: Iterator[int]) -> TOID:
-        length = next(nums)
-        subids = [0] * length
+    def decodeFromOID(
+        cls: Type[TOID],
+        nums: Iterator[int],
+        implied: bool = False,
+    ) -> TOID:
+        if implied:
+            length = OID.MAXLEN
+        else:
+            length = next(nums)
 
+        subids = []
         for i in range(length):
-            subids[i] = next(nums)
+            try:
+                subids.append(next(nums))
+            except StopIteration:
+                if implied:
+                    break
+                else:
+                    raise
 
         return cls(*subids)
 
