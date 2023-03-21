@@ -100,7 +100,7 @@ class Request(RequestHandle):
             if pdu.errorStatus:
                 raise ErrorResponse(pdu.errorStatus, pdu.errorIndex, self.pdu)
             else:
-                return pdu
+                return pdu.variableBindings
 
 class SNMPv1Manager:
     def __init__(self, dispatcher, locator, community, autowait=True):

@@ -403,7 +403,7 @@ class Request:
                         self.pdu,
                     )
                 else:
-                    return pdu
+                    return pdu.variableBindings
             else:
                 if self.exception is not None:
                     raise self.exception
