@@ -129,7 +129,7 @@ Data Types
 
       Append the given sub-identifiers to the OID and return it as a new object.
 
-   .. method:: appendIndex(* index)
+   .. method:: appendIndex(* index, implied=False)
 
       Every SNMP object is identified by an OID with a format of
       `<prefix>.<index>`, where the prefix refers to an object type definied in
@@ -138,7 +138,8 @@ Data Types
 
       This method encodes the given object(s), as outlined in
       :rfc:`2578#section-7.7`, and appends the encoding(s) to the end of the
-      OID, returning a new object.
+      OID, returning a new object. For an ``INDEX`` with the ``IMPLIED`` keyword
+      attached to the final object, set the `implied` parameter to ``True``.
 
    .. method:: extractIndex(prefix, * types, implied=False)
 

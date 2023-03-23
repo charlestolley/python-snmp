@@ -256,12 +256,20 @@ class OIDTest(unittest.TestCase):
         oid = self.internet.appendIndex(OctetString(b"index"))
         self.assertEqual(oid, OID(1, 3, 6, 1, 5, 0x69, 0x6e, 0x64, 0x65, 0x78))
 
+    def testAppendImpliedOctetString(self):
+        oid = self.internet.appendIndex(OctetString(b"index"), implied=True)
+        self.assertEqual(oid, OID(1, 3, 6, 1, 0x69, 0x6e, 0x64, 0x65, 0x78))
+
     def testAppendNull(self):
         self.assertEqual(self.internet.appendIndex(Null()), self.internet)
 
     def testAppendOID(self):
         oid = self.internet.appendIndex(self.internet)
         self.assertEqual(oid, OID(1, 3, 6, 1, 4, 1, 3, 6, 1))
+
+    def testAppendImpliedOID(self):
+        oid = self.internet.appendIndex(self.internet, implied=True)
+        self.assertEqual(oid, OID(1, 3, 6, 1, 1, 3, 6, 1))
 
     def testAppendMany(self):
         oid = self.internet.appendIndex(Integer(42), OctetString(b"Robinson"))

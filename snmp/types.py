@@ -90,7 +90,7 @@ class Asn1Encodable:
 
 class Primitive(Asn1Encodable):
     @abstractmethod
-    def appendToOID(self, oid: TOID) -> TOID:
+    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
         ...
 
     @classmethod
@@ -118,7 +118,7 @@ class Integer(Primitive):
     def equals(self, other: "Integer") -> bool:
         return self.value == other.value
 
-    def appendToOID(self, oid: TOID) -> TOID:
+    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
         return oid.extend(self.value)
 
     @classmethod
@@ -177,8 +177,11 @@ class OctetString(Primitive):
     def equals(self, other: "OctetString") -> bool:
         return self.data == other.data
 
-    def appendToOID(self, oid: TOID) -> TOID:
-        return oid.extend(len(self.data), *self.data)
+    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+        if not implied:
+            oid = oid.extend(len(self.data))
+
+        return oid.extend(*self.data)
 
     @classmethod
     def decodeFromOID(
@@ -254,7 +257,7 @@ class Null(Primitive):
     def equals(self, other: "Null") -> bool:
         return True
 
-    def appendToOID(self, oid: TOID) -> TOID:
+    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
         return oid
 
     @classmethod
@@ -390,10 +393,16 @@ class OID(Primitive):
 
         return cls(*nums)
 
-    def appendIndex(self: TOID, *index: Primitive) -> TOID:
+    def appendIndex(self: TOID,
+        *index: Primitive,
+        implied: bool = False,
+    ) -> TOID:
         oid = self
-        for obj in index:
+        for obj in index[:-1]:
             oid = obj.appendToOID(oid)
+
+        for obj in index[-1:]:
+            oid = obj.appendToOID(oid, implied=implied)
 
         return oid
 
@@ -448,8 +457,11 @@ class OID(Primitive):
     def equals(self, other: "OID") -> bool:
         return self.nums == other.nums
 
-    def appendToOID(self, oid: TOID) -> TOID:
-        return oid.extend(len(self.nums), *self.nums)
+    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+        if not implied:
+            oid = oid.extend(len(self.nums))
+
+        return oid.extend(*self.nums)
 
     @classmethod
     def decodeFromOID(
