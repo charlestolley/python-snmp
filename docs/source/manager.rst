@@ -39,13 +39,14 @@ expects a ``bytes`` object, not a ``str``.
 
 The `wait` parameter determines the control flow after the request has been
 sent. If `wait` is ``True`` (the default), then the method will block until a
-response arrives, and then return a :class:`snmp.pdu.ResponsePDU` object.
-However, this approach limits an application to a single outstanding request at
+response arrives. When the response _does_ arrive, the method will either return
+a :class:`snmp.pdu.VarBindList`, or raise an :class:`snmp.pdu.ErrorResponse`.
+This blocking approach limits an application to a single outstanding request at
 a time. In the case that `wait` is ``False``, the method will immediately return
 a "request handle". When your application is ready to process the response, call
 the handle's ``wait()`` method, which will block until the response arrives, and
-then return it as a :class:`snmp.pdu.ResponsePDU`. Note that this means that the
-line ``response = manager.get(oid, wait=True)`` behaves identically to the line
+then return or raise, as alredy described. Note that this means that the line
+``response = manager.get(oid, wait=True)`` behaves identically to the line
 ``response = manager.get(oid, wait=False).wait()``. The default value for `wait`
 is configurable with the `autowait` parameter to both the
 :meth:`snmp.Engine.Manager` method and the :class:`snmp.Engine` constructor.
