@@ -28,6 +28,7 @@
       defaultDomain=TransportDomain.UDP_IPv4, \
       defaultSecurityModel=SecurityModel.USM, \
       defaultCommunity=b"", \
+      msgMaxSize=None, \
       autowait=True, \
    )
    :canonical: snmp.engine.Engine
@@ -40,10 +41,12 @@
    :class:`Engine`'s useful life. The latter approach is most useful for
    interactive settings, such as a Python interactive shell session.
 
-   The arguments to the constructor configure the default argument values for
-   the :meth:`Manager` factory method. `defaultVersion` is the only positional
-   argument. All other arguments should be passed by keyword, as their ordering
-   is subject to change in future library versions.
+   The `msgMaxSize` parameter configures the maximum message size that this
+   :class:`Engine` is capable of receiving. The default value depends on the
+   underlying transport implementation. The other parameters configure the
+   default argument to the :meth:`Manager` factory method. `defaultVersion` is
+   the only positional parameter. All other parameters should be passed by
+   keyword, as their ordering is subject to change in future library versions.
 
    .. note::
 
