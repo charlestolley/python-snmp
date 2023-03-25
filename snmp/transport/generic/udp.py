@@ -10,8 +10,8 @@ from snmp.typing import *
 STOPMSG = bytes(1)
 
 class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
-    def __init__(self, maxSize: int = 1472) -> None:
-        self.maxSize = maxSize
+    def __init__(self, recvSize: int = 1472) -> None:
+        self.recvSize = recvSize
         self.r = None
         self.w = None
         self.sockets: Dict[int, UdpSocket] = {}
@@ -50,7 +50,7 @@ class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
                         data, addr = self.r.recvfrom(len(STOPMSG))
                         done = addr == self.w.getsockname() and data == STOPMSG
                 else:
-                    addr, data = sock.receive(self.maxSize)
+                    addr, data = sock.receive(self.recvSize)
                     listener.hear(sock, addr, data)
 
     def stop(self) -> None:

@@ -28,7 +28,7 @@
       defaultDomain=TransportDomain.UDP_IPv4, \
       defaultSecurityModel=SecurityModel.USM, \
       defaultCommunity=b"", \
-      msgMaxSize=None, \
+      msgMaxSize=1472, \
       autowait=True, \
    )
    :canonical: snmp.engine.Engine
@@ -42,9 +42,8 @@
    interactive settings, such as a Python interactive shell session.
 
    The `msgMaxSize` parameter configures the maximum message size that this
-   :class:`Engine` is capable of receiving. The default value depends on the
-   underlying transport implementation. The other parameters configure the
-   default argument to the :meth:`Manager` factory method. `defaultVersion` is
+   :class:`Engine` is capable of receiving. The other parameters configure the
+   default arguments to the :meth:`Manager` factory method. `defaultVersion` is
    the only positional parameter. All other parameters should be passed by
    keyword, as their ordering is subject to change in future library versions.
 

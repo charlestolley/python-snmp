@@ -404,7 +404,9 @@ class CacheEntry:
 class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
     VERSION = MessageProcessingModel.SNMPv3
 
-    def __init__(self) -> None:
+    def __init__(self, msgMaxSize: int) -> None:
+        self.msgMaxSize = msgMaxSize
+
         self.cacheLock = threading.Lock()
         self.generator = self.newGenerator()
         self.outstanding: Dict[int, CacheEntry] = {}
@@ -535,7 +537,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
         handle.addCallback(self.uncache, msgID)
 
         flags = MessageFlags(securityLevel, isinstance(pdu, Confirmed))
-        header = HeaderData(msgID, 1472, flags, securityModel)
+        header = HeaderData(msgID, self.msgMaxSize, flags, securityModel)
         scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
         message = SNMPv3Message(header, scopedPDU)
 

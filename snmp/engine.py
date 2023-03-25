@@ -24,7 +24,7 @@ class Engine:
         defaultDomain=TransportDomain.UDP_IPv4,
         defaultSecurityModel=SecurityModel.USM,
         defaultCommunity=b"",
-        msgMaxSize=None,
+        msgMaxSize=1472,
         autowait=True,
     ):
         # Read-only variables
@@ -34,12 +34,8 @@ class Engine:
         self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
-        if msgMaxSize is None:
-            multiplexor = UdpMultiplexor()
-        else:
-            multiplexor = UdpMultiplexor(msgMaxSize)
-
-        self.dispatcher = Dispatcher(multiplexor)
+        self.msgMaxSize = msgMaxSize
+        self.dispatcher = Dispatcher(UdpMultiplexor(self.msgMaxSize))
         self.transports = set()
 
         self.mpv1 = None
@@ -111,7 +107,7 @@ class Engine:
             securityModel = SecurityModel(securityModel)
 
         if self.mpv3 is None:
-            self.mpv3 = SNMPv3MessageProcessor()
+            self.mpv3 = SNMPv3MessageProcessor(self.msgMaxSize)
             self.dispatcher.addMessageProcessor(self.mpv3)
 
         if securityModel == SecurityModel.USM:

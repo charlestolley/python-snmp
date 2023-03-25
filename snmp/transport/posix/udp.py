@@ -8,8 +8,8 @@ from snmp.transport.udp import UdpSocket
 from snmp.typing import *
 
 class PosixUdpMultiplexor(TransportMultiplexor[UdpSocket]):
-    def __init__(self, maxSize: int = 1472) -> None:
-        self.maxSize = maxSize
+    def __init__(self, recvSize: int = 1472) -> None:
+        self.recvSize = recvSize
         self.r, self.w = os.pipe()
         self.sockets: Dict[int, UdpSocket] = {}
 
@@ -34,7 +34,7 @@ class PosixUdpMultiplexor(TransportMultiplexor[UdpSocket]):
                         os.read(fd, 1)
                         done = True
                 else:
-                    addr, data = sock.receive(self.maxSize)
+                    addr, data = sock.receive(self.recvSize)
                     listener.hear(sock, addr, data)
 
     def stop(self) -> None:
