@@ -33,7 +33,7 @@ class Transport(Generic[T]):
     @abstractmethod
     def normalizeAddress(cls,
         address: Any = None,
-        usage: AddressUsage = None,
+        usage: Optional[AddressUsage] = None,
     ) -> T:
         ...
 

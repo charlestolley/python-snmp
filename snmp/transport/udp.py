@@ -21,7 +21,7 @@ class UdpSocket(Transport[Tuple[str, int]]):
     @classmethod
     def normalizeAddress(cls,
         address: Any = None,
-        usage: AddressUsage = None,
+        usage: Optional[AddressUsage] = None,
     ) -> Tuple[str, int]:
         if isinstance(address, tuple):
             addr, port = address
