@@ -413,7 +413,7 @@ class Request:
             self.close()
 
 class SNMPv3UsmManager:
-    def __init__(self, dispatcher, usm, locator, namespace,
+    def __init__(self, dispatcher, usm, channel, namespace,
             defaultUserName, defaultSecurityLevel,
             engineID=None, autowait=True):
 
@@ -421,7 +421,7 @@ class SNMPv3UsmManager:
         self._engineID = None
 
         # Read-only fields
-        self.locator = locator
+        self.channel = channel
         self.namespace = namespace
         self.defaultUserName = defaultUserName
         self.defaultSecurityLevel = defaultSecurityLevel
@@ -575,7 +575,7 @@ class SNMPv3UsmManager:
 
     def sendPdu(self, pdu, handle, engineID, user, securityLevel):
         self.dispatcher.sendPdu(
-            self.locator,
+            self.channel,
             MessageProcessingModel.SNMPv3,
             pdu,
             handle,

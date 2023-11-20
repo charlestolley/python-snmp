@@ -16,7 +16,6 @@ class Dispatcher(TransportListener):
         self.lock = threading.Lock()
         self.msgProcessors = {}
 
-        self.transports = {}
         self.multiplexor = multiplexor
         self.thread = None
 
@@ -26,12 +25,6 @@ class Dispatcher(TransportListener):
 
     def connectTransport(self, transport):
         domain = transport.DOMAIN
-        if domain in self.transports:
-            if self.transports.get(domain) is transport:
-                return
-
-            errmsg = "This {} instance is already connected to {}"
-            raise ValueError(errmsg.format(typename(self), str(domain)))
 
         if self.thread is not None:
             self.multiplexor.stop()
@@ -44,7 +37,6 @@ class Dispatcher(TransportListener):
         )
 
         self.thread.start()
-        self.transports[domain] = transport
 
     def hear(self, transport, address, data):
         try:
@@ -70,13 +62,7 @@ class Dispatcher(TransportListener):
         except Exception:
             pass
 
-    def sendPdu(self, locator, mpm, pdu, handle, *args, **kwargs):
-        try:
-            transport = self.transports[locator.domain]
-        except KeyError as err:
-            domain = str(TransportDomain(locator.domain))
-            raise ValueError("{} is not enabled".format(domain)) from err
-
+    def sendPdu(self, channel, mpm, pdu, handle, *args, **kwargs):
         with self.lock:
             try:
                 mp = self.msgProcessors[mpm]
@@ -85,7 +71,7 @@ class Dispatcher(TransportListener):
                 raise ValueError("{} is not enabled".format(mpm)) from err
 
         msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
-        transport.send(locator.address, msg)
+        channel.send(msg)
 
     def shutdown(self):
         if self.thread is not None:
@@ -93,5 +79,4 @@ class Dispatcher(TransportListener):
             self.thread.join()
 
         self.multiplexor.close()
-        self.transports.clear()
         self.thread = None

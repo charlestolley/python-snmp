@@ -11,15 +11,38 @@ from snmp.typing import *
 
 class UdpSocket(Transport[Tuple[str, int]]):
     DOMAIN: ClassVar[TransportDomain]
-    DEFAULT_PORT: ClassVar[int] = 161
+
+    DEFAULT_PORT: ClassVar[Mapping[AddressUsage, int]] = {
+        AddressUsage.LISTENER: 161,
+        AddressUsage.SENDER: 0,
+        AddressUsage.TRAP_LISTENER: 162,
+    }
 
     @classmethod
-    def normalizeAddress(cls, address: Any) -> Tuple[str, int]:
+    def normalizeAddress(cls,
+        address: Any = None,
+        usage: AddressUsage = None,
+    ) -> Tuple[str, int]:
         if isinstance(address, tuple):
             addr, port = address
         else:
-            addr = address
-            port = cls.DEFAULT_PORT
+            if address is None:
+                addr = cls.DOMAIN.default_address
+            else:
+                addr = address
+
+            if usage is None:
+                port = 0
+            else:
+                port = cls.DEFAULT_PORT[usage]
+
+        permissive = usage not in (
+            AddressUsage.LISTENER,
+            AddressUsage.TRAP_LISTENER,
+        )
+
+        if addr == "" and permissive:
+            addr = cls.DOMAIN.default_address
 
         try:
             _ = inet_pton(cls.DOMAIN.address_family, addr)
@@ -30,7 +53,7 @@ class UdpSocket(Transport[Tuple[str, int]]):
         except TypeError as err:
             raise TypeError(f"Address must be a str: {addr}") from err
 
-        if port <= 0 or port > 0xffff:
+        if port < 0 or port > 0xffff or (port == 0 and not permissive):
             errmsg = "Invalid UDP port number: {}"
             raise ValueError(errmsg.format(port))
 

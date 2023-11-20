@@ -103,9 +103,9 @@ class Request(RequestHandle):
                 return pdu.variableBindings
 
 class SNMPv1Manager:
-    def __init__(self, dispatcher, locator, community, autowait=True):
+    def __init__(self, dispatcher, channel, community, autowait=True):
         self.autowait = autowait
-        self.locator = locator
+        self.channel = channel
 
         self.dispatcher = dispatcher
         self.defaultCommunity = community
@@ -136,7 +136,7 @@ class SNMPv1Manager:
 
     def sendPdu(self, pdu, handle, community):
         self.dispatcher.sendPdu(
-            self.locator,
+            self.channel,
             MessageProcessingModel.SNMPv1,
             pdu,
             handle,

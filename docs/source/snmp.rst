@@ -125,6 +125,7 @@
          address, \
          version=None, \
          domain=None, \
+         localAddress=None, \
          autowait=None, \
          ** kwargs, \
       )
@@ -156,9 +157,9 @@
       on the `autowait` parameter provided in the :class:`Engine` constructor.
       See the :doc:`manager` page for an explanation of the `wait` parameter.
 
-   .. method:: Manager(address, version=SNMPv3, domain=None, autowait=None, \
-      engineID=None, securityModel=None, defaultSecurityLevel=None, \
-      defaultUserName=None, namespace="")
+   .. method:: Manager(address, version=SNMPv3, domain=None, \
+      localAddress=None, autowait=None, engineID=None, securityModel=None, \
+      defaultSecurityLevel=None, defaultUserName=None, namespace="")
       :noindex:
 
       .. note::
@@ -192,8 +193,8 @@
       the `namespace` parameter when you called ``Engine.usm.addUser()``, then
       you don't need it here.
 
-   .. method:: Manager(address, version=SNMPv2c, domain=None, autowait=None, \
-      community=None)
+   .. method:: Manager(address, version=SNMPv2c, domain=None, \
+      localAddress=None, autowait=None, community=None)
       :noindex:
 
       The `community` parameter sets the default community for this ``Manager``.
@@ -201,8 +202,8 @@
       `defaultCommunity` argument to the constructor. Note that these parameters
       expect ``bytes`` objects, not ``str``\s.
 
-   .. method:: Manager(address, version=SNMPv1, domain=None, autowait=None, \
-      community=None)
+   .. method:: Manager(address, version=SNMPv1, domain=None, \
+      localAddress=None, autowait=None, community=None)
       :noindex:
 
       `community` behaves just as described under the ``SNMPv2c`` signature.

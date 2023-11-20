@@ -5,7 +5,7 @@ from threading import Event, Thread
 import time
 import unittest
 
-from snmp.transport import TransportListener
+from snmp.transport import AddressUsage, TransportListener
 from snmp.transport.udp import UdpIPv4Socket, UdpIPv6Socket, UdpMultiplexor
 
 from snmp.transport.generic.udp import (
@@ -21,12 +21,68 @@ def declareUdpSocketTest(socketType, testAddress):
         def testAddressWithoutPort(self):
             addr, port = socketType.normalizeAddress(self.addr)
             self.assertEqual(addr, self.addr)
+            self.assertEqual(port, 0)
+
+        def testDefaultListenPort(self):
+            addr, port = socketType.normalizeAddress(
+                self.addr,
+                AddressUsage.LISTENER,
+            )
+
+            self.assertEqual(addr, self.addr)
             self.assertEqual(port, 161)
+
+        def testDefaultSendPort(self):
+            addr, port = socketType.normalizeAddress(
+                self.addr,
+                AddressUsage.SENDER,
+            )
+
+            self.assertEqual(addr, self.addr)
+            self.assertEqual(port, 0)
+
+        def testDefaultTrapListenPort(self):
+            addr, port = socketType.normalizeAddress(
+                self.addr,
+                AddressUsage.TRAP_LISTENER,
+            )
+
+            self.assertEqual(addr, self.addr)
+            self.assertEqual(port, 162)
 
         def testNormalizeNoOp(self):
             addr, port = socketType.normalizeAddress((self.addr, self.port))
             self.assertEqual(addr, self.addr)
             self.assertEqual(port, self.port)
+
+        def testNoAddress(self):
+            addr, port = socketType.normalizeAddress()
+            self.assertEqual(addr, socketType.DOMAIN.default_address)
+            self.assertEqual(port, 0)
+
+        def testEmptyListenerAddress(self):
+            self.assertRaises(
+                ValueError,
+                socketType.normalizeAddress,
+                "",
+                AddressUsage.LISTENER
+            )
+
+        def testEmptySenderAddress(self):
+            addr, port = socketType.normalizeAddress(
+                "",
+                AddressUsage.SENDER,
+            )
+
+            self.assertEqual(addr, socketType.DOMAIN.default_address)
+
+        def testEmptyTrapListenerAddress(self):
+            self.assertRaises(
+                ValueError,
+                socketType.normalizeAddress,
+                "",
+                AddressUsage.TRAP_LISTENER
+            )
 
         def testInvalidAddress(self):
             addr = "invalid"
@@ -37,7 +93,7 @@ def declareUdpSocketTest(socketType, testAddress):
             self.assertRaises(ValueError, socketType.normalizeAddress, addr)
 
         def testInvalidAddressType(self):
-            addr = b"invalid"
+            addr = (b"invalid", 1)
             self.assertRaises(TypeError, socketType.normalizeAddress, addr)
 
         def testInvalidPortType(self):
