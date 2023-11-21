@@ -1,7 +1,9 @@
 __all__ = ["Aes128Cfb"]
 
 import os
-from snmp.openssl.aes import ffi, lib
+
+from Crypto.Cipher import AES
+
 from snmp.security.usm import PrivProtocol
 from snmp.security.usm.priv import DecryptionError
 from snmp.typing import *
@@ -21,10 +23,7 @@ class Aes128Cfb(PrivProtocol):
             errmsg = "key must be at least {} bytes long".format(self.KEYLEN)
             raise ValueError(errmsg)
 
-        self.key = ffi.new("AES_KEY*")
-        error = lib.AES_set_encrypt_key(key[:self.KEYLEN], self.BITS, self.key)
-        assert error == 0
-
+        self.key = key[:self.KEYLEN]
         self.salt = int.from_bytes(os.urandom(self.SALTLEN), self.BYTEORDER)
 
     def packIV(self, engineBoots: int, engineTime: int, salt: bytes) -> bytes:
@@ -37,13 +36,6 @@ class Aes128Cfb(PrivProtocol):
             salt
         ))
 
-    def compute(self, data: bytes, iv: bytes, mode: int) -> bytes:
-        n = ffi.new("int*", 0)
-        _iv = ffi.new("unsigned char[]", iv)
-        output = ffi.new("unsigned char[]", len(data))
-        lib.AES_cfb128_encrypt(data, output, len(data), self.key, _iv, n, mode)
-        return bytes(output)
-
     def decrypt(self,
         data: bytes,
         engineBoots: int,
@@ -55,7 +47,9 @@ class Aes128Cfb(PrivProtocol):
         except ValueError as err:
             raise DecryptionError(err) from err
 
-        return self.compute(data, iv, lib.AES_DECRYPT);
+        cipher = AES.new(self.key, AES.MODE_CFB, iv=iv, segment_size=self.BITS)
+
+        return cipher.decrypt(data)
 
     def encrypt(self,
         data: bytes,
@@ -63,6 +57,9 @@ class Aes128Cfb(PrivProtocol):
         engineTime: int,
     ) -> Tuple[bytes, bytes]:
         self.salt = (self.salt + 1) % self.SALTWRAP
+
         salt = self.salt.to_bytes(self.SALTLEN, self.BYTEORDER)
         iv = self.packIV(engineBoots, engineTime, salt)
-        return self.compute(data, iv, lib.AES_ENCRYPT), salt
+        cipher = AES.new(self.key, AES.MODE_CFB, iv=iv, segment_size=self.BITS)
+
+        return cipher.encrypt(data), salt
