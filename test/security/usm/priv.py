@@ -1,4 +1,4 @@
-__all__ = ["Aes128CfbTest", "DesCbcTest"]
+__all__ = ["AesCfb128Test", "DesCbcTest"]
 
 import re
 import unittest
@@ -12,10 +12,10 @@ try:
 except ImportError:
     __all__.clear()
 else:
-    class Aes128CfbTest(unittest.TestCase):
+    class AesCfb128Test(unittest.TestCase):
         def setUp(self):
             self.authProtocol = HmacSha
-            self.privProtocol = Aes128Cfb
+            self.privProtocol = AesCfb128
             self.engineID = bytes(11) + b"\x02"
             self.secret = b"maplesyrup"
 

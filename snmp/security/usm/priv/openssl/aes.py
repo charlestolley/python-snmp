@@ -1,12 +1,13 @@
-__all__ = ["Aes128Cfb"]
+__all__ = ["AesCfb128"]
 
 import os
+
 from snmp.openssl.aes import ffi, lib
 from snmp.security.usm import PrivProtocol
 from snmp.security.usm.priv import DecryptionError
 from snmp.typing import *
 
-class Aes128Cfb(PrivProtocol):
+class AesCfb128(PrivProtocol):
     BYTEORDER:  ClassVar[Literal["big"]] = "big"
 
     BITS:       ClassVar[int] = 128

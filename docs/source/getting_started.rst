@@ -45,13 +45,13 @@ the password for both. Here's what the call to ``addUser()`` would look like:
 
    from snmp import Engine
    from snmp.security.usm.auth import HmacSha256
-   from snmp.security.usm.priv import Aes128Cfb
+   from snmp.security.usm.priv import AesCfb128
 
    with Engine() as engine:
        engine.usm.addUser(
            "admin",
            authProtocol=HmacSha256,
-           privProtocol=Aes128Cfb,
+           privProtocol=AesCfb128,
            secret=b"maplesyrup",
        )
 
@@ -97,14 +97,14 @@ address.
 
    from snmp import Engine
    from snmp.security.usm.auth import HmacSha512
-   from snmp.security.usm.priv import Aes128Cfb
+   from snmp.security.usm.priv import AesCfb128
    
    with Engine() as engine:
        engine.usm.addUser(
            "authPrivUser",
            authProtocol=HmacSha512,
            authSecret=b"myauthphrase",
-           privProtocol=Aes128Cfb,
+           privProtocol=AesCfb128,
            privSecret=b"myprivphrase",
        )
    
