@@ -6,8 +6,8 @@ class DecryptionError(IncomingMessageError):
     pass
 
 packages = (
-    "pycryptodome",
     "openssl",
+    "pycryptodome",
 )
 
 modules = (
@@ -33,5 +33,5 @@ for package in packages:
         break
 else:
     raise ImportError(
-        "This installation does not include an encryption implementation"
+        f"{__name__} did not find any supported encryption library"
     )
