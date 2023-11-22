@@ -4,8 +4,7 @@ import os
 
 from Crypto.Cipher import AES
 
-from snmp.security.usm import PrivProtocol
-from snmp.security.usm.priv import DecryptionError
+from snmp.security.usm import DecryptionError, PrivProtocol
 from snmp.typing import *
 
 class AesCfb128(PrivProtocol):

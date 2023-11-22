@@ -3,8 +3,7 @@ __all__ = ["AesCfb128"]
 import os
 
 from snmp.openssl.aes import ffi, lib
-from snmp.security.usm import PrivProtocol
-from snmp.security.usm.priv import DecryptionError
+from snmp.security.usm import DecryptionError, PrivProtocol
 from snmp.typing import *
 
 class AesCfb128(PrivProtocol):
