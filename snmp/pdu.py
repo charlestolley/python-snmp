@@ -84,7 +84,11 @@ class VarBind(Sequence):
 
     @classmethod
     def deserialize(cls, data: Asn1Data) -> "VarBind":
-        name, data = OID.decode(data, leftovers=True)
+        name, data = cast(
+            Tuple[OID, subbytes],
+            OID.decode(data, leftovers=True),
+        )
+
         identifier, data = decode(data)
 
         try:
@@ -139,7 +143,11 @@ class VarBindList(Sequence):
         objects = []
 
         while data:
-            var, data = VarBind.decode(data, leftovers=True)
+            var, data = cast(
+                Tuple[VarBind, subbytes],
+                VarBind.decode(data, leftovers=True),
+            )
+
             objects.append(var)
 
         return cls(*objects)
@@ -228,9 +236,21 @@ class PDU(Constructed):
 
     @classmethod
     def deserialize(cls: Type[TPDU], data: Asn1Data) -> TPDU:
-        _requestID,   data = Integer.decode(data, leftovers=True)
-        _errorStatus, data = Integer.decode(data, leftovers=True)
-        _errorIndex,  data = Integer.decode(data, leftovers=True)
+        _requestID, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
+        _errorStatus, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
+        _errorIndex, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
         variableBindings = VarBindList.decode(data)
 
         requestID = _requestID.value
@@ -317,9 +337,21 @@ class BulkPDU(Constructed):
 
     @classmethod
     def deserialize(cls: Type[TBulkPDU], data: Asn1Data) -> TBulkPDU:
-        requestID,   data = Integer.decode(data, leftovers=True)
-        nonRepeaters, data = Integer.decode(data, leftovers=True)
-        maxRepetitions,  data = Integer.decode(data, leftovers=True)
+        requestID, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
+        nonRepeaters, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
+        maxRepetitions, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
         variableBindings = VarBindList.decode(data)
 
         if nonRepeaters.value < 0:

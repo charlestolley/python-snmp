@@ -39,9 +39,6 @@ class Asn1Encodable:
     def decode(
         cls: Type[TEncodable],
         data: Asn1Data,
-        leftovers: Literal[False] = False,
-        copy: bool = True,
-        **kwargs: Any,
     ) -> TEncodable:
         ...
 
@@ -50,10 +47,10 @@ class Asn1Encodable:
     def decode(
         cls: Type[TEncodable],
         data: Asn1Data,
-        leftovers: Literal[True],
+        leftovers: bool = False,
         copy: bool = True,
         **kwargs: Any,
-    ) -> Tuple[TEncodable, subbytes]:
+    ) -> Union[TEncodable, Tuple[TEncodable, subbytes]]:
         ...
 
     @classmethod
@@ -446,7 +443,7 @@ class OID(Primitive):
 
     def getIndex(self,
         prefix: "OID",
-        cls: Type[TPrimitive] = Integer,
+        cls: Type[TPrimitive] = Integer,    # type: ignore[assignment]
         implied: bool = False,
     ) -> TPrimitive:
         return self.extractIndex(prefix, cls, implied=implied)[0]

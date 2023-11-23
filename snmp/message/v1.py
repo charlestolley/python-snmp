@@ -76,7 +76,7 @@ class SNMPv1MessageProcessor(MessageProcessor[Message, PDU]):
     def prepareDataElements(self,
         msg: Asn1Data,
     ) -> Tuple[Message, RequestHandle[Message]]:
-        message = Message.decode(msg, types=pduTypes)
+        message = cast(Message, Message.decode(msg, types=pduTypes))
 
         if isinstance(message.pdu, ResponsePDU):
             try:
@@ -96,7 +96,7 @@ class SNMPv1MessageProcessor(MessageProcessor[Message, PDU]):
 
         return message, handle
 
-    def prepareOutgoingMessage(self,    # type: ignore[override]
+    def prepareOutgoingMessage(self,
         pdu: PDU,
         handle: RequestHandle[Message],
         community: bytes,

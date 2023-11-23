@@ -218,12 +218,12 @@ def decode(
 ) -> Tuple[bytes, subbytes]:
     ...
 
-def decode(
+def decode( # type: ignore[no-untyped-def]
     data: Asn1Data,
     expected: Optional[Identifier] = None,
     leftovers: bool = False,
     copy: bool = True,
-) -> Any:
+):
     """Extract the contents of an ASN.1 BER string.
 
     This function has several options for what it can return depending on

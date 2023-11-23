@@ -196,7 +196,7 @@ class Credentials:
     def __init__(self,
         authProtocol: Optional[Type[AuthProtocol]] = None,
         authSecret: Optional[bytes] = None,
-        privProtocol: Optional[PrivProtocol] = None,
+        privProtocol: Optional[Type[PrivProtocol]] = None,
         privSecret: Optional[bytes] = None,
         secret: bytes = b"",
     ) -> None:
@@ -389,12 +389,12 @@ class UsmSecurityParameters(Sequence):
         salt           = OctetString.decode(ptr)
 
         return cls(
-            cast(bytes, engineID.data),
+            engineID.data,
             engineBoots.value,
             engineTime.value,
-            cast(bytes, userName.data),
+            userName.data,
             signature.data,
-            cast(bytes, salt.data),
+            salt.data,
         )
 
     @classmethod
@@ -405,7 +405,7 @@ class UsmSecurityParameters(Sequence):
         _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
         ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
-        return ptr
+        return cast(subbytes, ptr)
 
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM
@@ -454,9 +454,9 @@ class UserBasedSecurityModule(SecurityModule):
 
     def addUser(self,
         userName: str,
-        authProtocol: Optional[AuthProtocol] = None,
+        authProtocol: Optional[Type[AuthProtocol]] = None,
         authSecret: Optional[bytes] = None,
-        privProtocol: Optional[PrivProtocol] = None,
+        privProtocol: Optional[Type[PrivProtocol]] = None,
         privSecret: Optional[bytes] = None,
         secret: bytes = b"",
         default: bool = False,
@@ -606,7 +606,7 @@ class UserBasedSecurityModule(SecurityModule):
                     raise InvalidSecurityLevel(errmsg)
 
                 ciphertext, msgPrivacyParameters = user.priv.encrypt(
-                    message.scopedPDU.encode(),
+                    cast(ScopedPDU, message.scopedPDU).encode(),
                     snmpEngineBoots,
                     snmpEngineTime,
                 )
@@ -728,7 +728,7 @@ class UserBasedSecurityModule(SecurityModule):
         if message.header.flags.privFlag:
             try:
                 message.plaintext = cast(PrivProtocol, user.priv).decrypt(
-                    cast(bytes, message.encryptedPDU.data),
+                    cast(bytes, cast(OctetString, message.encryptedPDU).data),
                     securityParameters.engineBoots,
                     securityParameters.engineTime,
                     securityParameters.salt,

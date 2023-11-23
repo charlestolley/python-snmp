@@ -26,7 +26,7 @@ class MessageVersionTest(unittest.TestCase):
 
     def testBadVersion(self):
         msg = bytes.fromhex("30 03 02 01 02")
-        self.assertRaises(ParseError, MessageVersion.decode, msg)
+        self.assertRaises(BadVersion, MessageVersion.decode, msg)
 
     def testEquality(self):
         msg = bytes.fromhex("30 03 02 01 03")
@@ -93,7 +93,7 @@ class MessageTest(unittest.TestCase):
         self.message.version = version
 
         self.assertRaises(
-            ParseError,
+            BadVersion,
             Message.decode,
             encoding,
             types=self.types,

@@ -177,10 +177,22 @@ class HeaderData(Sequence):
 
     @classmethod
     def deserialize(cls, data: Asn1Data) -> "HeaderData":
-        msgID,      data = Integer      .decode(data, leftovers=True)
-        msgMaxSize, data = Integer      .decode(data, leftovers=True)
-        msgFlags,   data = MessageFlags .decode(data, leftovers=True)
-        msgSecurityModel = Integer      .decode(data)
+        msgID, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
+        msgMaxSize, data = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
+
+        msgFlags, data = cast(
+            Tuple[MessageFlags, subbytes],
+            MessageFlags.decode(data, leftovers=True),
+        )
+
+        msgSecurityModel = Integer.decode(data)
 
         if msgID.value < 0:
             raise ParseError("msgID may not be less than 0")
@@ -250,8 +262,16 @@ class ScopedPDU(Sequence):
         if types is None:
             types = dict()
 
-        contextEngineID, data = OctetString.decode(data, leftovers=True)
-        contextName,     data = OctetString.decode(data, leftovers=True)
+        contextEngineID, data = cast(
+            Tuple[OctetString, subbytes],
+            OctetString.decode(data, leftovers=True),
+        )
+
+        contextName, data = cast(
+            Tuple[OctetString, subbytes],
+            OctetString.decode(data, leftovers=True),
+        )
+
         identifier = Identifier.decode(subbytes(data))
 
         try:
@@ -260,11 +280,12 @@ class ScopedPDU(Sequence):
             raise ParseError(f"Invalid PDU type: {identifier}") from err
 
         return cls(
-            pduType.decode(data),
+            cast(AnyPDU, pduType.decode(data)),
             contextEngineID = cast(bytes, contextEngineID.data),
             contextName     = cast(bytes, contextName.data),
         )
 
+TMessage = TypeVar("TMessage", bound="SNMPv3Message")
 class SNMPv3Message(Sequence):
     VERSION = MessageProcessingModel.SNMPv3
 
@@ -293,8 +314,10 @@ class SNMPv3Message(Sequence):
         yield self.securityParameters
 
         if self.header.flags.privFlag:
+            assert self.encryptedPDU is not None
             yield self.encryptedPDU
         else:
+            assert self.scopedPDU is not None
             yield self.scopedPDU
 
     def __len__(self) -> int:
@@ -322,6 +345,7 @@ class SNMPv3Message(Sequence):
         if self.header.flags.privFlag:
             payload = f"{subindent}Encrypted Data: {self.encryptedPDU}"
         else:
+            assert self.scopedPDU is not None
             payload = self.scopedPDU.toString(depth+1, tab)
 
         return "\n".join((
@@ -331,13 +355,40 @@ class SNMPv3Message(Sequence):
             payload,
         ))
 
+    @overload
     @classmethod
-    def decode(cls, data, leftovers=False, copy=False, **kwargs):
+    def decode(
+        cls: Type[TMessage],
+        data: Asn1Data,
+    ) -> TMessage:
+        ...
+
+    @overload
+    @classmethod
+    def decode(
+        cls: Type[TMessage],
+        data: Asn1Data,
+        leftovers: bool = False,
+        copy: bool = True,
+        **kwargs: Any,
+    ) -> Union[TMessage, Tuple[TMessage, subbytes]]:
+        ...
+
+    @classmethod
+    def decode(cls: Type[TMessage],
+        data: Asn1Data,
+        leftovers: bool = False,
+        copy: bool = False,
+        **kwargs: Any,
+    ) -> Union[TMessage, Tuple[TMessage, subbytes]]:
         return super().decode(data, leftovers, copy, **kwargs)
 
     @classmethod
-    def deserialize(cls, data: Asn1Data):
-        msgVersion, ptr = Integer.decode(data, leftovers=True)
+    def deserialize(cls: Type[TMessage], data: Asn1Data) -> TMessage:
+        msgVersion, ptr = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
 
         try:
             version = MessageProcessingModel(msgVersion.value)
@@ -347,15 +398,22 @@ class SNMPv3Message(Sequence):
         if version != cls.VERSION:
             raise BadVersion(f"{typename} does not support {version.name}")
 
-        msgGlobalData, ptr = HeaderData.decode(ptr, leftovers=True)
-        msgSecurityData, ptr = OctetString.decode(ptr, True, copy=False)
+        msgGlobalData, ptr = cast(
+            Tuple[HeaderData, subbytes],
+            HeaderData.decode(ptr, leftovers=True),
+        )
+
+        msgSecurityData, ptr = cast(
+            Tuple[OctetString, subbytes],
+            OctetString.decode(ptr, leftovers=True, copy=False),
+        )
 
         scopedPDU = None
         encryptedPDU = None
         if msgGlobalData.flags.privFlag:
             encryptedPDU = OctetString.decode(ptr)
         else:
-            scopedPDU = ScopedPDU.decode(ptr, types=pduTypes)
+            scopedPDU = cast(ScopedPDU, ScopedPDU.decode(ptr, types=pduTypes))
 
         return cls(
             msgGlobalData,
@@ -366,7 +424,10 @@ class SNMPv3Message(Sequence):
 
     @classmethod
     def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
-        ptr = decode(wholeMsg, expected=self.TYPE, copy=False)
+        ptr: subbytes = decode( # type: ignore[call-overload]
+            wholeMsg, expected=self.TYPE, copy=False
+        )
+
         _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=SEQUENCE,     leftovers=True, copy=False)
         ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
@@ -375,14 +436,14 @@ class SNMPv3Message(Sequence):
 
     @property
     def plaintext(self) -> bytes:
+        assert self.scopedPDU is not None
         return self.scopedPDU.encode()
 
     @plaintext.setter
     def plaintext(self, data: bytes) -> None:
-        self.scopedPDU, _ = ScopedPDU.decode(
-            data,
-            leftovers=True,
-            types=pduTypes,
+        self.scopedPDU, _ = cast(
+            Tuple[ScopedPDU, subbytes],
+            ScopedPDU.decode(data, leftovers=True, types=pduTypes),
         )
 
 class CacheEntry:
@@ -413,7 +474,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
 
         self.securityLock = threading.Lock()
         self.defaultSecurityModel: Optional[SecurityModel] = None
-        self.securityModules: Dict[SecurityModel, SecurityModule] = {}
+        self.securityModules: Dict[SecurityModel, SecurityModule[Any]] = {}
 
     @staticmethod
     def newGenerator() -> NumberGenerator:
@@ -446,7 +507,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
                 pass
 
     def addSecurityModuleIfNeeded(self,
-        module: SecurityModule,
+        module: SecurityModule[Any],
         default: bool = False,
     ) -> None:
         with self.securityLock:
@@ -467,10 +528,12 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
                     message.header.securityModel
                 ]
             except KeyError as e:
-                securityModel = self.message.header.securityModel
+                securityModel = message.header.securityModel
                 raise UnknownSecurityModel(securityModel) from e
 
         securityModule.processIncoming(message)
+        assert message.scopedPDU is not None
+
         if isinstance(message.scopedPDU.pdu, Response):
             try:
                 entry = self.retrieve(message.header.id)
@@ -504,7 +567,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
 
         return message, handle
 
-    def prepareOutgoingMessage(self,    # type: ignore[override]
+    def prepareOutgoingMessage(self,
         pdu: AnyPDU,
         handle: RequestHandle[SNMPv3Message],
         engineID: bytes,

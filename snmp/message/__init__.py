@@ -7,6 +7,7 @@ from abc import abstractmethod
 import enum
 
 from snmp.ber import *
+from snmp.exception import *
 from snmp.pdu import *
 from snmp.types import *
 from snmp.typing import *
@@ -18,7 +19,7 @@ TMessage = TypeVar("TMessage", bound="Message")
 TMessageVersion = TypeVar("TMessageVersion", bound="MessageVersion")
 
 @final
-class BadVersion(ParseError):
+class BadVersion(IncomingMessageError):
     pass
 
 class MessageProcessingModel(enum.IntEnum):
@@ -46,7 +47,10 @@ class MessageVersion(Sequence):
     def deserialize(cls: Type[TMessageVersion],
         data: Asn1Data,
     ) -> TMessageVersion:
-        msgVersion, _ = Integer.decode(data, leftovers=True)
+        msgVersion, _ = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
 
         try:
             version = MessageProcessingModel(msgVersion.value)
@@ -100,7 +104,10 @@ class Message(Sequence):
         data: Asn1Data,
         types: Optional[Mapping[Identifier, Type[AnyPDU]]] = None,
     ) -> TMessage:
-        msgVersion, ptr = Integer.decode(data, leftovers=True)
+        msgVersion, ptr = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(data, leftovers=True),
+        )
 
         try:
             version = MessageProcessingModel(msgVersion.value)
@@ -110,7 +117,11 @@ class Message(Sequence):
         if version not in cls.VERSIONS:
             raise BadVersion(f"{typename} does not support {version.name}")
 
-        community, ptr = OctetString.decode(ptr, leftovers=True)
+        community, ptr = cast(
+            Tuple[OctetString, subbytes],
+            OctetString.decode(ptr, leftovers=True),
+        )
+
         identifier = Identifier.decode(subbytes(ptr))
 
         if types is None:
@@ -121,7 +132,11 @@ class Message(Sequence):
         except KeyError as err:
             raise ParseError(f"Invalid PDU type: {identifier}") from err
 
-        return cls(version, cast(bytes, community.data), pduType.decode(ptr))
+        return cls(
+            version,
+            cast(bytes, community.data),
+            cast(AnyPDU, pduType.decode(ptr)),
+        )
 
 class RequestHandle(Generic[T]):
     @abstractmethod
@@ -136,7 +151,7 @@ class MessageProcessor(Generic[T, TPDU]):
     VERSION: ClassVar[MessageProcessingModel]
 
     @abstractmethod
-    def prepareDataElements(self, msg: subbytes) -> Tuple[T, RequestHandle[T]]:
+    def prepareDataElements(self, msg: Asn1Data) -> Tuple[T, RequestHandle[T]]:
         ...
 
     @abstractmethod

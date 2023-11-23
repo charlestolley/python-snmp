@@ -1,6 +1,6 @@
 __all__ = [
-    "AddressUsage", "TransportChannel", "TransportDomain",
-    "TransportListener", "TransportMultiplexor"
+    "AddressUsage", "Transport", "TransportChannel",
+    "TransportDomain", "TransportListener", "TransportMultiplexor"
 ]
 
 from abc import abstractmethod
@@ -45,15 +45,15 @@ class Transport(Generic[T]):
     def send(self, address: T, data: bytes) -> None:
         ...
 
-class TransportChannel:
+class TransportChannel(Generic[T]):
     def __init__(self,
         transport: Transport[T],
         address: T,
         localAddress: T,
     ) -> None:
-        self.localAddress = localAddress
-        self.address = address
         self.transport = transport
+        self.address = address
+        self.localAddress = localAddress
 
     @property
     def domain(self) -> TransportDomain:
@@ -62,19 +62,19 @@ class TransportChannel:
     def send(self, data: bytes) -> None:
         self.transport.send(self.address, data)
 
-class TransportListener:
+class TransportListener(Generic[T]):
     @abstractmethod
     def hear(self, transport: Transport[T], address: T, data: bytes) -> None:
         ...
 
-TransportType = TypeVar("TransportType", bound=Transport[Tuple[str, int]])
-class TransportMultiplexor(Generic[TransportType]):
+class TransportMultiplexor(Generic[T]):
+
     @abstractmethod
-    def register(self, sock: TransportType) -> None:
+    def register(self, sock: Transport[T]) -> None:
         ...
 
     @abstractmethod
-    def listen(self, listener: TransportListener) -> None:
+    def listen(self, listener: TransportListener[T]) -> None:
         ...
 
     @abstractmethod

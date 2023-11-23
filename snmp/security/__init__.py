@@ -82,7 +82,7 @@ class SecurityModule(Generic[TMessage]):
     def processIncoming(self,
         message: TMessage,
         timestamp: Optional[float] = None,
-    ) -> SecurityParameters:
+    ) -> None:
         ...
 
     @abstractmethod
