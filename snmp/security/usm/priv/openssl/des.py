@@ -1,14 +1,17 @@
 __all__ = ["DesCbc"]
 
 import os
-from snmp.openssl.des import ffi, lib
+
 from snmp.security.usm import DecryptionError, PrivProtocol
 from snmp.typing import *
 
+from . import *
+
 class DesCbc(PrivProtocol):
     BYTEORDER:  ClassVar[Literal["big"]] = "big"
+    CIPHER = DES_CBC
 
-    BLOCKLEN:   ClassVar[int] = ffi.sizeof("DES_cblock")
+    BLOCKLEN:   ClassVar[int] = CIPHER.BLOCKLEN
     KEYLEN:     ClassVar[int] = BLOCKLEN * 2
     SALTLEN:    ClassVar[int] = BLOCKLEN // 2
     SALTWRAP:   ClassVar[int] = 1 << (8 * SALTLEN)
@@ -18,27 +21,12 @@ class DesCbc(PrivProtocol):
             errmsg = f"key must be at least {self.KEYLEN} bytes long"
             raise ValueError(errmsg)
 
-        _key, self.preIV = (
-            ffi.new("DES_cblock*", key[:self.BLOCKLEN]),
-            ffi.new("DES_cblock*", key[self.BLOCKLEN:self.KEYLEN])
-        )
-
-        self.key = ffi.new("DES_key_schedule*")
-        lib.DES_set_odd_parity(_key)
-        lib.DES_set_key_unchecked(_key, self.key)
-
+        self.key = key[:self.BLOCKLEN]
+        self.preIV = key[self.BLOCKLEN:self.KEYLEN]
         self.salt = int.from_bytes(os.urandom(self.SALTLEN), self.BYTEORDER)
 
-    def compute(self, data: bytes, salt: bytes, mode: int) -> bytes:
-        iv = ffi.new("DES_cblock*")
-        ffi.memmove(iv, self.preIV, self.BLOCKLEN)
-
-        for i in range(self.BLOCKLEN):
-            iv[0][i] ^= salt[i]
-
-        output = ffi.new("unsigned char[]", len(data))
-        lib.DES_cbc_encrypt(data, output, len(data), self.key, iv, mode)
-        return bytes(output)
+    def computeIV(self, salt: bytes) -> bytes:
+        return bytes(a ^ b for a, b in zip(self.preIV, salt))
 
     def pad(self, data: bytes) -> bytes:
         n = self.BLOCKLEN - (len(data) % self.BLOCKLEN)
@@ -54,7 +42,8 @@ class DesCbc(PrivProtocol):
             errmsg = "DES ciphertext must be a multiple of {} in length"
             raise DecryptionError(errmsg.format(self.BLOCKLEN))
 
-        return self.compute(data, salt, lib.DES_DECRYPT)
+        iv = self.computeIV(salt)
+        return Decryptor(self.CIPHER).decrypt(data, self.key, iv)
 
     def encrypt(self,
         data: bytes,
@@ -67,4 +56,8 @@ class DesCbc(PrivProtocol):
             self.salt.to_bytes(self.SALTLEN, self.BYTEORDER),
         ))
 
-        return self.compute(self.pad(data), salt, lib.DES_ENCRYPT), salt
+        iv = self.computeIV(salt)
+        plaintext = self.pad(data)
+        ciphertext = Encryptor(self.CIPHER).encrypt(plaintext, self.key, iv)
+
+        return ciphertext, salt
