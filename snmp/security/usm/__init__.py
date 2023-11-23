@@ -310,6 +310,7 @@ class NameSpace:
     def __setitem__(self, key: str, item: UserEntry) -> None:
         return self.users.__setitem__(key, item)
 
+@final
 class UsmSecurityParameters(Sequence):
     def __init__(self,
         engineID: bytes,
@@ -324,6 +325,9 @@ class UsmSecurityParameters(Sequence):
         self.engineTime = engineTime
         self.userName = userName
         self.salt = salt
+
+        self.signatureIndex: Optional[int]
+        self.wholeMsg: Optional[bytes]
 
         if isinstance(signature, subbytes):
             self.signature = signature[:]
@@ -368,46 +372,101 @@ class UsmSecurityParameters(Sequence):
             f"{subindent}Authoritative Engine ID: {self.engineID!r}",
             f"{subindent}Authoritative Engine Boots: {self.engineBoots}",
             f"{subindent}Authoritative Engine Time: {self.engineTime}",
-            f"{subindent}User Name: {self.userName}",
-            f"{subindent}Signature: {self.signature}",
-            f"{subindent}Encryption Salt: {self.salt}",
+            f"{subindent}User Name: {self.userName!r}",
+            f"{subindent}Signature: {self.signature!r}",
+            f"{subindent}Encryption Salt: {self.salt!r}",
         ))
 
+    @overload
     @classmethod
-    def decode(cls, data, leftovers=False, copy=False, **kwargs):
+    def decode(cls,
+        data: Asn1Data,
+    ) -> "UsmSecurityParameters":
+        ...
+
+    @overload
+    @classmethod
+    def decode(cls,
+        data: Asn1Data,
+        leftovers: bool = False,
+        copy: bool = True,
+        **kwargs: Any,
+    ) -> Union[
+        "UsmSecurityParameters",
+        Tuple["UsmSecurityParameters", subbytes],
+    ]:
+        ...
+
+    @classmethod
+    def decode(cls,
+        data: Asn1Data,
+        leftovers: bool = False,
+        copy: bool = False,
+        **kwargs: Any,
+    ) -> Union[
+        "UsmSecurityParameters",
+        Tuple["UsmSecurityParameters", subbytes],
+    ]:
         return super().decode(data, leftovers, copy, **kwargs)
 
     @classmethod
-    def deserialize(cls, data: Asn1Data):
+    def deserialize(cls, data: Asn1Data) -> "UsmSecurityParameters":
         copy = not isinstance(data, subbytes)
 
-        engineID, ptr = OctetString.decode(data, leftovers=True)
-        engineBoots, ptr   = Integer.decode(ptr, leftovers=True)
-        engineTime,  ptr   = Integer.decode(ptr, leftovers=True)
-        userName,  ptr = OctetString.decode(ptr, leftovers=True)
-        signature, ptr = OctetString.decode(ptr, leftovers=True, copy=copy)
-        salt           = OctetString.decode(ptr)
+        engineID, ptr = cast(
+            Tuple[OctetString, subbytes],
+            OctetString.decode(data, leftovers=True),
+        )
+
+        engineBoots, ptr = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(ptr, leftovers=True),
+        )
+
+        engineTime, ptr = cast(
+            Tuple[Integer, subbytes],
+            Integer.decode(ptr, leftovers=True),
+        )
+
+        userName, ptr = cast(
+            Tuple[OctetString, subbytes],
+            OctetString.decode(ptr, leftovers=True),
+        )
+
+        signature, ptr = cast(
+            Tuple[OctetString, subbytes],
+            OctetString.decode(ptr, leftovers=True, copy=copy),
+        )
+
+        salt = OctetString.decode(ptr)
 
         return cls(
-            engineID.data,
+            cast(bytes, engineID.data),
             engineBoots.value,
             engineTime.value,
-            userName.data,
+            cast(bytes, userName.data),
             signature.data,
-            salt.data,
+            cast(bytes, salt.data),
         )
 
     @classmethod
     def findSignature(self, msgSecurityParameters: subbytes) -> subbytes:
-        ptr = decode(msgSecurityParameters, expected=SEQUENCE, copy=False)
+        ptr = cast(
+            subbytes,
+            decode( # type: ignore[call-overload]
+                msgSecurityParameters,
+                expected=SEQUENCE,
+                copy=False,
+            )
+        )
         _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
         ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
-        return cast(subbytes, ptr)
+        return ptr
 
-class UserBasedSecurityModule(SecurityModule):
+class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
     MODEL = SecurityModel.USM
 
     def __init__(self, engineID: Optional[bytes] = None) -> None:
@@ -701,8 +760,10 @@ class UserBasedSecurityModule(SecurityModule):
         if len(securityParameters.signature) != len(padding):
             raise WrongDigest("Invalid signature length")
 
+        assert securityParameters.wholeMsg is not None
         wholeMsg = bytearray(securityParameters.wholeMsg)
 
+        assert securityParameters.signatureIndex is not None
         start = securityParameters.signatureIndex
         stop = start + len(padding)
         wholeMsg[start:stop] = padding
