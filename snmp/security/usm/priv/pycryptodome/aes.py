@@ -3,6 +3,7 @@ __all__ = ["AesCfb128"]
 import os
 
 from Crypto.Cipher import AES
+from Crypto.Cipher._mode_cfb import CfbMode
 
 from snmp.security.usm import DecryptionError, PrivProtocol
 from snmp.typing import *
@@ -26,7 +27,7 @@ class AesCfb128(PrivProtocol):
         self.key = key[:self.KEYLEN]
         self.salt = int.from_bytes(os.urandom(self.SALTLEN), self.BYTEORDER)
 
-    def newCipher(self, iv: bytes) -> AES:
+    def newCipher(self, iv: bytes) -> CfbMode:
         return AES.new(
             self.key,
             AES.MODE_CFB,
