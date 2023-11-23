@@ -107,10 +107,14 @@ class Integer(Primitive):
     SIGNED:     ClassVar[bool]              = True
 
     def __init__(self, value: int) -> None:
-        self.value = value
+        self._value = value
 
     def __repr__(self) -> str:
         return f"{typename(self)}({self.value})"
+
+    @property
+    def value(self) -> int:
+        return self._value
 
     def equals(self, other: "Integer") -> bool:
         return self.value == other.value
