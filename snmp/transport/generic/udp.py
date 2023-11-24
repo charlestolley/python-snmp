@@ -9,14 +9,14 @@ from snmp.typing import *
 
 STOPMSG = bytes(1)
 
-class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
+class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
     def __init__(self, recvSize: int = 1472) -> None:
         self.recvSize = recvSize
-        self.r = None
-        self.w = None
+        self.r: Optional[socket] = None
+        self.w: Optional[socket] = None
         self.sockets: Dict[int, UdpSocket] = {}
 
-    def register(self, sock: UdpSocket) -> None:
+    def register(self, sock: UdpSocket) -> None:    # type: ignore[override]
         if self.w is None:
             address_family = sock.DOMAIN.address_family
             loopback_address = sock.DOMAIN.loopback_address
@@ -30,7 +30,7 @@ class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
 
         self.sockets[sock.fileno] = sock
 
-    def listen(self, listener: TransportListener) -> None:
+    def listen(self, listener: TransportListener[Tuple[str, int]]) -> None:
         readfds = []
 
         if self.r is not None:
@@ -46,6 +46,8 @@ class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
                 try:
                     sock = self.sockets[fd]
                 except KeyError:
+                    assert self.r is not None
+                    assert self.w is not None
                     if fd == self.r.fileno():
                         data, addr = self.r.recvfrom(len(STOPMSG))
                         done = addr == self.w.getsockname() and data == STOPMSG
@@ -55,6 +57,7 @@ class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
 
     def stop(self) -> None:
         if self.w is not None:
+            assert self.r is not None
             self.w.sendto(STOPMSG, self.r.getsockname())
 
     def close(self) -> None:
@@ -62,6 +65,7 @@ class GenericUdpMultiplexor(TransportMultiplexor[UdpSocket]):
             sock.close()
 
         if self.w is not None:
+            assert self.r is not None
             self.w.close()
             self.r.close()
 

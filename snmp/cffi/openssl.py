@@ -5,7 +5,7 @@ if os.name == "nt":
 else:
     libcrypto = "crypto"
 
-import cffi
+import cffi # type: ignore[import-untyped]
 
 ffi = cffi.FFI()
 ffi.cdef("""

@@ -7,16 +7,16 @@ from snmp.transport import *
 from snmp.transport.udp import UdpSocket
 from snmp.typing import *
 
-class PosixUdpMultiplexor(TransportMultiplexor[UdpSocket]):
+class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
     def __init__(self, recvSize: int = 1472) -> None:
         self.recvSize = recvSize
         self.r, self.w = os.pipe()
         self.sockets: Dict[int, UdpSocket] = {}
 
-    def register(self, sock: UdpSocket) -> None:
+    def register(self, sock: UdpSocket) -> None:    # type: ignore[override]
         self.sockets[sock.fileno] = sock
 
-    def listen(self, listener: TransportListener) -> None:
+    def listen(self, listener: TransportListener[Tuple[str, int]]) -> None:
         poller = select.poll()
         poller.register(self.r, select.POLLIN)
 

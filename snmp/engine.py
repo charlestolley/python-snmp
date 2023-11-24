@@ -10,6 +10,9 @@ from snmp.security import *
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
+from snmp.typing import *
+
+Address = Tuple[str, int]
 
 class Engine:
     TRANSPORTS = {
@@ -20,12 +23,12 @@ class Engine:
     }
 
     def __init__(self,
-        defaultVersion=MessageProcessingModel.SNMPv3,
-        defaultDomain=TransportDomain.UDP_IPv4,
-        defaultSecurityModel=SecurityModel.USM,
-        defaultCommunity=b"",
-        msgMaxSize=1472,
-        autowait=True,
+        defaultVersion: MessageProcessingModel = MessageProcessingModel.SNMPv3,
+        defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
+        defaultSecurityModel: SecurityModel = SecurityModel.USM,
+        defaultCommunity: bytes = b"",
+        msgMaxSize: int = 1472,
+        autowait: bool = True,
     ):
         # Read-only variables
         self.defaultVersion         = defaultVersion
@@ -36,29 +39,32 @@ class Engine:
 
         self.msgMaxSize = msgMaxSize
         self.dispatcher = Dispatcher(UdpMultiplexor(self.msgMaxSize))
-        self.transports = {}
+        self.transports: Dict[
+            TransportDomain,
+            Dict[Address, Transport[Address]]
+        ] = {}
 
-        self.mpv1 = None
-        self.mpv2c = None
-        self.mpv3 = None
-        self._usm = None
+        self.mpv1: Optional[SNMPv1MessageProcessor] = None
+        self.mpv2c: Optional[SNMPv2cMessageProcessor] = None
+        self.mpv3: Optional[SNMPv3MessageProcessor] = None
+        self._usm: Optional[UserBasedSecurityModule] = None
 
     @property
-    def usm(self):
+    def usm(self) -> UserBasedSecurityModule:
         if self._usm is None:
             self._usm = UserBasedSecurityModule()
         return self._usm
 
-    def __enter__(self):
+    def __enter__(self) -> "Engine":
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, *args: Any) -> None:
         self.shutdown()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.dispatcher.shutdown()
 
-    def connectTransport(self, transport):
+    def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
         if transport.DOMAIN in self.transports:
             errmsg = "{} is already handled by a different transport object"
             raise ValueError(errmsg.format(transport.DOMAIN))
@@ -69,7 +75,11 @@ class Engine:
         self.dispatcher.connectTransport(transport)
         self.transports.setdefault(transport.DOMAIN, {})
 
-    def v1Manager(self, channel, autowait, community=None):
+    def v1Manager(self,
+        channel: TransportChannel[Address],
+        autowait: bool,
+        community: Optional[bytes] = None,
+    ) -> SNMPv1Manager[Address]:
         if community is None:
             community = self.defaultCommunity
 
@@ -84,7 +94,11 @@ class Engine:
             autowait,
         )
 
-    def v2cManager(self, channel, autowait, community=None):
+    def v2cManager(self,
+        channel: TransportChannel[Address],
+        autowait: bool,
+        community: Optional[bytes] = None,
+    ) -> SNMPv2cManager[Address]:
         if community is None:
             community = self.defaultCommunity
 
@@ -99,8 +113,14 @@ class Engine:
             autowait,
         )
 
-    def v3Manager(self, channel, autowait, engineID=None,
-            securityModel=None, defaultSecurityLevel=None, **kwargs):
+    def v3Manager(self,
+        channel: TransportChannel[Address],
+        autowait: bool,
+        engineID: Optional[bytes] = None,
+        securityModel: Optional[SecurityModel] = None,
+        defaultSecurityLevel: Optional[SecurityLevel] = None,
+        **kwargs: Any,
+    ) -> SNMPv3UsmManager[Address]:
         if securityModel is None:
             securityModel = self.defaultSecurityModel
         elif not isinstance(securityModel, SecurityModel):
@@ -139,8 +159,18 @@ class Engine:
             errmsg = f"Unsupported security model: {str(securityModel)}"
             raise ValueError(errmsg)
 
-    def Manager(self, address, version=None, domain=None,
-                localAddress=None, autowait=None, **kwargs):
+    def Manager(self,
+        address: Any,
+        version: Optional[MessageProcessingModel] = None,
+        domain: Optional[TransportDomain] = None,
+        localAddress: Any = None,
+        autowait: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> Union[
+        SNMPv1Manager[Address],
+        SNMPv2cManager[Address],
+        SNMPv3UsmManager[Address],
+    ]:
         if domain is None:
             domain = self.defaultDomain
 
@@ -150,7 +180,7 @@ class Engine:
         try:
             transportClass = self.TRANSPORTS[domain]
         except KeyError as err:
-            errmsg = f"Unsupported transport domain: {transport.DOMAIN}"
+            errmsg = f"Unsupported transport domain: {transportClass.DOMAIN}"
             raise ValueError(errmsg) from err
 
         address = transportClass.normalizeAddress(
