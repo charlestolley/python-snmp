@@ -5,7 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "snmp"
 description = "A user-friendly SNMP library"
-version = "0.5.0"
+version = "0.6.0"
 authors = [
     {name = "Charles C. D. Tolley", email = "charlescdtolley@protonmail.com"},
 ]
