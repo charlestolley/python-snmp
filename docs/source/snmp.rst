@@ -139,23 +139,27 @@
       allowable to create multiple threads, each with exclusive access to one or
       more ``Manager``\s.
 
+      Provide the `address` parameter with the address of the remote host that
+      this object will manage. The precise format depends on the `domain`. For
+      UDP over IPv4, it expects a :class:`str` containing the IP address. If
+      the remote engine is listening on a non-standard port, this argument also
+      accepts a tuple containing both the IP address and the port number.
+
+      Similarly, the `localAddress` parameter allows you to select the IP
+      address and port that the ``Manager`` will use to send and receive
+      messages.
+
+      The `autowait` parameter assigns a default value for the `wait` parameter
+      to the ``Manager``'s request methods. If not given, its value falls back
+      on the `autowait` parameter provided in the :class:`Engine` constructor.
+      See the :doc:`manager` page for an explanation of the `wait` parameter.
+
       `address` and `version` are the only positional arguments. All other
       arguments should be passed by keyword, as their ordering is subject to
       change in future library versions. The set of available keyword arguments
       depends on the SNMP version. See the duplicate method definitions below
       for details on version-specific arguments. The `version` parameter
       defaults to the :class:`Engine`'s `defaultVersion`.
-
-      The data type of `address` depends on the `domain` (which defaults to the
-      :class:`Engine`'s `defaultDomain`). For UDP over IP, it it expects a
-      :class:`str` containing the IP address. If the remote engine is listening
-      on a non-standard port, this argument also accepts a 2-tuple, containing
-      the IP address and UDP port number.
-
-      The `autowait` parameter assigns a default value for the `wait` parameter
-      to the ``Manager``'s request methods. If not given, its value falls back
-      on the `autowait` parameter provided in the :class:`Engine` constructor.
-      See the :doc:`manager` page for an explanation of the `wait` parameter.
 
    .. method:: Manager(address, version=SNMPv3, domain=None, \
       localAddress=None, autowait=None, engineID=None, securityModel=None, \
