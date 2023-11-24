@@ -49,7 +49,7 @@
 
    .. note::
 
-      User-Based security is not only the only security model supported by this
+      Not only is User-Based security the only security model supported by this
       library, it's also, so far as I know, the only security model defined for
       SNMPv3. The library is designed to be flexibile, so it could theoretically
       support other models, but for sake of clarity and simplicity, this class
@@ -82,10 +82,14 @@
       implements the authentication algorithm. Similarly, the `privProtocol`
       parameter specifies a privacy algorithm. Implementations of standard
       algorithms are provided in the :mod:`snmp.security.usm.auth` and
-      :mod:`snmp.security.usm.priv` modules. The `authSecret` and `privSecret`
-      parameters specify the authentication and privacy passwords.
-      Alternatively, if authentication and privacy use the same password, then
-      the `secret` parameter may be used in lieu of the other two.
+      :mod:`snmp.security.usm.priv` modules. It is also possible to write your
+      own implementions by sub-classing :class:`snmp.security.usm.AuthProtocol`
+      and :class:`snmp.security.usm.PrivProtocol`, respectively.
+
+      The `authSecret` and `privSecret` parameters specify the authentication
+      and privacy passwords.  Alternatively, if authentication and privacy use
+      the same password, then the `secret` parameter may be used in lieu of the
+      other two.
 
       Normally, a user will default to the highest security level that its
       configuration supports. If you desire a lower security level as the
@@ -142,7 +146,7 @@
       Provide the `address` parameter with the address of the remote host that
       this object will manage. The precise format depends on the `domain`. For
       UDP over IPv4, it expects a :class:`str` containing the IP address. If
-      the remote engine is listening on a non-standard port, this argument also
+      the remote engine is listening on a non-standard port, this parameter also
       accepts a tuple containing both the IP address and the port number.
 
       Similarly, the `localAddress` parameter allows you to select the IP
@@ -151,14 +155,14 @@
 
       The `autowait` parameter assigns a default value for the `wait` parameter
       to the ``Manager``'s request methods. If not given, its value falls back
-      on the `autowait` parameter provided in the :class:`Engine` constructor.
+      on the `autowait` argument provided in the :class:`Engine` constructor.
       See the :doc:`manager` page for an explanation of the `wait` parameter.
 
-      `address` and `version` are the only positional arguments. All other
+      `address` and `version` are the only positional parameters. All other
       arguments should be passed by keyword, as their ordering is subject to
-      change in future library versions. The set of available keyword arguments
+      change in future library versions. The set of available keyword parameters
       depends on the SNMP version. See the duplicate method definitions below
-      for details on version-specific arguments. The `version` parameter
+      for details on version-specific parameters. The `version` parameter
       defaults to the :class:`Engine`'s `defaultVersion`.
 
    .. method:: Manager(address, version=SNMPv3, domain=None, \
@@ -203,8 +207,8 @@
 
       The `community` parameter sets the default community for this ``Manager``.
       This can also be configured at the :class:`Engine` level, with the
-      `defaultCommunity` argument to the constructor. Note that these parameters
-      expect ``bytes`` objects, not ``str``\s.
+      `defaultCommunity` parameter to the constructor. Note that these
+      parameters expect ``bytes`` objects, not ``str``\s.
 
    .. method:: Manager(address, version=SNMPv1, domain=None, \
       localAddress=None, autowait=None, community=None)
