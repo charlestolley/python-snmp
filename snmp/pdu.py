@@ -424,7 +424,7 @@ class ErrorResponse(SNMPException):
     def __init__(self,
         status: ErrorStatus,
         index: int,
-        request: "PDU",
+        request: "AnyPDU",
     ) -> None:
         if index:
             note = f": {request.variableBindings[index-1].name}"

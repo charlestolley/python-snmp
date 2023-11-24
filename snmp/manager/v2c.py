@@ -5,63 +5,76 @@ import math
 import threading
 import time
 
+from snmp.dispatcher import *
 from snmp.manager import *
 from snmp.message import *
 from snmp.pdu import *
+from snmp.transport import *
+from snmp.types import *
+from snmp.typing import *
 from snmp.utils import *
 
-class Request(RequestHandle):
-    def __init__(self, pdu, manager, community,
-                timeout=10.0, refreshPeriod=1.0):
+class Request(RequestHandle[Message]):
+    def __init__(self,
+        pdu: AnyPDU,
+        manager: "SNMPv2cManager[Any]",
+        community: bytes,
+        timeout: float = 10.0,
+        refreshPeriod: float = 1.0,
+    ) -> None:
         now = time.time()
 
         self.community = community
         self.manager = manager
         self.pdu = pdu
 
-        self.callback = None
+        self.callback: Optional[Callable[[int], None]] = None
         self.event = threading.Event()
-        self.response = None
+        self.response: Optional[Message] = None
 
         self.expiration = now + timeout
         self._nextRefresh = self.expiration
         self.period = refreshPeriod
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.callback is not None:
             self.close()
 
     @property
-    def expired(self):
+    def expired(self) -> bool:
         return self.expiration <= time.time()
 
     @property
-    def nextRefresh(self):
+    def nextRefresh(self) -> float:
         return self._nextRefresh
 
     @nextRefresh.setter
-    def nextRefresh(self, value):
+    def nextRefresh(self, value: float) -> None:
         self._nextRefresh = min(self.expiration, value)
 
-    def close(self):
+    def close(self) -> None:
+        assert self.callback is not None
         self.callback(self.pdu.requestID)
         self.callback = None
 
-    def addCallback(self, callback, requestID):
+    def addCallback(self,
+        callback: Callable[[int], None],
+        requestID: int,
+    ) -> None:
         assert requestID == self.pdu.requestID
         assert self.callback is None
 
         self.callback = callback
 
-    def push(self, response):
+    def push(self, response: Message) -> None:
         self.response = response
         self.event.set()
 
     # Always update self.nextRefresh right before calling this method
-    def reallySend(self):
+    def reallySend(self) -> None:
         self.manager.sendPdu(self.pdu, self, self.community)
 
-    def refresh(self):
+    def refresh(self) -> Optional[float]:
         if self.event.is_set():
             return None
 
@@ -80,17 +93,18 @@ class Request(RequestHandle):
         else:
             return timeToNextRefresh
 
-    def send(self):
+    def send(self) -> None:
         now = time.time()
         self.nextRefresh = now + self.period
         self.reallySend()
 
-    def wait(self):
-        pdu = None
+    def wait(self) -> VarBindList:
+        pdu: Optional[ResponsePDU] = None
         while not self.expired:
             timeout = self.manager.refresh()
             if self.event.wait(timeout=timeout):
-                pdu = self.response.pdu
+                assert self.response is not None
+                pdu = cast(ResponsePDU, self.response.pdu)
                 break
 
         self.close()
@@ -102,8 +116,14 @@ class Request(RequestHandle):
             else:
                 return pdu.variableBindings
 
-class SNMPv2cManager:
-    def __init__(self, dispatcher, channel, community, autowait=True):
+T = TypeVar("T")
+class SNMPv2cManager(Generic[T]):
+    def __init__(self,
+        dispatcher: Dispatcher[T],
+        channel: TransportChannel[T],
+        community: bytes,
+        autowait: bool = True,
+    ):
         self.autowait = autowait
         self.channel = channel
 
@@ -111,9 +131,9 @@ class SNMPv2cManager:
         self.defaultCommunity = community
 
         self.lock = threading.Lock()
-        self.requests = []
+        self.requests: List[ComparableWeakRef[Request, float]] = []
 
-    def refresh(self):
+    def refresh(self) -> Optional[float]:
         while self.requests:
             with self.lock:
                 reference = self.requests[0]
@@ -134,7 +154,11 @@ class SNMPv2cManager:
 
         return None
 
-    def sendPdu(self, pdu, handle, community):
+    def sendPdu(self,
+        pdu: AnyPDU,
+        handle: Request,
+        community: bytes,
+    ) -> None:
         self.dispatcher.sendPdu(
             self.channel,
             MessageProcessingModel.SNMPv2c,
@@ -143,7 +167,12 @@ class SNMPv2cManager:
             community,
         )
 
-    def sendRequest(self, pdu, community=None, wait=None, **kwargs):
+    def sendRequest(self,
+        pdu: AnyPDU,
+        community: Optional[bytes] = None,
+        wait: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> Union[Request, VarBindList]:
         if community is None:
             community = self.defaultCommunity
 
@@ -162,11 +191,19 @@ class SNMPv2cManager:
         else:
             return request
 
-    def get(self, *oids, **kwargs):
+    def get(self,
+        *oids: Union[str, OID],
+        **kwargs: Any,
+    ) -> Union[Request, VarBindList]:
         pdu = GetRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
-    def getBulk(self, *oids, nonRepeaters=0, maxRepetitions=0, **kwargs):
+    def getBulk(self,
+        *oids: Union[str, OID],
+        nonRepeaters: int = 0,
+        maxRepetitions: int = 0,
+        **kwargs: Any,
+    ) -> Union[Request, VarBindList]:
         pdu = GetBulkRequestPDU(
             *oids,
             nonRepeaters=nonRepeaters,
@@ -175,11 +212,23 @@ class SNMPv2cManager:
 
         return self.sendRequest(pdu, **kwargs)
 
-    def getNext(self, *oids, **kwargs):
+    def getNext(self,
+        *oids: Union[str, OID],
+        **kwargs: Any,
+    ) -> Union[Request, VarBindList]:
         pdu = GetNextRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
-    def set(self, *varbinds, **kwargs):
-        varbinds = (VarBind(*varbind) for varbind in varbinds)
-        pdu = SetRequestPDU(*varbinds)
+    def set(self,
+        *varbinds: Union[
+            Tuple[
+                Union[str, OID],
+                Optional[Asn1Encodable],
+            ],
+            VarBind,
+        ],
+        **kwargs: Any,
+    ) -> Union[Request, VarBindList]:
+        vbList = (VarBind(*varbind) for varbind in varbinds)
+        pdu = SetRequestPDU(*vbList)
         return self.sendRequest(pdu, **kwargs)

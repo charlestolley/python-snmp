@@ -6,14 +6,8 @@ import weakref
 
 from snmp.typing import *
 
-TSelfComparable = TypeVar("TSelfComparable", bound="SelfComparable")
-class SelfComparable(metaclass=ABCMeta):
-    @abstractmethod
-    def __lt__(self: TSelfComparable, other: TSelfComparable) -> bool:
-        ...
-
 T = TypeVar("T")
-V = TypeVar("V", bound=SelfComparable)
+V = TypeVar("V")    # V must support less-than comparison
 
 @final
 class ComparableWeakRef(Generic[T, V]):
@@ -57,7 +51,7 @@ class ComparableWeakRef(Generic[T, V]):
 
     def __lt__(self, other: "ComparableWeakRef[Any, V]") -> bool:
         """Compare this object to another ComparableWeakRef."""
-        return self.value < other.value
+        return cast(bool, self.value < other.value) # type: ignore[operator]
 
 @final
 class NumberGenerator:
