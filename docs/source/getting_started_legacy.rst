@@ -51,18 +51,14 @@ address.
 
 .. note::
 
-   This code will run out of the box on an Ubuntu machine with just a few simple
-   setup steps (as the root user). First, install the snmp daemon with ``apt
-   install snmpd``. Then edit ``/etc/snmp/snmpd.conf``, and uncomment the line
-   that says ``createuser authPrivUser SHA-512 myauthphrase AES myprivphrase``
-   (or add it, if it's not there). Save and exit that file, and then run
-   ``systemctl restart snmpd``.
+   This code will run out of the box on an Ubuntu machine. All you have to do is
+   install the snmp daemon with ``sudo apt install snmpd``.
 
 .. code-block:: python
 
    from snmp import Engine, SNMPv2c
    
-   with Engine(SNMPv2c, defaultCommunity="public") as engine:
+   with Engine(SNMPv2c, defaultCommunity=b"public") as engine:
        localhost = engine.Manager("127.0.0.1")
        response = localhost.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
        print(response)

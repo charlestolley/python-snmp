@@ -3,8 +3,8 @@ Getting Started
 
 .. note::
 
-   This document only covers SNMP version 3, but you can read this other
-   document for help :doc:`getting_started_legacy`.
+   This document only covers SNMP version 3, there is a separate document for
+   :doc:`getting_started_legacy`.
 
 The first step in any SNMP application is to create an Engine object. It is
 important to declare the Engine in a ``with`` statement, in orderly to properly
@@ -33,9 +33,8 @@ authentication and privacy (encryption) algorithms.
 .. note::
 
    The :mod:`snmp.security.usm.priv` module is considered optional, because it
-   requires OpenSSL. If you are unable to import this module, it likely
-   indicates that something went wrong in the installation. The
-   :doc:`installation` page may help in resolving the issue.
+   relies on third-party libraries. See the :doc:`installation` section for more
+   information.
 
 As an example, imagine a user ``"admin"`` that supports authentication using
 ``HMAC-SHA-256`` and privacy using ``CFB128-AES-128``, with ``"maplesyrup"`` as
