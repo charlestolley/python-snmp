@@ -102,7 +102,7 @@ class subbytes:
     its own. It holds a reference to a real bytes-like object, and acts on a
     sub-sequence of that object's data, as if it had been copied into a
     separate bytes-like object.  The arguments to the constructor mirror the
-    arguments to the built-in :func:`slice` function, so that
+    arguments to the built-in :func:`slice` function, (except `step`) so that
     ``subbytes(data, start, stop)`` represents the same sequence of bytes as
     ``data[start:stop]``.
 
