@@ -7,6 +7,14 @@ import unittest
 from snmp.utils import *
 
 class ComparableWeakRefTest(unittest.TestCase):
+    class Counter:
+        def __init__(self):
+            self.count = 0
+
+        def toInt(self):
+            self.count += 1
+            return self.count
+
     class Integer:
         def __init__(self, value):
             self.value = value
@@ -14,52 +22,95 @@ class ComparableWeakRefTest(unittest.TestCase):
         def toInt(self):
             return self.value
 
-    def testCall(self):
+    def test_if_the_referenced_object_is_still_alive_it_will_be_returned(self):
         obj = self.Integer(23)
         ref = ComparableWeakRef(obj, self.Integer.toInt)
         self.assertIs(ref(), obj)
 
-    def testComparison(self):
-        a = self.Integer(5)
-        b = self.Integer(10)
-        aref = ComparableWeakRef(a, self.Integer.toInt)
-        bref = ComparableWeakRef(b, self.Integer.toInt)
+    def test_upon_construction_it_will_call_the_provided_key_function(self):
+        counter = self.Counter()
+        c = ComparableWeakRef(counter, self.Counter.toInt)
+        self.assertGreater(counter.count, 0)
 
-        self.assertLess(aref, bref)
-        self.assertFalse(bref < aref)
+    def test_it_will_continue_to_call_key_with_every_comparison(self):
+        counter = self.Counter()
+        c = ComparableWeakRef(counter, self.Counter.toInt)
 
-    def testPersistence(self):
-        i = self.Integer(3)
-        dead = ComparableWeakRef(self.Integer(4), self.Integer.toInt)
-        alive = ComparableWeakRef(i, self.Integer.toInt)
+        integer = self.Integer(counter.count + 1)
+        i = ComparableWeakRef(integer, self.Integer.toInt)
 
-        if dead() is not None:
-            self.skipTest("Ephemeral object was not immediately destroyed")
+        self.assertFalse(c < i)
 
-        self.assertLess(alive, dead)
-        self.assertFalse(dead < alive)
+    def test_it_will_continue_to_use_the_last_stored_value(self):
+        counter = self.Counter()
+        c = ComparableWeakRef(counter, self.Counter.toInt)
+        count = counter.count
+        del counter
+
+        if c() is not None:
+            self.skipTest("Deleted object was not immediately destroyed")
+
+        equal = ComparableWeakRef(self.Integer(count), self.Integer.toInt)
+        greater = ComparableWeakRef(self.Integer(count+1), self.Integer.toInt)
+
+        self.assertFalse(c < equal)
+        self.assertTrue(c < greater)
 
 class NumberGeneratorTest(unittest.TestCase):
     def setUp(self):
         self.n = 4
 
-    def realTest(self, generator, lower, upper):
-        nums = set()
-        allNums = set(range(lower, upper))
-        for _ in allNums:
-            i = next(generator)
-            nums.add(i)
+    def test_length_2_to_the_n_where_each_integer_appears_exactly_once(self):
+        generator = NumberGenerator(self.n)
+        length = 2 ** self.n
 
-        self.assertEqual(nums, allNums)
-        self.assertEqual(i, 0)
+        generated = set()
+        for i in range(length):
+            generated.add(next(generator))
 
-    def testSigned(self):
-        limit = 1 << (self.n - 1)
-        self.realTest(NumberGenerator(self.n), -limit, limit)
+        self.assertEqual(len(generated), length)
 
-    def testUnsigned(self):
+    def test_the_last_number_in_the_sequence_is_always_zero(self):
+        generator = NumberGenerator(self.n)
+        length = 2 ** self.n
+
+        for i in range(length - 1):
+            _ = next(generator)
+
+        self.assertEqual(next(generator), 0)
+
+    def test_the_sequence_repeats_from_the_beginning(self):
+        generator = NumberGenerator(self.n)
+        length = 2 ** self.n
+
+        a = [next(generator) for i in range(length)]
+        b = [next(generator) for i in range(length)]
+
+        self.assertEqual(a, b)
+
+    def test_generated_numbers_should_use_twos_complement_encoding(self):
+        generator = NumberGenerator(self.n, signed=True)
+        length = 2 ** self.n
+
+        upper = length // 2
+        lower = -upper
+
+        for i in range(length):
+            n = next(generator)
+            self.assertGreaterEqual(n, lower)
+            self.assertLess(n, upper)
+
+    def test_generated_numbers_should_use_unsigned_encoding(self):
         generator = NumberGenerator(self.n, signed=False)
-        self.realTest(generator, 0, 1 << self.n)
+        length = 2 ** self.n
+
+        upper = length
+        lower = 0
+
+        for i in range(length):
+            n = next(generator)
+            self.assertGreaterEqual(n, lower)
+            self.assertLess(n, upper)
 
 class SubbytesTest(unittest.TestCase):
     def setUp(self):
