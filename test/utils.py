@@ -355,16 +355,16 @@ class TypenameTest(unittest.TestCase):
     def checkUnqualifiedName(self, name):
         self.assertEqual(name, "Inner")
 
-    def testQualifiedClass(self):
+    def test_return_the_fully_qualified_class_name(self):
         self.checkQualifiedName(typename(self.Inner, qualified=True))
 
-    def testQualifiedObject(self):
+    def test_return_the_fully_qualified_name_of_the_objects_class(self):
         self.checkQualifiedName(typename(self.Inner(), qualified=True))
 
-    def testUnqualifiedClass(self):
+    def test_return_the_unqualified_class_name(self):
         self.checkUnqualifiedName(typename(self.Inner))
 
-    def testUnqualifiedObject(self):
+    def test_return_the_unqualified_name_of_the_objects_class(self):
         self.checkUnqualifiedName(typename(self.Inner()))
 
 if __name__ == "__main__":
