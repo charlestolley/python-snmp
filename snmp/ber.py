@@ -36,8 +36,6 @@ class Structure(IntEnum):
     PRIMITIVE     = 0
     CONSTRUCTED   = 1
 
-TIdentifier = TypeVar("TIdentifier", bound="Identifier")
-
 @final
 class Identifier(NamedTuple):
     """Represents an ASN.1 BER identifier."""
@@ -46,7 +44,7 @@ class Identifier(NamedTuple):
     tag: int
 
     @classmethod
-    def decode(cls: Type[TIdentifier], data: subbytes) -> TIdentifier:
+    def decode(cls, data: subbytes) -> "Identifier":
         """Extract the identifier from an ASN.1 BER string.
 
         This function decodes the identifier portion of a BER string an returns
