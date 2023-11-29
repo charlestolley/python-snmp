@@ -122,10 +122,18 @@ class Integer(Primitive):
     def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
         return oid.extend(self.value)
 
+    @staticmethod
+    def countBits(value: int) -> int:
+        if value < 0:
+            value = -value - 1
+
+        return value.bit_length()
+
     @classmethod
     def inRange(cls, value: int) -> bool:
-        assert isinstance(cls.SIGNED, bool)
-        return value.bit_length() <= cls.BITS - cls.SIGNED + (value < 0)
+        nbits = cls.countBits(value)
+        allowable = cls.BITS - 1 if cls.SIGNED else cls.BITS
+        return nbits <= allowable
 
     @classmethod
     def decodeFromOID(
@@ -155,7 +163,7 @@ class Integer(Primitive):
 
         # equivalent to (N + 8) // 8
         # the reason it's not (N + 7) is that ASN.1 always includes a sign bit
-        nbytes = (self.value.bit_length() // 8) + 1
+        nbytes = (self.countBits(self.value) // 8) + 1
         return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
 
 class OctetString(Primitive):
