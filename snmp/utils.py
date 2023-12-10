@@ -238,6 +238,14 @@ class subbytes:
             else:
                 return index
 
+    def advance(self) -> "subbytes":
+        """Advance the head pointer by 1.
+
+        Return a new object referencing the subsequence from index 1 to the
+        end of the current sequence.
+        """
+        return subbytes(self, 1)
+
     def consume(self) -> int:
         """Pop a byte off the front of the sequence.
 
@@ -278,6 +286,16 @@ class subbytes:
         `replacement` argument.
         """
         return self.data[:self.start] + replacement + self.data[self.stop:]
+
+    def split(self, index: int) -> Tuple["subbytes", "subbytes"]:
+        """Split the sequence at the given index.
+
+        Return two new objects, the first referencing the portion of the
+        sequence  starting at the beginning of the current sequence and ending
+        just before `index`, and the second referencing the portion beginning
+        at `index` and ending at the end of the current sequence.
+        """
+        return subbytes(self, stop=index), subbytes(self, start=index)
 
 def typename(cls: Any, qualified: bool = False) -> str:
     """Query an object to determine its type.

@@ -159,7 +159,7 @@ class SubbytesTest(unittest.TestCase):
         substring = self.data[self.start:self.stop]
         self.assertEqual(data, substring)
 
-    def test_slice_with_negative_start_and_stop_is_equal(self):
+    def test_slice_with_valid_negative_indices_is_equal(self):
         start = self.start - len(self.data)
         stop = self.stop - len(self.data)
 
@@ -270,6 +270,27 @@ class SubbytesTest(unittest.TestCase):
         self.assertEqual(data[-len(data)-9:], substring)
         self.assertEqual(data[-2*len(data):2*len(data)], substring)
 
+    # advance() tests
+
+    def test_advance_returns_subbytes_starting_at_the_previous_index_one(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+
+        data = data.advance()
+        self.assertEqual(data, substring[1:])
+
+    def test_advance_empty_returns_empty(self):
+        data = subbytes(self.data, self.start, self.start)
+        newData = data.advance()
+        self.assertEqual(len(newData), 0)
+
+    def test_advance_does_not_modify_the_current_object(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+
+        newData = data.advance()
+        self.assertEqual(data, substring)
+
     # consume() tests
 
     def test_consume_returns_the_first_byte_advancing_the_start_index(self):
@@ -339,6 +360,37 @@ class SubbytesTest(unittest.TestCase):
 
         self.assertEqual(data.replace(replacement), result)
         self.assertEqual(data, substring)
+
+    # split() tests
+
+    def test_split_returns_two_new_objects(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        first, second = data.split(self.a)
+
+        self.assertIsNot(first, data)
+        self.assertIsNot(second, data)
+
+    def test_split_does_not_modify_the_current_object(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        first, second = data.split(self.a)
+
+        self.assertEqual(data, substring)
+
+    def test_split_first_object_references_everything_before_index(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        first, _ = data.split(self.a)
+
+        self.assertEqual(first, substring[:self.a])
+
+    def test_split_second_object_references_everything_from_index(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        _, second = data.split(self.a)
+
+        self.assertEqual(second, substring[self.a:])
 
 class TypenameTest(unittest.TestCase):
     class Inner:
