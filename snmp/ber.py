@@ -102,20 +102,23 @@ class Identifier(NamedTuple):
         arr.append(byte)
         return bytes(reversed(arr))
 
-def decode_length(data: subbytes) -> int:
+def decode_length(data: subbytes) -> Tuple[int, subbytes]:
     """Decode the length field of an ASN.1 BER string.
 
     The provided `data` argument should contain most of a BER string,
     starting after the identifier. The most natural way to use it is to pass
     the same object first to :func:`Identifier.decode` and then to
     :func:`decode_length`. This function will decode the length field and
-    return it as an :class:`int`, modifying the `data` argument to start
-    immediately after the length field.
+    return it as an :class:`int`, along with a new subbytes object referencing
+    to the portion of the `data` argument immediately following the length
+    field.
     """
     try:
-        length = data.consume()
+        length = data.dereference()
     except IndexError as err:
         raise ParseError("Missing length") from err
+    else:
+        data = data.advance()
 
     if length & 0x80:
         n = length & 0x7f
@@ -123,14 +126,16 @@ def decode_length(data: subbytes) -> int:
         length = 0
         for i in range(n):
             try:
-                byte = data.consume()
+                byte = data.dereference()
             except IndexError as err:
                 raise ParseError("Incomplete length") from err
+            else:
+                data = data.advance()
 
             length <<= 8
             length |= byte
 
-    return length
+    return length, data
 
 def encode_length(length: int) -> bytes:
     """Encode the length of a message under ASN.1 Basic Encoding Rules."""
@@ -257,7 +262,7 @@ def decode( # type: ignore[no-untyped-def]
     if expected is not None and identifier != expected:
         raise ParseError("Identifier does not match expected type")
 
-    length = decode_length(data)
+    length, data = decode_length(data)
     data, tail = data.split(length)
 
     if len(data) < length:

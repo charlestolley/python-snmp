@@ -109,37 +109,37 @@ class DecodeLengthTest(unittest.TestCase):
 
     def test_returns_zero_when_msb_is_set_and_seven_lsb_are_zero(self):
         encoding = subbytes(b"\x80")
-        length = decode_length(encoding)
+        length, _ = decode_length(encoding)
         self.assertEqual(length, 0)
 
     def test_returns_the_first_byte_when_msb_is_not_set(self):
         for length in range(127):
             encoding = subbytes(length.to_bytes(1, "little"))
-            self.assertEqual(decode_length(encoding), length)
+            self.assertEqual(decode_length(encoding)[0], length)
 
     def test_concatenates_all_bytes_of_long_form_length_encoding(self):
         encoding = subbytes(b"\x84\x12\x34\x56\x78")
-        length = decode_length(encoding)
+        length, _ = decode_length(encoding)
         self.assertEqual(length, 0x12345678)
 
     def test_treats_length_as_unsigned(self):
         encoding = subbytes(b"\x81\x80")
-        length = decode_length(encoding)
+        length, _ = decode_length(encoding)
         self.assertGreaterEqual(length, 0)
 
-    def test_consumes_one_byte_when_msb_is_not_set(self):
+    def test_advances_one_byte_when_msb_is_not_set(self):
         encoding = subbytes(b"\x07" + self.payload)
-        _ = decode_length(encoding)
+        _, encoding = decode_length(encoding)
         self.assertEqual(encoding, self.payload)
 
-    def test_consumes_all_bytes_of_long_form_length_encoding(self):
+    def test_advances_over_all_bytes_of_long_form_length_encoding(self):
         encoding = subbytes(b"\x84\x12\x34\x56\x78" + self.payload)
-        _ = decode_length(encoding)
+        _, encoding = decode_length(encoding)
         self.assertEqual(encoding, self.payload)
 
     def test_accepts_maximum_length_encodings(self):
         encoding = subbytes(b"\xff" + (b"\xff" * 0x7f))
-        length = decode_length(encoding)
+        length, encoding = decode_length(encoding)
         self.assertEqual(len(encoding), 0)
 
 class EncodeLengthTest(unittest.TestCase):
