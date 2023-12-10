@@ -119,21 +119,33 @@ class subbytes:
         start: Optional[int] = None,
         stop: Optional[int] = None,
     ) -> None:
-        self.data: bytes
+        self._data: bytes
         if isinstance(data, subbytes):
-            self.data = data.data
+            self._data = data.data
             base = data
         else:
-            self.data = data
-            self.start = 0
-            self.stop = len(data)
+            self._data = data
+            self._start = 0
+            self._stop = len(data)
             base = self
 
         newstart = base.start if start is None else base.translate(start, True)
         newstop  = base.stop  if stop  is None else base.translate(stop,  True)
 
-        self.start = newstart
-        self.stop  = newstop
+        self._start = newstart
+        self._stop  = newstop
+
+    @property
+    def data(self) -> bytes:
+        return self._data
+
+    @property
+    def start(self) -> int:
+        return self._start
+
+    @property
+    def stop(self) -> int:
+        return self._stop
 
     def __bool__(self) -> bool:
         """Indicate that the sequence is non-empty."""
@@ -245,17 +257,6 @@ class subbytes:
         end of the current sequence.
         """
         return subbytes(self, 1)
-
-    def consume(self) -> int:
-        """Pop a byte off the front of the sequence.
-
-        This function returns the first byte of the current sequence, advancing
-        the start index relative to :attr:`data` by one. If the sequence is
-        empty, then an :exc:`IndexError` will be raised.
-        """
-        byte = self.dereference()
-        self.start += 1
-        return byte
 
     def dereference(self) -> int:
         """Retrieve the first byte of the sequence.

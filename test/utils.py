@@ -291,22 +291,6 @@ class SubbytesTest(unittest.TestCase):
         newData = data.advance()
         self.assertEqual(data, substring)
 
-    # consume() tests
-
-    def test_consume_returns_the_first_byte_advancing_the_start_index(self):
-        data = subbytes(self.data, self.start, self.stop)
-        substring = self.data[self.start:self.stop]
-
-        for i in range(len(substring)):
-            byte = data.consume()
-            self.assertEqual(byte, substring[i])
-
-        self.assertEqual(len(data), 0)
-
-    def test_consume_raises_IndexError_when_the_sequence_is_empty(self):
-        data = subbytes(self.data, self.start, self.start)
-        self.assertRaises(IndexError, data.consume)
-
     # dereference() tests
 
     def test_dereference_returns_the_first_byte_without_side_effect(self):
