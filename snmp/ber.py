@@ -254,7 +254,7 @@ def decode( # type: ignore[no-untyped-def]
         raise ParseError("Identifier does not match expected type")
 
     length = decode_length(data)
-    tail = data.prune(length)
+    data, tail = data.split(length)
 
     if len(data) < length:
         raise ParseError("Incomplete value")

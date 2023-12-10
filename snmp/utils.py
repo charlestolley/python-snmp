@@ -264,20 +264,6 @@ class subbytes:
         """
         return self[0]
 
-    def prune(self, length: int) -> "subbytes":
-        """Cut the sequence down to length.
-
-        This method effectively splits the current sequence at index `length`,
-        truncating it to that length, and returning a new :class:`subbytes`
-        object that references the portion that was cut off of the end. If
-        the `length` argument exceeds the length of the sequence, then the
-        current object will remain unchanged and the returned :class:`subbytes`
-        object will contain an empty sequence.
-        """
-        removed = subbytes(self, length)
-        self.stop = removed.start
-        return removed
-
     def replace(self, replacement: bytes) -> bytes:
         """Substitute the given string in place of the current sequence
 

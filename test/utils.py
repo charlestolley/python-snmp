@@ -322,31 +322,6 @@ class SubbytesTest(unittest.TestCase):
         data = subbytes(self.data, self.start, self.start)
         self.assertRaises(IndexError, data.dereference)
 
-    # prune() tests
-
-    def test_prune_truncates_the_current_sequence(self):
-        data = subbytes(self.data, self.start)
-        substring = self.data[self.start:self.stop]
-        _ = data.prune(len(substring))
-        self.assertEqual(data, substring)
-
-    def test_prune_returns_subbytes_object(self):
-        data = subbytes(self.data, self.start)
-        tail = data.prune(self.stop - self.start)
-        self.assertIsInstance(tail, subbytes)
-
-    def test_prune_returns_the_portion_that_was_cut_off_the_end(self):
-        data = subbytes(self.data, self.start)
-        tail = data.prune(self.stop - self.start)
-        self.assertEqual(tail, self.data[self.stop:])
-
-    def test_prune_clamps_the_length_argument(self):
-        data = subbytes(self.data, self.start, self.stop)
-        substring = self.data[self.start:self.stop]
-        tail = data.prune(len(data) + 1)
-        self.assertEqual(data, substring)
-        self.assertEqual(len(tail), 0)
-
     # replace() tests
 
     def test_replace_produces_a_copy_with_the_current_sequence_replaced(self):
