@@ -122,7 +122,7 @@ class Message(Sequence):
             OctetString.decode(ptr, leftovers=True),
         )
 
-        identifier = Identifier.decode(subbytes(ptr))
+        identifier, _ = Identifier.decode(subbytes(ptr))
 
         if types is None:
             types = dict()

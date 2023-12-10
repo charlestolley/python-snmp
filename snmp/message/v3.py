@@ -272,7 +272,7 @@ class ScopedPDU(Sequence):
             OctetString.decode(data, leftovers=True),
         )
 
-        identifier = Identifier.decode(subbytes(data))
+        identifier, _ = Identifier.decode(subbytes(data))
 
         try:
             pduType = types[identifier]

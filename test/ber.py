@@ -27,7 +27,7 @@ class IdentiferTest(unittest.TestCase):
             (b"\x80", Class.CONTEXT_SPECIFIC),
             (b"\xc0", Class.PRIVATE),
         ):
-            identifier = Identifier.decode(subbytes(encoding))
+            identifier, _ = Identifier.decode(subbytes(encoding))
             self.assertEqual(identifier.cls, cls)
             self.assertEqual(identifier.structure, 0)
             self.assertEqual(identifier.tag, 0)
@@ -47,7 +47,7 @@ class IdentiferTest(unittest.TestCase):
             (b"\x00", Structure.PRIMITIVE),
             (b"\x20", Structure.CONSTRUCTED),
         ):
-            identifier = Identifier.decode(subbytes(encoding))
+            identifier, _ = Identifier.decode(subbytes(encoding))
             self.assertEqual(identifier.cls, 0)
             self.assertEqual(identifier.structure, structure)
             self.assertEqual(identifier.tag, 0)
@@ -63,7 +63,7 @@ class IdentiferTest(unittest.TestCase):
     def test_decode_extracts_tag_from_five_least_significant_bits(self):
         for tag in range(0, 31):
             encoding = tag.to_bytes(1, "little")
-            identifier = Identifier.decode(subbytes(encoding))
+            identifier, _ = Identifier.decode(subbytes(encoding))
             self.assertEqual(identifier.cls, 0)
             self.assertEqual(identifier.structure, 0)
             self.assertEqual(identifier.tag, tag)
@@ -79,7 +79,7 @@ class IdentiferTest(unittest.TestCase):
 
     def test_decode_understands_extended_tags(self):
         encoding = subbytes(b"\x1f\x88\xdc\x7b\x01\x00")
-        identifier = Identifier.decode(encoding)
+        identifier, encoding = Identifier.decode(encoding)
         self.assertEqual(identifier.tag, 0x022e7b)
         self.assertEqual(len(encoding), 2)
 
@@ -89,6 +89,12 @@ class IdentiferTest(unittest.TestCase):
 
         identifier = Identifier(0, 0, 0x022e7b)
         self.assertEqual(identifier.encode(), b"\x1f\x88\xdc\x7b")
+
+    def test_decode_does_not_modify_the_data_argument(self):
+        encoding = subbytes(b"\x02\x01\x00")
+        copy = encoding[:]
+        identifier, data = Identifier.decode(encoding)
+        self.assertEqual(encoding, copy)
 
 class DecodeLengthTest(unittest.TestCase):
     def setUp(self):

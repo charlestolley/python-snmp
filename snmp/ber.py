@@ -44,7 +44,7 @@ class Identifier(NamedTuple):
     tag: int
 
     @classmethod
-    def decode(cls, data: subbytes) -> "Identifier":
+    def decode(cls, data: subbytes) -> Tuple["Identifier", subbytes]:
         """Extract the identifier from an ASN.1 BER string.
 
         This function decodes the identifier portion of a BER string an returns
@@ -53,9 +53,11 @@ class Identifier(NamedTuple):
         identifier.
         """
         try:
-            byte = data.consume()
+            byte = data.dereference()
         except IndexError as err:
             raise ParseError("Missing identifier") from err
+        else:
+            data = data.advance()
 
         class_      = (byte & 0xc0) >> 6
         structure   = (byte & 0x20) >> 5
@@ -66,14 +68,16 @@ class Identifier(NamedTuple):
             byte = 0x80
             while byte & 0x80:
                 try:
-                    byte = data.consume()
+                    byte = data.dereference()
                 except IndexError as err:
                     raise ParseError("Incomplete identifier") from err
+                else:
+                    data = data.advance()
 
                 tag <<= 7
                 tag |= byte & 0x7f
 
-        return cls(Class(class_), Structure(structure), tag)
+        return cls(Class(class_), Structure(structure), tag), data
 
     def encode(self) -> bytes:
         """Encode an Identifier under ASN.1 Basic Encoding Rules."""
@@ -248,7 +252,7 @@ def decode( # type: ignore[no-untyped-def]
     preserve a reference to the complete message.
     """
     data = subbytes(data)
-    identifier = Identifier.decode(data)
+    identifier, data = Identifier.decode(data)
 
     if expected is not None and identifier != expected:
         raise ParseError("Identifier does not match expected type")
