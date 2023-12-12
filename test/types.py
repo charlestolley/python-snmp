@@ -1,5 +1,5 @@
 __all__ = [
-    "TagTest", "IntegerTest", "NullTest", "OIDTest", "OctetStringTest"
+    "IntegerTest", "NullTest", "OIDTest", "OctetStringTest", "TagTest"
 ]
 
 import unittest
