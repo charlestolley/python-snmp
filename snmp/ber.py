@@ -42,7 +42,7 @@ class Tag:
         if other.__class__ != self.__class__:
             return NotImplemented
 
-        return (
+        return (    # type: ignore[no-any-return]
             self.cls == other.cls
         and self.constructed == other.constructed
         and self.number == other.number
@@ -159,78 +159,6 @@ def encode_length(length: int) -> bytes:
 
     arr.append(0x80 | len(arr))
     return bytes(reversed(arr))
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: None,
-    leftovers: Literal[False],
-    copy: Literal[False],
-) -> Tuple[Tag, subbytes]:
-    ...
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: None = None,
-    leftovers: Literal[False] = False,
-    copy: Literal[True] = True,
-) -> Tuple[Tag, bytes]:
-    ...
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: None,
-    leftovers: Literal[True],
-    copy: Literal[False],
-) -> Tuple[Tag, subbytes, subbytes]:
-    ...
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: None,
-    leftovers: Literal[True],
-    copy: Literal[True] = True,
-) -> Tuple[Tag, bytes, subbytes]:
-    ...
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: Tag,
-    leftovers: Literal[False],
-    copy: Literal[False],
-) -> subbytes:
-    ...
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: Tag,
-    leftovers: Literal[False] = False,
-    copy: Literal[True] = True,
-) -> bytes:
-    ...
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: Tag,
-    leftovers: Literal[True],
-    copy: Literal[False],
-) -> Tuple[subbytes, subbytes]:
-    ...
-
-@overload
-def decode(
-    data: Asn1Data,
-    expected: Tag,
-    leftovers: Literal[True],
-    copy: Literal[True] = True,
-) -> Tuple[bytes, subbytes]:
-    ...
 
 def decode( # type: ignore[no-untyped-def]
     data: Asn1Data,

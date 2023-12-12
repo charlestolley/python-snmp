@@ -424,7 +424,7 @@ class SNMPv3Message(Sequence):
 
     @classmethod
     def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
-        ptr: subbytes = decode( # type: ignore[call-overload]
+        ptr: subbytes = decode(
             wholeMsg, expected=self.TYPE, copy=False
         )
 

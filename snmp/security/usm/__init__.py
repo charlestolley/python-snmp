@@ -453,7 +453,7 @@ class UsmSecurityParameters(Sequence):
     def findSignature(self, msgSecurityParameters: subbytes) -> subbytes:
         ptr = cast(
             subbytes,
-            decode( # type: ignore[call-overload]
+            decode(
                 msgSecurityParameters,
                 expected=SEQUENCE,
                 copy=False,

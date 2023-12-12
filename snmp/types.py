@@ -17,7 +17,6 @@ NULL                = Tag(5)
 OBJECT_IDENTIFIER   = Tag(6)
 SEQUENCE            = Tag(16, True)
 
-Bool = Literal[False, True]
 TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
 TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
 TInteger        = TypeVar("TInteger",       bound="Integer")
@@ -61,12 +60,11 @@ class Asn1Encodable:
         copy: bool = True,
         **kwargs: Any,
     ) -> Union[TEncodable, Tuple[TEncodable, subbytes]]:
-        _copy: Bool = copy
         if leftovers:
-            encoding, tail = decode(data, cls.TYPE, True, _copy)
+            encoding, tail = decode(data, cls.TYPE, True, copy)
             return cls.deserialize(encoding, **kwargs), tail
         else:
-            encoding = decode(data, cls.TYPE, False, _copy)
+            encoding = decode(data, cls.TYPE, False, copy)
             return cls.deserialize(encoding, **kwargs)
 
     def encode(self) -> bytes:
