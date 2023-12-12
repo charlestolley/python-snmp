@@ -11,11 +11,11 @@ from snmp.exception import *
 from snmp.typing import *
 from snmp.utils import *
 
-INTEGER             = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 2)
-OCTET_STRING        = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
-NULL                = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 5)
-OBJECT_IDENTIFIER   = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 6)
-SEQUENCE            = Identifier(Class.UNIVERSAL, Structure.CONSTRUCTED, 16)
+INTEGER             = Tag(2)
+OCTET_STRING        = Tag(4)
+NULL                = Tag(5)
+OBJECT_IDENTIFIER   = Tag(6)
+SEQUENCE            = Tag(16, True)
 
 Bool = Literal[False, True]
 TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
@@ -26,7 +26,7 @@ TNull           = TypeVar("TNull",          bound="Null")
 TOID            = TypeVar("TOID",           bound="OID")
 
 class Asn1Encodable:
-    TYPE: ClassVar[Identifier]
+    TYPE: ClassVar[Tag]
 
     def __eq__(self, other: Any) -> bool:
         if type(self) == type(other):

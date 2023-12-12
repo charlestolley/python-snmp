@@ -1,6 +1,6 @@
 __all__ = [
     "DecodeTest", "DecodeLengthTest", "EncodeTest",
-    "EncodeLengthTest", "ExceptionTypesTest", "IdentiferTest",
+    "EncodeLengthTest", "ExceptionTypesTest", "TagTest",
 ]
 
 import unittest
@@ -16,84 +16,88 @@ class ExceptionTypesTest(unittest.TestCase):
     def test_ParseError_subclasses_IncomingMessageError(self):
         self.assertIsInstance(ParseError(), IncomingMessageError)
 
-class IdentiferTest(unittest.TestCase):
+class TagTest(unittest.TestCase):
     def test_decode_raises_ParseError_on_empty_input(self):
-        self.assertRaises(ParseError, Identifier.decode, subbytes(b""))
+        self.assertRaises(ParseError, Tag.decode, subbytes(b""))
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        tag = Tag(14, True, Tag.Class.CONTEXT_SPECIFIC)
+        self.assertEqual(eval(repr(tag)), tag)
 
     def test_decode_extracts_class_from_two_most_significant_bits(self):
         for encoding, cls in (
-            (b"\x00", Class.UNIVERSAL),
-            (b"\x40", Class.APPLICATION),
-            (b"\x80", Class.CONTEXT_SPECIFIC),
-            (b"\xc0", Class.PRIVATE),
+            (b"\x00", Tag.Class.UNIVERSAL),
+            (b"\x40", Tag.Class.APPLICATION),
+            (b"\x80", Tag.Class.CONTEXT_SPECIFIC),
+            (b"\xc0", Tag.Class.PRIVATE),
         ):
-            identifier, _ = Identifier.decode(subbytes(encoding))
-            self.assertEqual(identifier.cls, cls)
-            self.assertEqual(identifier.structure, 0)
-            self.assertEqual(identifier.tag, 0)
+            tag, _ = Tag.decode(subbytes(encoding))
+            self.assertEqual(tag.cls, cls)
+            self.assertEqual(tag.constructed, 0)
+            self.assertEqual(tag.number, 0)
 
     def test_encode_packs_class_into_the_two_most_significant_bits(self):
         for encoding, cls in (
-            (b"\x00", Class.UNIVERSAL),
-            (b"\x40", Class.APPLICATION),
-            (b"\x80", Class.CONTEXT_SPECIFIC),
-            (b"\xc0", Class.PRIVATE),
+            (b"\x00", Tag.Class.UNIVERSAL),
+            (b"\x40", Tag.Class.APPLICATION),
+            (b"\x80", Tag.Class.CONTEXT_SPECIFIC),
+            (b"\xc0", Tag.Class.PRIVATE),
         ):
-            identifier = Identifier(cls, 0, 0)
-            self.assertEqual(identifier.encode(), encoding)
+            tag = Tag(0, 0, cls)
+            self.assertEqual(tag.encode(), encoding)
 
-    def test_decode_extracts_structure_from_bit_five(self):
-        for encoding, structure in (
-            (b"\x00", Structure.PRIMITIVE),
-            (b"\x20", Structure.CONSTRUCTED),
+    def test_decode_extracts_constructed_from_bit_five(self):
+        for encoding, constructed in (
+            (b"\x00", False),
+            (b"\x20", True),
         ):
-            identifier, _ = Identifier.decode(subbytes(encoding))
-            self.assertEqual(identifier.cls, 0)
-            self.assertEqual(identifier.structure, structure)
-            self.assertEqual(identifier.tag, 0)
+            tag, _ = Tag.decode(subbytes(encoding))
+            self.assertEqual(tag.cls, 0)
+            self.assertEqual(tag.constructed, constructed)
+            self.assertEqual(tag.number, 0)
 
-    def test_encode_packs_structure_into_bit_five(self):
-        for encoding, structure in (
-            (b"\x00", Structure.PRIMITIVE),
-            (b"\x20", Structure.CONSTRUCTED),
+    def test_encode_packs_constructed_into_bit_five(self):
+        for encoding, constructed in (
+            (b"\x00", False),
+            (b"\x20", True),
         ):
-            identifier = Identifier(0, structure, 0)
-            self.assertEqual(identifier.encode(), encoding)
+            tag = Tag(0, constructed, 0)
+            self.assertEqual(tag.encode(), encoding)
 
     def test_decode_extracts_tag_from_five_least_significant_bits(self):
-        for tag in range(0, 31):
-            encoding = tag.to_bytes(1, "little")
-            identifier, _ = Identifier.decode(subbytes(encoding))
-            self.assertEqual(identifier.cls, 0)
-            self.assertEqual(identifier.structure, 0)
-            self.assertEqual(identifier.tag, tag)
+        for n in range(0, 31):
+            encoding = n.to_bytes(1, "little")
+            tag, _ = Tag.decode(subbytes(encoding))
+            self.assertEqual(tag.cls, 0)
+            self.assertEqual(tag.constructed, 0)
+            self.assertEqual(tag.number, n)
 
     def test_encode_packs_tag_into_five_least_significant_bits(self):
-        for tag in range(0, 31):
-            encoding = tag.to_bytes(1, "little")
-            identifier = Identifier(0, 0, tag)
-            self.assertEqual(identifier.encode(), encoding)
+        for n in range(0, 31):
+            encoding = n.to_bytes(1, "little")
+            tag = Tag(n, 0, 0)
+            self.assertEqual(tag.encode(), encoding)
         
     def test_decode_raises_ParseError_when_extended_tag_is_missing(self):
-        self.assertRaises(ParseError, Identifier.decode, subbytes(b"\x1f"))
+        self.assertRaises(ParseError, Tag.decode, subbytes(b"\x1f"))
 
     def test_decode_understands_extended_tags(self):
         encoding = subbytes(b"\x1f\x88\xdc\x7b\x01\x00")
-        identifier, encoding = Identifier.decode(encoding)
-        self.assertEqual(identifier.tag, 0x022e7b)
+        tag, encoding = Tag.decode(encoding)
+        self.assertEqual(tag.number, 0x022e7b)
         self.assertEqual(len(encoding), 2)
 
     def test_encode_uses_extended_tag_rules_for_tags_over_31(self):
-        identifier = Identifier(0, 0, 32)
-        self.assertEqual(identifier.encode(), b"\x1f\x20")
+        tag = Tag(32, 0, 0)
+        self.assertEqual(tag.encode(), b"\x1f\x20")
 
-        identifier = Identifier(0, 0, 0x022e7b)
-        self.assertEqual(identifier.encode(), b"\x1f\x88\xdc\x7b")
+        tag = Tag(0x022e7b, 0, 0)
+        self.assertEqual(tag.encode(), b"\x1f\x88\xdc\x7b")
 
     def test_decode_does_not_modify_the_data_argument(self):
         encoding = subbytes(b"\x02\x01\x00")
         copy = encoding[:]
-        identifier, data = Identifier.decode(encoding)
+        tag, data = Tag.decode(encoding)
         self.assertEqual(encoding, copy)
 
 class DecodeLengthTest(unittest.TestCase):
@@ -171,24 +175,24 @@ class DecodeTest(unittest.TestCase):
     def setUp(self):
         self.data = b"\x04\x02\x00\x00"
         self.extra = b"this string contains nothing but leftovers"
-        self.identifier = Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4)
+        self.tag = Tag(4, False, Tag.Class.UNIVERSAL)
         self.payload = self.data[2:]
 
-    def test_returns_identifier_when_expected_is_None(self):
+    def test_returns_tag_when_expected_is_None(self):
         result = decode(self.data)
         self.assertIsInstance(result, tuple)
-        self.assertEqual(result[0], self.identifier)
+        self.assertEqual(result[0], self.tag)
 
-    def test_does_not_return_identifier_when_type_matches_expected(self):
-        result = decode(self.data, expected=self.identifier)
+    def test_does_not_return_tag_when_type_matches_expected(self):
+        result = decode(self.data, expected=self.tag)
         self.assertNotIsInstance(result, tuple)
-        self.assertNotIsInstance(result, Identifier)
+        self.assertNotIsInstance(result, Tag)
 
     def test_raises_ParseError_when_type_does_not_match_expected(self):
-        expected = Identifier(
-            self.identifier.cls,
-            self.identifier.structure,
-            self.identifier.tag + 1,
+        expected = Tag(
+            self.tag.number + 1,
+            self.tag.constructed,
+            self.tag.cls,
         )
 
         self.assertRaises(ParseError, decode, self.data, expected)
@@ -202,7 +206,7 @@ class DecodeTest(unittest.TestCase):
     def test_returns_trailing_bytes_when_leftovers_is_True(self):
         _, leftovers = decode(
             self.data + self.extra,
-            self.identifier,
+            self.tag,
             leftovers=True,
         )
 
@@ -211,37 +215,37 @@ class DecodeTest(unittest.TestCase):
     def test_returns_leftovers_as_subbytes(self):
         _, leftovers = decode(
             self.data + self.extra,
-            self.identifier,
+            self.tag,
             leftovers=True,
         )
 
         self.assertIsInstance(leftovers, subbytes)
 
     def test_returns_empty_leftovers_if_data_was_fully_consumed(self):
-        _, leftovers = decode(self.data, self.identifier, leftovers=True)
+        _, leftovers = decode(self.data, self.tag, leftovers=True)
         self.assertEqual(leftovers, bytes())
 
     def test_returns_raw_data_when_copy_is_True(self):
-        payload = decode(self.data, self.identifier, copy=True)
+        payload = decode(self.data, self.tag, copy=True)
         self.assertNotIsInstance(payload, subbytes)
 
     def test_returns_subbytes_referencing_data_when_copy_is_False(self):
-        payload = decode(self.data, self.identifier, copy=False)
+        payload = decode(self.data, self.tag, copy=False)
         self.assertIsInstance(payload, subbytes)
         self.assertIs(payload.data, self.data)
 
     def test_return_type_not_affected_by_the_type_of_the_data_argument(self):
         for data in (self.data, subbytes(self.data)):
-            payload = decode(data, self.identifier, copy=True)
+            payload = decode(data, self.tag, copy=True)
             self.assertNotIsInstance(payload, subbytes)
 
-            payload = decode(data, self.identifier, copy=False)
+            payload = decode(data, self.tag, copy=False)
             self.assertIsInstance(payload, subbytes)
 
 class EncodeTest(unittest.TestCase):
-    def test_concatenates_identifier_and_length_encoding_with_payload(self):
+    def test_concatenates_tag_and_length_encoding_with_payload(self):
         encoding = encode(
-            Identifier(Class.UNIVERSAL, Structure.PRIMITIVE, 4),
+            Tag(4, False, Tag.Class.UNIVERSAL),
             b"payload string",
         )
 

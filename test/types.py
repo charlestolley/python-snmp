@@ -1,5 +1,5 @@
 __all__ = [
-    "IdentifierTest", "IntegerTest", "NullTest", "OIDTest", "OctetStringTest"
+    "TagTest", "IntegerTest", "NullTest", "OIDTest", "OctetStringTest"
 ]
 
 import unittest
@@ -7,7 +7,7 @@ from snmp.ber import *
 from snmp.types import *
 from snmp.utils import NumberGenerator
 
-class IdentifierTest(unittest.TestCase):
+class TagTest(unittest.TestCase):
     def testInteger(self):
         self.assertEqual(decode(b"\x02\x00")[0], INTEGER)
 

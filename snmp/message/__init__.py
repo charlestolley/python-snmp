@@ -102,7 +102,7 @@ class Message(Sequence):
     @classmethod
     def deserialize(cls: Type[TMessage],
         data: Asn1Data,
-        types: Optional[Mapping[Identifier, Type[AnyPDU]]] = None,
+        types: Optional[Mapping[Tag, Type[AnyPDU]]] = None,
     ) -> TMessage:
         msgVersion, ptr = cast(
             Tuple[Integer, subbytes],
@@ -122,7 +122,7 @@ class Message(Sequence):
             OctetString.decode(ptr, leftovers=True),
         )
 
-        identifier, _ = Identifier.decode(subbytes(ptr))
+        identifier, _ = Tag.decode(subbytes(ptr))
 
         if types is None:
             types = dict()

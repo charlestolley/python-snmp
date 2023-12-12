@@ -20,7 +20,7 @@ class Integer32(Integer):
 
 @final
 class IpAddress(OctetString):
-    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 0)
+    TYPE = Tag(0, cls = Tag.Class.APPLICATION)
     MIN_SIZE = 4
     MAX_SIZE = 4
 
@@ -47,10 +47,10 @@ class IpAddress(OctetString):
 
 @final
 class Counter32(Unsigned):
-    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 1)
+    TYPE = Tag(1, cls = Tag.Class.APPLICATION)
 
 class Unsigned32(Unsigned):
-    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 2)
+    TYPE = Tag(2, cls = Tag.Class.APPLICATION)
 
 @final
 class Gauge32(Unsigned32):
@@ -58,15 +58,15 @@ class Gauge32(Unsigned32):
 
 @final
 class TimeTicks(Unsigned):
-    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 3)
+    TYPE = Tag(3, cls = Tag.Class.APPLICATION)
 
 @final
 class Opaque(OctetString):
-    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 4)
+    TYPE = Tag(4, cls = Tag.Class.APPLICATION)
 
 @final
 class Counter64(Unsigned):
     BITS = 64
-    TYPE = Identifier(Class.APPLICATION, Structure.PRIMITIVE, 6)
+    TYPE = Tag(6, cls = Tag.Class.APPLICATION)
 
 zeroDotZero = OID(0, 0)

@@ -1,14 +1,10 @@
-__all__ = [
-    "EncodeError", "ParseError",
-    "Asn1Data", "Class", "Structure", "Identifier",
-    "decode", "encode",
-]
+__all__ = ["EncodeError", "ParseError", "Asn1Data", "Tag", "decode", "encode"]
 
 from enum import IntEnum
 
 from snmp.exception import *
 from snmp.typing import *
-from snmp.utils import subbytes
+from snmp.utils import *
 
 Asn1Data = Union[bytes, subbytes]
 
@@ -23,81 +19,95 @@ class ParseError(IncomingMessageError):
     pass
 
 @final
-class Class(IntEnum):
-    """Named constants for the class bits of an ASN.1 BER identifier."""
-    UNIVERSAL         = 0
-    APPLICATION       = 1
-    CONTEXT_SPECIFIC  = 2
-    PRIVATE           = 3
+class Tag:
+    """Represents an ASN.1 BER tag."""
+    @final
+    class Class(IntEnum):
+        """Named constants for the class bits of an ASN.1 BER tag."""
+        UNIVERSAL         = 0
+        APPLICATION       = 1
+        CONTEXT_SPECIFIC  = 2
+        PRIVATE           = 3
 
-@final
-class Structure(IntEnum):
-    """Named constants for the constructed bit of an ASN.1 BER identifier."""
-    PRIMITIVE     = 0
-    CONSTRUCTED   = 1
+    def __init__(self,
+        number: int,
+        constructed: bool = False,
+        cls: Class = Class.UNIVERSAL,
+    ) -> None:
+        self.cls = cls
+        self.constructed = constructed
+        self.number = number
 
-@final
-class Identifier(NamedTuple):
-    """Represents an ASN.1 BER identifier."""
-    cls: Class
-    structure: Structure
-    tag: int
+    def __eq__(self, other: Any) -> bool:
+        if other.__class__ != self.__class__:
+            return NotImplemented
+
+        return (
+            self.cls == other.cls
+        and self.constructed == other.constructed
+        and self.number == other.number
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.cls, self.constructed, self.number))
+
+    def __repr__(self) -> str:
+        return f"Tag({self.number}, {self.constructed}, {self.cls})"
 
     @classmethod
-    def decode(cls, data: subbytes) -> Tuple["Identifier", subbytes]:
-        """Extract the identifier from an ASN.1 BER string.
+    def decode(cls, data: subbytes) -> Tuple["Tag", subbytes]:
+        """Extract the tag from an ASN.1 BER string.
 
-        This function decodes the identifier portion of a BER string an returns
-        it as an :class:`Identifier` object. As a side-effect, it advances the
-        start of the `data` argument to point to the byte immediately after the
-        identifier.
+        This function decodes the tag portion of a BER string an returns it as
+        a :class:`Tag` object. It also returns a subbytes of the `data`
+        argument referencing everything after the tag.
         """
         try:
             byte = data.dereference()
         except IndexError as err:
-            raise ParseError("Missing identifier") from err
+            raise ParseError("Missing tag") from err
         else:
             data = data.advance()
 
         class_      = (byte & 0xc0) >> 6
-        structure   = (byte & 0x20) >> 5
-        tag         = (byte & 0x1f)
+        constructed = (byte & 0x20) != 0
+        number      = (byte & 0x1f)
 
-        if tag == 0x1f:
-            tag = 0
+        if number == 0x1f:
+            number = 0
             byte = 0x80
             while byte & 0x80:
                 try:
                     byte = data.dereference()
                 except IndexError as err:
-                    raise ParseError("Incomplete identifier") from err
+                    raise ParseError("Incomplete tag") from err
                 else:
                     data = data.advance()
 
-                tag <<= 7
-                tag |= byte & 0x7f
+                number <<= 7
+                number |= byte & 0x7f
 
-        return cls(Class(class_), Structure(structure), tag), data
+        return cls(number, constructed, cls.Class(class_)), data
 
     def encode(self) -> bytes:
-        """Encode an Identifier under ASN.1 Basic Encoding Rules."""
-        byte = (
-            ((self.cls       << 6) & 0xc0) |
-            ((self.structure << 5) & 0x20)
-        )
+        """Encode a Tag under ASN.1 Basic Encoding Rules."""
+        byte = (self.cls << 6) & 0xc0
+
+        if self.constructed:
+            byte |= 0x20
 
         arr = bytearray()
-        if self.tag < 0x1f:
-            byte |= self.tag
+        if self.number < 0x1f:
+            byte |= self.number
         else:
             byte |= 0x1f
 
-            tag = self.tag
+            number = self.number
             indicator = 0
-            while tag:
-                arr.append(indicator | (tag & 0x7f))
+            while number:
+                arr.append(indicator | (number & 0x7f))
                 indicator = 0x80
-                tag >>= 7
+                number >>= 7
 
         arr.append(byte)
         return bytes(reversed(arr))
@@ -105,13 +115,10 @@ class Identifier(NamedTuple):
 def decode_length(data: subbytes) -> Tuple[int, subbytes]:
     """Decode the length field of an ASN.1 BER string.
 
-    The provided `data` argument should contain most of a BER string,
-    starting after the identifier. The most natural way to use it is to pass
-    the same object first to :func:`Identifier.decode` and then to
-    :func:`decode_length`. This function will decode the length field and
-    return it as an :class:`int`, along with a new subbytes object referencing
-    to the portion of the `data` argument immediately following the length
-    field.
+    The provided `data` argument should contain most of a BER string, starting
+    after the tag. This function will decode the length field and return it as
+    an :class:`int`, along with a new subbytes object referencing to the
+    portion of the `data` argument immediately following the length field.
     """
     try:
         length = data.dereference()
@@ -159,7 +166,7 @@ def decode(
     expected: None,
     leftovers: Literal[False],
     copy: Literal[False],
-) -> Tuple[Identifier, subbytes]:
+) -> Tuple[Tag, subbytes]:
     ...
 
 @overload
@@ -168,7 +175,7 @@ def decode(
     expected: None = None,
     leftovers: Literal[False] = False,
     copy: Literal[True] = True,
-) -> Tuple[Identifier, bytes]:
+) -> Tuple[Tag, bytes]:
     ...
 
 @overload
@@ -177,7 +184,7 @@ def decode(
     expected: None,
     leftovers: Literal[True],
     copy: Literal[False],
-) -> Tuple[Identifier, subbytes, subbytes]:
+) -> Tuple[Tag, subbytes, subbytes]:
     ...
 
 @overload
@@ -186,13 +193,13 @@ def decode(
     expected: None,
     leftovers: Literal[True],
     copy: Literal[True] = True,
-) -> Tuple[Identifier, bytes, subbytes]:
+) -> Tuple[Tag, bytes, subbytes]:
     ...
 
 @overload
 def decode(
     data: Asn1Data,
-    expected: Identifier,
+    expected: Tag,
     leftovers: Literal[False],
     copy: Literal[False],
 ) -> subbytes:
@@ -201,7 +208,7 @@ def decode(
 @overload
 def decode(
     data: Asn1Data,
-    expected: Identifier,
+    expected: Tag,
     leftovers: Literal[False] = False,
     copy: Literal[True] = True,
 ) -> bytes:
@@ -210,7 +217,7 @@ def decode(
 @overload
 def decode(
     data: Asn1Data,
-    expected: Identifier,
+    expected: Tag,
     leftovers: Literal[True],
     copy: Literal[False],
 ) -> Tuple[subbytes, subbytes]:
@@ -219,7 +226,7 @@ def decode(
 @overload
 def decode(
     data: Asn1Data,
-    expected: Identifier,
+    expected: Tag,
     leftovers: Literal[True],
     copy: Literal[True] = True,
 ) -> Tuple[bytes, subbytes]:
@@ -227,40 +234,39 @@ def decode(
 
 def decode( # type: ignore[no-untyped-def]
     data: Asn1Data,
-    expected: Optional[Identifier] = None,
+    expected: Optional[Tag] = None,
     leftovers: bool = False,
     copy: bool = True,
 ):
     """Extract the contents of an ASN.1 BER string.
 
-    This function has several options for what it can return depending on
-    the values of its arguments. In the default case, given only the `data`
+    This function has several options for what it can return depending on the
+    values of its arguments. In the default case, given only the `data`
     argument, it will return a tuple, where the first element is the
-    :class:`Identifier`, and the second contains the body of the message as
-    a `bytes` object. In this case, the function expects to consume the
-    entire message, and will raise a :class:`ParseError` if it contains more
-    bytes than what the length field indicates. A value of ``True`` for the
-    `leftovers` argument will change this behavior, so that it will return
-    the leftover data in a :class:`snmp.utils.subbytes` object as an
-    additional element of the returned tuple.
+    :class:`Tag`, and the second contains the body of the message as a `bytes`
+    object. In this case, the function expects to consume the entire message,
+    and will raise a :class:`ParseError` if it contains more bytes than what
+    the length field indicates. A value of ``True`` for the `leftovers`
+    argument will change this behavior, so that it will return the leftover
+    data in a :class:`snmp.utils.subbytes` object as an additional element of
+    the returned tuple.
 
-    The `expected` argument allows the caller to provide an
-    :class:`Identifier`, telling the function what data type is expected. In
-    this case, the body will be returned without the identifier, and the
-    return value will not use a tuple (unless `leftovers` was given as
-    ``True``). If the decoded object does not match the expected type, the
-    function will raise a :class:`ParseError`.
+    The `expected` argument allows the caller to provide a :class:`Tag`,
+    telling the function what data type is expected. In this case, the body
+    will be returned without the tag, and the return value will not use a tuple
+    (unless `leftovers` was given as ``True``). If the decoded object does not
+    match the expected type, the function will raise a :class:`ParseError`.
 
     The `copy` argument allows the caller to specify whether the body of the
-    message should be copied into its own :class:`bytes` object (the
-    default), or use a :class:`snmp.utils.subbytes` object, in order to
-    preserve a reference to the complete message.
+    message should be copied into its own :class:`bytes` object (the default),
+    or use a :class:`snmp.utils.subbytes` object, in order to preserve a
+    reference to the complete message.
     """
     data = subbytes(data)
-    identifier, data = Identifier.decode(data)
+    tag, data = Tag.decode(data)
 
-    if expected is not None and identifier != expected:
-        raise ParseError("Identifier does not match expected type")
+    if expected is not None and tag != expected:
+        raise ParseError("Tag does not match expected type")
 
     length, data = decode_length(data)
     data, tail = data.split(length)
@@ -274,15 +280,15 @@ def decode( # type: ignore[no-untyped-def]
 
     if expected is None:
         if leftovers:
-            return identifier, body, tail
+            return tag, body, tail
         else:
-            return identifier, body
+            return tag, body
     else:
         if leftovers:
             return body, tail
         else:
             return body
 
-def encode(identifier: Identifier, data: bytes) -> bytes:
+def encode(tag: Tag, data: bytes) -> bytes:
     """Encode a message under ASN.1 Basic Encoding Rules."""
-    return identifier.encode() + encode_length(len(data)) + data
+    return tag.encode() + encode_length(len(data)) + data

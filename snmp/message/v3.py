@@ -257,7 +257,7 @@ class ScopedPDU(Sequence):
     @classmethod
     def deserialize(cls,
         data: Asn1Data,
-        types: Optional[Mapping[Identifier, Type[AnyPDU]]] = None,
+        types: Optional[Mapping[Tag, Type[AnyPDU]]] = None,
     ) -> "ScopedPDU":
         if types is None:
             types = dict()
@@ -272,7 +272,7 @@ class ScopedPDU(Sequence):
             OctetString.decode(data, leftovers=True),
         )
 
-        identifier, _ = Identifier.decode(subbytes(data))
+        identifier, _ = Tag.decode(subbytes(data))
 
         try:
             pduType = types[identifier]
