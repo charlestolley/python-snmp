@@ -59,8 +59,8 @@ class Tag:
         """Extract the tag from an ASN.1 BER string.
 
         This function decodes the tag portion of a BER string an returns it as
-        a :class:`Tag` object. It also returns a subbytes of the `data`
-        argument referencing everything after the tag.
+        a Tag object. It also returns a subbytes of the data argument
+        referencing everything after the tag.
         """
         try:
             byte = data.dereference()
@@ -115,10 +115,10 @@ class Tag:
 def decode_length(data: subbytes) -> Tuple[int, subbytes]:
     """Decode the length field of an ASN.1 BER string.
 
-    The provided `data` argument should contain most of a BER string, starting
+    The provided data argument should contain most of a BER string, starting
     after the tag. This function will decode the length field and return it as
-    an :class:`int`, along with a new subbytes object referencing to the
-    portion of the `data` argument immediately following the length field.
+    an int, along with a new subbytes object referencing to the portion of the
+    data argument immediately following the length field.
     """
     try:
         length = data.dereference()
@@ -241,26 +241,25 @@ def decode( # type: ignore[no-untyped-def]
     """Extract the contents of an ASN.1 BER string.
 
     This function has several options for what it can return depending on the
-    values of its arguments. In the default case, given only the `data`
-    argument, it will return a tuple, where the first element is the
-    :class:`Tag`, and the second contains the body of the message as a `bytes`
-    object. In this case, the function expects to consume the entire message,
-    and will raise a :class:`ParseError` if it contains more bytes than what
-    the length field indicates. A value of ``True`` for the `leftovers`
-    argument will change this behavior, so that it will return the leftover
-    data in a :class:`snmp.utils.subbytes` object as an additional element of
-    the returned tuple.
+    values of its arguments. In the default case, given only the data argument,
+    it will return a tuple, where the first element is the Tag, and the second
+    contains the body of the message as a bytes object. In this case, the
+    function expects to consume the entire message, and will raise a ParseError
+    if it contains more bytes than what the length field indicates. A value of
+    True for the leftovers argument will change this behavior, so that it will
+    return the leftover data in a snmp.utils.subbytes object as an additional
+    element of the returned tuple.
 
-    The `expected` argument allows the caller to provide a :class:`Tag`,
-    telling the function what data type is expected. In this case, the body
-    will be returned without the tag, and the return value will not use a tuple
-    (unless `leftovers` was given as ``True``). If the decoded object does not
-    match the expected type, the function will raise a :class:`ParseError`.
+    The expected argument allows the caller to provide a Tag, telling the
+    function what data type is expected. In this case, the body will be
+    returned without the tag, and the return value will not use a tuple (unless
+    leftovers was given as True). If the decoded object does not match the
+    expected type, the function will raise a ParseError.
 
-    The `copy` argument allows the caller to specify whether the body of the
-    message should be copied into its own :class:`bytes` object (the default),
-    or use a :class:`snmp.utils.subbytes` object, in order to preserve a
-    reference to the complete message.
+    The copy argument allows the caller to specify whether the body of the
+    message should be copied into its own bytes object (the default), or use a
+    snmp.utils.subbytes object, in order to preserve a reference to the complete
+    message.
     """
     data = subbytes(data)
     tag, data = Tag.decode(data)

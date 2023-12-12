@@ -11,17 +11,16 @@ V = TypeVar("V")    # V must support less-than comparison
 
 @final
 class ComparableWeakRef(Generic[T, V]):
-    """Allow weakly-referenced objects to be used in sorted data structures.
+    """A weakref that can be used in sorted data structures.
 
-    This class extends the behavior of the standard library's
-    :class:`weakref` type by adding support for the less-than operator
-    (:meth:`__lt__`). Upon construction, it will call the provided `key`
-    function, with `obj` as the only argument, and the return value will be
-    stored as the "comparison key". So long as the object remains alive, it
-    will continue to call `key` with every comparison, and update the stored
+    This class extends the behavior of the standard library's weakref type by
+    adding support for the less-than operator. Upon construction, it will call
+    the provided key function, with obj as the only argument, and store the
+    result as the "comparison key". So long as the object remains alive, it
+    will continue to call key() with every comparison, and update the stored
     value. If the reference becomes invalid (i.e. the object is garbage-
-    collected), then it will continue to use the last stored value for all
-    future comparisons.
+    collected), then it will use the last stored value for all future
+    comparisons.
     """
 
     def __init__(self, obj: T, key: Callable[[T], V]) -> None:
@@ -45,7 +44,7 @@ class ComparableWeakRef(Generic[T, V]):
         """Retrieve a reference to the wrapped object.
 
         If the referenced object is still alive, then it will be returned.
-        Otherwise, this call will return ``None``.
+        Otherwise, this call will return None.
         """
         return self.ref()
 
@@ -57,16 +56,15 @@ class ComparableWeakRef(Generic[T, V]):
 class NumberGenerator:
     """Generate integers spanning a specific range.
 
-    Given an integer size of `n` bits, an instance of this class will
-    generate a sequence of length ``2^n``, where each `n`-bit integer
-    appears exactly once. The first ``2^n-1`` numbers in the sequence are
-    guaranteed to be non-zero; or, in other words, the last number in the
-    sequence is always ``0``. After ``2^n`` iterations, the sequence repeats
-    from the beginning.
+    Given an integer size of n bits, an instance of this class will generate
+    a sequence of length 2^n, where each n-bit integer appears exactly once.
+    The first 2^n-1 numbers in the sequence are guaranteed to be non-zero; or,
+    in other words, the last number in the sequence is always 0. After 2^n
+    iterations, the sequence repeats from the beginning.
 
-    The `signed` argument determines whether the generated numbers should
-    use two's-complement encoding (i.e. cover the range ``-(2^(n-1))`` to
-    ``2^(n-1)-1``, inclusive), or unsigned encoding (``0`` to ``2^n-1``).
+    The signed argument determines whether the generated numbers should use
+    two's-complement encoding (i.e. cover the range -(2^(n-1)) to 2^(n-1)-1,
+    inclusive), or unsigned encoding (0 to 2^n-1).
     """
 
     def __init__(self, n: int, signed: bool = True) -> None:
@@ -84,7 +82,7 @@ class NumberGenerator:
         return self
 
     def __next__(self) -> int:
-        """Give the next number in the sequence."""
+        """Return the next number in the sequence."""
         self.previous += self.step
 
         if self.previous > self.wrap:
@@ -98,20 +96,20 @@ class subbytes:
 
     This class represents a sequence of bytes, similarly to how data is
     represented in a bytes-like object. Unlike a bytes-like object, however,
-    a :class:`subbytes` object does not store this data in a memory block of
-    its own. It holds a reference to a real bytes-like object, and acts on a
+    a subbytes object does not store this data in a memory block of its own.
+    It holds a reference to a real bytes-like object, and acts on a
     sub-sequence of that object's data, as if it had been copied into a
-    separate bytes-like object.  The arguments to the constructor mirror the
-    arguments to the built-in :func:`slice` function, (except `step`) so that
-    ``subbytes(data, start, stop)`` represents the same sequence of bytes as
-    ``data[start:stop]``.
+    separate bytes-like object. The arguments to the constructor mirror the
+    arguments to the built-in slice() function, (without the step parameter)
+    so that subbytes(data, start, stop) represents the same sequence of bytes
+    as data[start:stop].
 
     .. attribute:: data
 
-        The :attr:`data` attribute provides a reference to the underlying
-        bytes-like object. If the `data` argument to the constructor is an
-        instance of :class:`subbytes`, it will be unwrapped so that this
-        attribute always references a bytes-like object directly.
+        The data attribute provides a reference to the underlying bytes-like
+        object. If the data argument to the constructor is an instance of
+        subbytes, it will be unwrapped so that this attribute always references
+        a bytes-like object directly.
     """
 
     def __init__(self,
@@ -200,7 +198,7 @@ class subbytes:
         return self.stop - self.start
 
     def __repr__(self) -> str:
-        """Provide an :func:`eval`-able representation of this object."""
+        """Provide an eval()-able representation of this object."""
         args = [repr(self.data)]
 
         if self.start:
@@ -212,22 +210,21 @@ class subbytes:
         return f"{typename(self)}({', '.join(args)})"
 
     def translate(self, index: int, clamp: bool = False) -> int:
-        """Convert an index of self into an index of :attr:`data`.
+        """Convert an index of self into an index of self.data.
 
-        This method accepts an integral `index` of any value and translates it
-        into a meaningful index of :attr:`data`. If ``-len(self)`` <= `index` <
-        ``len(self)``, then the result is guaranteed to be a valid index
-        (meaning it will not cause an :exc:`IndexError`). If `index` <
-        ``-len(self)`` and `clamp` is ``True``, then this method will return
-        the index of the start of this sequence, which is only guaranteed to be
-        valid if the sequence is non-empty, and may or may not be valid if the
-        sequence is empty. If ``len(self)`` <= `index` and `clamp` is ``True``,
-        then this method will return the stop index, which is the index just
-        beyond the end of the sequence. The stop index may or may not be valid,
-        regardless of the length of the sequence, but it is guaranteed to match
-        the start index if the sequence is empty. Under any other scenario
-        (i.e. `index` is out of range and `clamp` is ``False``), the result is
-        guaranteed to be an invalid index.
+        This method accepts an integral index of any value and translates it
+        into a meaningful index of self.data. If -len(self) <= index <
+        len(self), then the result is guaranteed to be a valid index (meaning
+        it will not cause an IndexError). If index < -len(self) and clamp is
+        True, then this method will return the index of the start of this
+        sequence, which is only guaranteed to be valid if the sequence is
+        non-empty, and may or may not be valid if the sequence is empty. If
+        len(self) <= index and clamp is True, then this method will return the
+        stop index, which is the index just beyond the end of the sequence. The
+        stop index may or may not be valid, regardless of the length of the
+        sequence, but it is guaranteed to match the start index if the sequence
+        is empty. Under any other scenario (i.e. index is out of range and
+        clamp is False), the result is guaranteed to be an invalid index.
 
         :meta private:
         """
@@ -261,7 +258,7 @@ class subbytes:
     def dereference(self) -> int:
         """Retrieve the first byte of the sequence.
 
-        If the sequence is empty, an :exc:`IndexError` will be raised
+        If the sequence is empty, an IndexError will be raised
         """
         return self[0]
 
@@ -270,7 +267,7 @@ class subbytes:
 
         This method produces a copy of the wrapped object, in which the
         current sequence has been replaced with the contents of the
-        `replacement` argument.
+        replacement argument.
         """
         return self.data[:self.start] + replacement + self.data[self.stop:]
 
@@ -279,8 +276,8 @@ class subbytes:
 
         Return two new objects, the first referencing the portion of the
         sequence  starting at the beginning of the current sequence and ending
-        just before `index`, and the second referencing the portion beginning
-        at `index` and ending at the end of the current sequence.
+        just before index, and the second referencing the portion beginning
+        at index and ending at the end of the current sequence.
         """
         return subbytes(self, stop=index), subbytes(self, start=index)
 
@@ -288,9 +285,8 @@ def typename(cls: Any, qualified: bool = False) -> str:
     """Query an object to determine its type.
 
     :param cls:
-        If ``cls`` is a class, this function will return its name.  If
-        ``cls`` is an object, this function will return the name of the
-        object's class.
+        If cls is a class, this function will return its name. If cls is an
+        object, this function will return the name of the object's class.
     :param bool qualified:
         Indicate whether to return the fully-qualified name, which includes
         the module path, as well as the names of any enclosing classes (for
