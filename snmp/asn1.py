@@ -69,9 +69,13 @@ class INTEGER(ASN1Primitive):
         return value.bit_length()
 
     @classmethod
+    def construct(cls: Type[TINTEGER], value: int) -> TINTEGER:
+        return cls(value)
+
+    @classmethod
     def deserialize(cls: Type[TINTEGER], data: Asn1Data) -> TINTEGER:
         value = int.from_bytes(data, cls.BYTEORDER, signed=True)
-        return cls(value)
+        return cls.construct(value)
 
     def serialize(self) -> bytes:
         # equivalent to (N + 8) // 8

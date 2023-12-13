@@ -33,9 +33,9 @@ class BoundedInteger(INTEGER):
             return equal
 
     @classmethod
-    def deserialize(cls: Type[TInteger], data: Asn1Data) -> TInteger:
+    def construct(cls: Type[TInteger], value: int) -> TInteger:
         try:
-            return super().deserialize(data)
+            return cls(value)
         except ValueError as err:
             raise ParseError(*err.args)
 
