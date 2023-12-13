@@ -12,6 +12,7 @@ from snmp.exception import IncomingMessageError
 from snmp.message.v3 import *
 from snmp.security import *
 from snmp.security.levels import *
+from snmp.smi import *
 from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
@@ -460,8 +461,8 @@ class UsmSecurityParameters(Sequence):
             )
         )
         _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
         ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
         return ptr

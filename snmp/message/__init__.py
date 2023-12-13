@@ -9,6 +9,7 @@ import enum
 from snmp.ber import *
 from snmp.exception import *
 from snmp.pdu import *
+from snmp.smi import *
 from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *

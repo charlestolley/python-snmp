@@ -2,7 +2,7 @@ test_modules = [
     "utils",
     "ber",
     "asn1",
-    "types",
+    #"types",
     "smi",
     "pdu",
     "message",

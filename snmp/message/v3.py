@@ -9,12 +9,13 @@ from snmp.message import *
 from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
+from snmp.smi import *
 from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 
 pduTypes = {
-    cls.TYPE: cls for cls in cast(Tuple[Type[AnyPDU], ...], (
+    cls.TAG: cls for cls in cast(Tuple[Type[AnyPDU], ...], (
         GetRequestPDU,
         GetNextRequestPDU,
         ResponsePDU,
@@ -425,10 +426,10 @@ class SNMPv3Message(Sequence):
     @classmethod
     def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
         ptr: subbytes = decode(
-            wholeMsg, expected=self.TYPE, copy=False
+            wholeMsg, expected=self.TAG, copy=False
         )
 
-        _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=SEQUENCE,     leftovers=True, copy=False)
         ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
 

@@ -10,6 +10,7 @@ from snmp.message import *
 from snmp.message.v1 import *
 from snmp.message.v1 import pduTypes
 from snmp.pdu import *
+from snmp.smi import *
 from snmp.types import *
 from snmp.utils import *
 

@@ -1,26 +1,86 @@
 __all__ = [
-    "Integer32", "IpAddress", "Counter32", "Gauge32",
-    "Unsigned32", "TimeTicks", "Opaque", "Counter64",
-    "zeroDotZero",
+    "Integer", "Integer32", "Unsigned", "Unsigned32",
+    "Counter32", "Gauge32", "TimeTicks", "Counter64",
+    "IpAddress", "Opaque", "zeroDotZero",
 ]
 
 from socket import inet_aton, inet_ntoa
 
 from snmp.ber import *
 from snmp.types import *
+from snmp.asn1 import *
 from snmp.typing import *
 from snmp.utils import *
 
-class Unsigned(Integer):
+TInteger = TypeVar("TInteger", bound="BoundedInteger")
+
+class BoundedInteger(INTEGER):
+    BITS:   ClassVar[int]
+    SIGNED: ClassVar[bool]
+
+    def __init__(self, value: int) -> None:
+        if not self.inRange(value):
+            raise ValueError(f"{value} is out of range for {typename(self)}")
+
+        super().__init__(value)
+
+    def __eq__(self, other: Any) -> bool:
+        equal = super().__eq__(other)
+
+        if isinstance(equal, bool):
+            return equal and self.TAG == other.TAG
+        else:
+            return equal
+
+    @classmethod
+    def deserialize(cls: Type[TInteger], data: Asn1Data) -> TInteger:
+        try:
+            return super().deserialize(data)
+        except ValueError as err:
+            raise ParseError(*err.args)
+
+    @classmethod
+    def inRange(cls, value: int) -> bool:
+        if value < 0 and not cls.SIGNED:
+            return False
+
+        nbits = cls.bitCount(value)
+        allowable = cls.BITS - 1 if cls.SIGNED else cls.BITS
+        return nbits <= allowable
+
+class Integer32(BoundedInteger):
+    BITS = 32
+    SIGNED  = True
+
+class Unsigned32(BoundedInteger):
+    BITS = 32
     SIGNED = False
+    TAG = Tag(2, cls = Tag.Class.APPLICATION)
+
+Integer = Integer32
+Unsigned = Unsigned32
 
 @final
-class Integer32(Integer):
+class Counter32(Unsigned32):
+    TAG = Tag(1, cls = Tag.Class.APPLICATION)
+
+@final
+class Gauge32(Unsigned32):
     pass
 
 @final
+class TimeTicks(Unsigned32):
+    TAG = Tag(3, cls = Tag.Class.APPLICATION)
+
+@final
+class Counter64(BoundedInteger):
+    BITS = 64
+    SIGNED = False
+    TAG = Tag(6, cls = Tag.Class.APPLICATION)
+
+@final
 class IpAddress(OctetString):
-    TYPE = Tag(0, cls = Tag.Class.APPLICATION)
+    TAG = Tag(0, cls = Tag.Class.APPLICATION)
     MIN_SIZE = 4
     MAX_SIZE = 4
 
@@ -46,27 +106,7 @@ class IpAddress(OctetString):
         return cls(inet_ntoa(addr))
 
 @final
-class Counter32(Unsigned):
-    TYPE = Tag(1, cls = Tag.Class.APPLICATION)
-
-class Unsigned32(Unsigned):
-    TYPE = Tag(2, cls = Tag.Class.APPLICATION)
-
-@final
-class Gauge32(Unsigned32):
-    pass
-
-@final
-class TimeTicks(Unsigned):
-    TYPE = Tag(3, cls = Tag.Class.APPLICATION)
-
-@final
 class Opaque(OctetString):
-    TYPE = Tag(4, cls = Tag.Class.APPLICATION)
-
-@final
-class Counter64(Unsigned):
-    BITS = 64
-    TYPE = Tag(6, cls = Tag.Class.APPLICATION)
+    TAG = Tag(4, cls = Tag.Class.APPLICATION)
 
 zeroDotZero = OID(0, 0)

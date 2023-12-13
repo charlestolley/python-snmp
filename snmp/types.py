@@ -1,17 +1,19 @@
 __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
     "Asn1Encodable","Primitive", "Constructed",
-    "Integer", "OctetString", "Null", "OID", "Sequence",
+    #"Integer",
+    "OctetString", "Null", "OID", "Sequence",
 ]
 
 from abc import abstractmethod
 import re
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.typing import *
 from snmp.utils import *
 
-INTEGER             = Tag(2)
+#INTEGER             = Tag(2)
 OCTET_STRING        = Tag(4)
 NULL                = Tag(5)
 OBJECT_IDENTIFIER   = Tag(6)
@@ -19,13 +21,13 @@ SEQUENCE            = Tag(16, True)
 
 TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
 TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
-TInteger        = TypeVar("TInteger",       bound="Integer")
+#TInteger        = TypeVar("TInteger",       bound="Integer")
 TOctetString    = TypeVar("TOctetString",   bound="OctetString")
 TNull           = TypeVar("TNull",          bound="Null")
 TOID            = TypeVar("TOID",           bound="OID")
 
 class Asn1Encodable:
-    TYPE: ClassVar[Tag]
+    TAG: ClassVar[Tag]
 
     def __eq__(self, other: Any) -> bool:
         if type(self) == type(other):
@@ -61,14 +63,14 @@ class Asn1Encodable:
         **kwargs: Any,
     ) -> Union[TEncodable, Tuple[TEncodable, subbytes]]:
         if leftovers:
-            encoding, tail = decode(data, cls.TYPE, True, copy)
+            encoding, tail = decode(data, cls.TAG, True, copy)
             return cls.deserialize(encoding, **kwargs), tail
         else:
-            encoding = decode(data, cls.TYPE, False, copy)
+            encoding = decode(data, cls.TAG, False, copy)
             return cls.deserialize(encoding, **kwargs)
 
     def encode(self) -> bytes:
-        return encode(self.TYPE, self.serialize())
+        return encode(self.TAG, self.serialize())
 
     @abstractmethod
     def equals(self: TEncodable, other: TEncodable) -> bool:
@@ -97,75 +99,75 @@ class Primitive(Asn1Encodable):
     ) -> TPrimitive:
         ...
 
-class Integer(Primitive):
-    TYPE = INTEGER
-
-    BITS:       ClassVar[int]               = 32
-    BYTEORDER:  ClassVar[Literal["big"]]    = "big"
-    SIGNED:     ClassVar[bool]              = True
-
-    def __init__(self, value: int) -> None:
-        self._value = value
-
-    def __repr__(self) -> str:
-        return f"{typename(self)}({self.value})"
-
-    @property
-    def value(self) -> int:
-        return self._value
-
-    def equals(self, other: "Integer") -> bool:
-        return self.value == other.value
-
-    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
-        return oid.extend(self.value)
-
-    @staticmethod
-    def countBits(value: int) -> int:
-        if value < 0:
-            value = -value - 1
-
-        return value.bit_length()
-
-    @classmethod
-    def inRange(cls, value: int) -> bool:
-        nbits = cls.countBits(value)
-        allowable = cls.BITS - 1 if cls.SIGNED else cls.BITS
-        return nbits <= allowable
-
-    @classmethod
-    def decodeFromOID(
-        cls: Type[TInteger],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TInteger:
-        value = next(nums)
-
-        if not cls.inRange(value):
-            errmsg = f"{typename(cls)} value out of range: {value}"
-            raise OID.IndexDecodeError(errmsg)
-
-        return cls(value)
-
-    @classmethod
-    def deserialize(cls: Type[TInteger], data: Asn1Data) -> TInteger:
-        value = int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED)
-
-        if not cls.inRange(value):
-            raise ParseError(f"Encoding too large for {typename(cls)}")
-
-        return cls(value)
-
-    def serialize(self) -> bytes:
-        assert self.inRange(self.value)
-
-        # equivalent to (N + 8) // 8
-        # the reason it's not (N + 7) is that ASN.1 always includes a sign bit
-        nbytes = (self.countBits(self.value) // 8) + 1
-        return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
+#class Integer(Primitive):
+#    TAG = INTEGER
+#
+#    BITS:       ClassVar[int]               = 32
+#    BYTEORDER:  ClassVar[Literal["big"]]    = "big"
+#    SIGNED:     ClassVar[bool]              = True
+#
+#    def __init__(self, value: int) -> None:
+#        self._value = value
+#
+#    def __repr__(self) -> str:
+#        return f"{typename(self)}({self.value})"
+#
+#    @property
+#    def value(self) -> int:
+#        return self._value
+#
+#    def equals(self, other: "Integer") -> bool:
+#        return self.value == other.value
+#
+#    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+#        return oid.extend(self.value)
+#
+#    @staticmethod
+#    def countBits(value: int) -> int:
+#        if value < 0:
+#            value = -value - 1
+#
+#        return value.bit_length()
+#
+#    @classmethod
+#    def inRange(cls, value: int) -> bool:
+#        nbits = cls.countBits(value)
+#        allowable = cls.BITS - 1 if cls.SIGNED else cls.BITS
+#        return nbits <= allowable
+#
+#    @classmethod
+#    def decodeFromOID(
+#        cls: Type[TInteger],
+#        nums: Iterator[int],
+#        implied: bool = False,
+#    ) -> TInteger:
+#        value = next(nums)
+#
+#        if not cls.inRange(value):
+#            errmsg = f"{typename(cls)} value out of range: {value}"
+#            raise OID.IndexDecodeError(errmsg)
+#
+#        return cls(value)
+#
+#    @classmethod
+#    def deserialize(cls: Type[TInteger], data: Asn1Data) -> TInteger:
+#        value = int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED)
+#
+#        if not cls.inRange(value):
+#            raise ParseError(f"Encoding too large for {typename(cls)}")
+#
+#        return cls(value)
+#
+#    def serialize(self) -> bytes:
+#        assert self.inRange(self.value)
+#
+#        # equivalent to (N + 8) // 8
+#        # the reason it's not (N + 7) is that ASN.1 always includes a sign bit
+#        nbytes = (self.countBits(self.value) // 8) + 1
+#        return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
 
 class OctetString(Primitive):
-    TYPE = OCTET_STRING
+    TAG = OCTET_STRING
 
     MIN_SIZE:       ClassVar[int]               = 0
     MAX_SIZE:       ClassVar[int]               = 0xffff
@@ -256,7 +258,7 @@ class OctetString(Primitive):
         return data[:] if isinstance(data, subbytes) else data
 
 class Null(Primitive):
-    TYPE = NULL
+    TAG = NULL
 
     def __repr__(self) -> str:
         return f"{typename(self)}()"
@@ -283,7 +285,7 @@ class Null(Primitive):
         return b""
 
 class OID(Primitive):
-    TYPE = OBJECT_IDENTIFIER
+    TAG = OBJECT_IDENTIFIER
 
     DOT:    ClassVar[str] = "."
     MULT:   ClassVar[int] = 40
@@ -453,7 +455,7 @@ class OID(Primitive):
 
     def getIndex(self,
         prefix: "OID",
-        cls: Type[TPrimitive] = Integer,    # type: ignore[assignment]
+        cls: Type[TPrimitive] = INTEGER,    # type: ignore[assignment]
         implied: bool = False,
     ) -> TPrimitive:
         return self.extractIndex(prefix, cls, implied=implied)[0]
@@ -557,4 +559,4 @@ class Constructed(Asn1Encodable):
         return b"".join([item.encode() for item in self])
 
 class Sequence(Constructed):
-    TYPE = SEQUENCE
+    TAG = SEQUENCE

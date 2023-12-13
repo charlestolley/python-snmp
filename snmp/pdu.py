@@ -25,20 +25,20 @@ TBulkPDU = TypeVar("TBulkPDU", bound="BulkPDU")
 
 @final
 class NoSuchObject(Null):
-    TYPE = Tag(0, cls = Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(0, cls = Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class NoSuchInstance(Null):
-    TYPE = Tag(1, cls = Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(1, cls = Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class EndOfMibView(Null):
-    TYPE = Tag(2, cls = Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(2, cls = Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class VarBind(Sequence):
     TYPES = {
-        cls.TYPE: cls for cls in cast(Tuple[Primitive, ...], (
+        cls.TAG: cls for cls in cast(Tuple[Primitive, ...], (
             Integer,
             OctetString,
             Null,
@@ -386,39 +386,39 @@ class Confirmed:
 
 @final
 class GetRequestPDU(PDU, Read, Confirmed):
-    TYPE = Tag(0, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(0, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class GetNextRequestPDU(PDU, Read, Confirmed):
-    TYPE = Tag(1, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(1, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class ResponsePDU(PDU, Response):
-    TYPE = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class SetRequestPDU(PDU, Write, Confirmed):
-    TYPE = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class TrapPDU(PDU, Notification):
-    TYPE = Tag(4, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(4, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class GetBulkRequestPDU(BulkPDU, Read, Confirmed):
-    TYPE = Tag(5, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(5, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class InformRequestPDU(PDU, Notification, Confirmed):
-    TYPE = Tag(6, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(6, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class SNMPv2TrapPDU(PDU, Notification):
-    TYPE = Tag(7, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(7, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class ReportPDU(PDU, Response, Internal):
-    TYPE = Tag(8, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(8, True, Tag.Class.CONTEXT_SPECIFIC)
 
 class ErrorResponse(SNMPException):
     def __init__(self,

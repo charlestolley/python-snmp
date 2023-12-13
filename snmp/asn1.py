@@ -78,3 +78,22 @@ class INTEGER(ASN1Primitive):
         # the reason it's not (N + 7) is that ASN.1 always includes a sign bit
         nbytes = (self.bitCount(self.value) // 8) + 1
         return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
+
+    # TODO: These methods are hacked in from the old Integer.
+    #       They will need some tweaks once the new OID type is in place.
+    def appendToOID(self, oid, implied: bool = False):
+        return oid.extend(self.value)
+
+    @classmethod
+    def decodeFromOID(
+        cls,
+        nums: Iterator[int],
+        implied: bool = False,
+    ):
+        value = next(nums)
+
+        if not cls.inRange(value):
+            errmsg = f"{typename(cls)} value out of range: {value}"
+            raise OID.IndexDecodeError(errmsg)
+
+        return cls(value)

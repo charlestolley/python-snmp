@@ -12,7 +12,7 @@ from snmp.typing import *
 from snmp.utils import *
 
 pduTypes = {
-    cls.TYPE: cls for cls in cast(Tuple[Type[PDU], ...], (
+    cls.TAG: cls for cls in cast(Tuple[Type[PDU], ...], (
         GetRequestPDU,
         GetNextRequestPDU,
         ResponsePDU,
