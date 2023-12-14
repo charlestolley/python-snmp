@@ -1,8 +1,9 @@
 __all__ = [
-    "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
+    #"INTEGER", "OCTET_STRING", "NULL",
+    "OBJECT_IDENTIFIER", "SEQUENCE",
     "Asn1Encodable","Primitive", "Constructed",
-    #"Integer", "OctetString",
-    "Null", "OID", "Sequence",
+    #"Integer", "OctetString", "Null",
+    "OID", "Sequence",
 ]
 
 from abc import abstractmethod
@@ -15,7 +16,7 @@ from snmp.utils import *
 
 #INTEGER             = Tag(2)
 #OCTET_STRING        = Tag(4)
-NULL                = Tag(5)
+#NULL                = Tag(5)
 OBJECT_IDENTIFIER   = Tag(6)
 SEQUENCE            = Tag(16, True)
 
@@ -23,7 +24,7 @@ TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
 TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
 #TInteger        = TypeVar("TInteger",       bound="Integer")
 #TOctetString    = TypeVar("TOctetString",   bound="OctetString")
-TNull           = TypeVar("TNull",          bound="Null")
+#TNull           = TypeVar("TNull",          bound="Null")
 TOID            = TypeVar("TOID",           bound="OID")
 
 class Asn1Encodable:
@@ -257,32 +258,32 @@ class Primitive(Asn1Encodable):
 #
 #        return data[:] if isinstance(data, subbytes) else data
 
-class Null(Primitive):
-    TAG = NULL
-
-    def __repr__(self) -> str:
-        return f"{typename(self)}()"
-
-    def equals(self, other: "Null") -> bool:
-        return True
-
-    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
-        return oid
-
-    @classmethod
-    def decodeFromOID(
-        cls: Type[TNull],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TNull:
-        return cls()
-
-    @classmethod
-    def deserialize(cls: Type[TNull], data: Asn1Data) -> TNull:
-        return cls()
-
-    def serialize(self) -> bytes:
-        return b""
+#class Null(Primitive):
+#    TAG = NULL
+#
+#    def __repr__(self) -> str:
+#        return f"{typename(self)}()"
+#
+#    def equals(self, other: "Null") -> bool:
+#        return True
+#
+#    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+#        return oid
+#
+#    @classmethod
+#    def decodeFromOID(
+#        cls: Type[TNull],
+#        nums: Iterator[int],
+#        implied: bool = False,
+#    ) -> TNull:
+#        return cls()
+#
+#    @classmethod
+#    def deserialize(cls: Type[TNull], data: Asn1Data) -> TNull:
+#        return cls()
+#
+#    def serialize(self) -> bytes:
+#        return b""
 
 class OID(Primitive):
     TAG = OBJECT_IDENTIFIER

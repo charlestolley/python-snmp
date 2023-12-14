@@ -1,4 +1,4 @@
-__all__ = ["INTEGERTest", "OCTET_STRINGTest"]
+__all__ = ["INTEGERTest", "OCTET_STRINGTest", "NULLTest"]
 
 import unittest
 from snmp.asn1 import *
@@ -89,6 +89,29 @@ class OCTET_STRINGTest(unittest.TestCase):
         data = b"this is some data"
         encoding = b"\x04" + bytes([len(data)]) + data
         self.assertEqual(OCTET_STRING(data).encode(), encoding)
+
+class NULLTest(unittest.TestCase):
+    def test_tag_universal_primitive_5(self):
+        self.assertEqual(NULL.TAG.cls, Tag.Class.UNIVERSAL)
+        self.assertEqual(NULL.TAG.constructed, False)
+        self.assertEqual(NULL.TAG.number, 5)
+
+    def test_two_NULL_objects_are_equal(self):
+        self.assertEqual(NULL(), NULL())
+
+    def test_NULL_object_is_not_equal_to_non_NULL_object(self):
+        self.assertNotEqual(NULL(), INTEGER(0))
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        null = NULL()
+        self.assertEqual(eval(repr(null)), null)
+
+    def test_decode_ignores_payload(self):
+        encoding = b"\x05\x02\x12\x34"
+        self.assertEqual(NULL.decode(encoding), NULL())
+
+    def test_encode_uses_empty_payload(self):
+        self.assertEqual(NULL().encode(), b"\x05\x00")
 
 if __name__ == '__main__':
     unittest.main()

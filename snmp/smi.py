@@ -1,7 +1,8 @@
 __all__ = [
     "Integer", "Integer32", "Unsigned", "Unsigned32",
     "Counter32", "Gauge32", "TimeTicks", "Counter64",
-    "OctetString", "IpAddress", "Opaque", "zeroDotZero",
+    "OctetString", "IpAddress", "Opaque",
+    "NULL", "Null", "zeroDotZero",
 ]
 
 from socket import inet_aton, inet_ntoa
@@ -137,4 +138,5 @@ class IpAddress(OCTET_STRING):
 class Opaque(OCTET_STRING):
     TAG = Tag(4, cls = Tag.Class.APPLICATION)
 
+Null = NULL
 zeroDotZero = OID(0, 0)

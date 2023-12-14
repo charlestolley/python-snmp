@@ -1,4 +1,4 @@
-__all__ = ["ASN1Type","ASN1Primitive", "INTEGER", "OCTET_STRING"]
+__all__ = ["ASN1Type","ASN1Primitive", "INTEGER", "OCTET_STRING", "NULL"]
 
 from abc import abstractmethod
 from snmp.ber import *
@@ -8,6 +8,7 @@ from snmp.utils import *
 ASN1TypeVar     = TypeVar("ASN1TypeVar",    bound="ASN1Type")
 TINTEGER        = TypeVar("TINTEGER",       bound="INTEGER")
 TOCTET_STRING   = TypeVar("TOCTET_STRING",  bound="OCTET_STRING")
+TNULL           = TypeVar("TNULL",          bound="NULL")
 
 class ASN1Type:
     TAG: ClassVar[Tag]
@@ -135,3 +136,22 @@ class OCTET_STRING(ASN1Primitive):
 
     def serialize(self) -> bytes:
         return self.data
+
+class NULL(ASN1Primitive):
+    TAG = Tag(5)
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, NULL):
+            return NotImplemented
+
+        return True
+
+    def __repr__(self) -> str:
+        return f"{typename(self)}()"
+
+    @classmethod
+    def deserialize(cls: Type[TNULL], data: Asn1Data) -> TNULL:
+        return cls()
+
+    def serialize(self) -> bytes:
+        return b""

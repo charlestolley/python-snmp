@@ -432,8 +432,8 @@ class SNMPv3Message(Sequence):
             wholeMsg, expected=self.TAG, copy=False
         )
 
-        os_tag = OCTET_STRING.TAG
-        _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
+        os_tag = OctetString.TAG
+        _, ptr = decode(ptr, expected=Integer.TAG,  leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=SEQUENCE,     leftovers=True, copy=False)
         ptr, _ = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
 

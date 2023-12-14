@@ -463,8 +463,8 @@ class UsmSecurityParameters(Sequence):
 
         os_tag = OctetString.TAG
         _, ptr = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=Integer.TAG,  leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=Integer.TAG,  leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
         ptr, _ = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
         return ptr
