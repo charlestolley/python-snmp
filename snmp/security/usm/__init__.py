@@ -446,7 +446,7 @@ class UsmSecurityParameters(Sequence):
             engineBoots.value,
             engineTime.value,
             cast(bytes, userName.data),
-            signature.data,
+            signature.original,
             cast(bytes, salt.data),
         )
 
@@ -460,11 +460,13 @@ class UsmSecurityParameters(Sequence):
                 copy=False,
             )
         )
-        _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+
+        os_tag = OctetString.TAG
+        _, ptr = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
-        ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+        _, ptr = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
+        ptr, _ = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
         return ptr
 
 class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
@@ -718,7 +720,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             timestamp = time()
 
         securityParameters = UsmSecurityParameters.decode(
-            message.securityParameters.data,
+            message.securityParameters.original,
         )
 
         message.securityEngineID = securityParameters.engineID

@@ -1,8 +1,8 @@
 __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
     "Asn1Encodable","Primitive", "Constructed",
-    #"Integer",
-    "OctetString", "Null", "OID", "Sequence",
+    #"Integer", "OctetString",
+    "Null", "OID", "Sequence",
 ]
 
 from abc import abstractmethod
@@ -14,7 +14,7 @@ from snmp.typing import *
 from snmp.utils import *
 
 #INTEGER             = Tag(2)
-OCTET_STRING        = Tag(4)
+#OCTET_STRING        = Tag(4)
 NULL                = Tag(5)
 OBJECT_IDENTIFIER   = Tag(6)
 SEQUENCE            = Tag(16, True)
@@ -22,7 +22,7 @@ SEQUENCE            = Tag(16, True)
 TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
 TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
 #TInteger        = TypeVar("TInteger",       bound="Integer")
-TOctetString    = TypeVar("TOctetString",   bound="OctetString")
+#TOctetString    = TypeVar("TOctetString",   bound="OctetString")
 TNull           = TypeVar("TNull",          bound="Null")
 TOID            = TypeVar("TOID",           bound="OID")
 
@@ -165,97 +165,97 @@ class Primitive(Asn1Encodable):
 #        # the reason it's not (N + 7) is that ASN.1 always includes a sign bit
 #        nbytes = (self.countBits(self.value) // 8) + 1
 #        return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
-
-class OctetString(Primitive):
-    TAG = OCTET_STRING
-
-    MIN_SIZE:       ClassVar[int]               = 0
-    MAX_SIZE:       ClassVar[int]               = 0xffff
-    INVALID_SIZES:  ClassVar[Tuple[int, ...]]   = ()
-
-    def __init__(self, data: Asn1Data = b"") -> None:
-        self._data = data
-
-    def __repr__(self) -> str:
-        return f"{typename(self)}({self.data!r})"
-
-    @property
-    def data(self) -> Asn1Data:
-        return self._data
-
-    def equals(self, other: "OctetString") -> bool:
-        return self.data == other.data
-
-    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
-        if not implied:
-            oid = oid.extend(len(self.data))
-
-        return oid.extend(*self.data)
-
-    @classmethod
-    def decodeFromOID(
-        cls: Type[TOctetString],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TOctetString:
-        if implied:
-            length = OID.MAXLEN
-        elif cls.MIN_SIZE == cls.MAX_SIZE:
-            length = cls.MAX_SIZE
-        else:
-            length = next(nums)
-
-        data = bytearray()
-        while len(data) < length:
-            try:
-                byte = next(nums)
-            except StopIteration:
-                if implied:
-                    break
-                else:
-                    raise
-
-            try:
-                data.append(byte)
-            except ValueError as err:
-                errmsg = "Sub-identifier is too large for type \"{}\": {}"
-                raise OID.IndexDecodeError(
-                    errmsg.format(typename(cls), byte)
-                ) from err
-
-        return cls.interpret(bytes(data))
-
-    @classmethod
-    def deserialize(cls: Type[TOctetString], data: Asn1Data) -> TOctetString:
-        if len(data) < cls.MIN_SIZE:
-            msg = "Encoded {} may not be less than {} bytes long"
-            raise ParseError(msg.format(typename(cls), cls.MIN_SIZE))
-        elif len(data) > cls.MAX_SIZE:
-            msg = "Encoded {} may not be more than {} bytes long"
-            raise ParseError(msg.format(typename(cls), cls.MAX_SIZE))
-        elif len(data) in cls.INVALID_SIZES:
-            msg = "Encoded {} not permitted to be {} bytes long"
-            raise ParseError(msg.format(typename(cls), len(data)))
-
-        return cls.interpret(data)
-
-    @classmethod
-    def interpret(cls: Type[TOctetString], data: Asn1Data) -> TOctetString:
-        return cls(data)
-
-    def serialize(self) -> bytes:
-        data = self.data
-        if len(data) < self.MIN_SIZE:
-            msg = "Encoded {} may not be less than {} bytes long"
-            raise ValueError(msg.format(typename(self), self.MIN_SIZE))
-        elif len(data) > self.MAX_SIZE:
-            msg = "Encoded {} may not be more than {} bytes long"
-            raise ValueError(msg.format(typename(self), self.MAX_SIZE))
-        elif len(data) in self.INVALID_SIZES:
-            msg = "Encoded {} not permitted to be {} bytes long"
-            raise ValueError(msg.format(typename(self), len(data)))
-
-        return data[:] if isinstance(data, subbytes) else data
+#
+#class OctetString(Primitive):
+#    TAG = OCTET_STRING
+#
+#    MIN_SIZE:       ClassVar[int]               = 0
+#    MAX_SIZE:       ClassVar[int]               = 0xffff
+#    INVALID_SIZES:  ClassVar[Tuple[int, ...]]   = ()
+#
+#    def __init__(self, data: Asn1Data = b"") -> None:
+#        self._data = data
+#
+#    def __repr__(self) -> str:
+#        return f"{typename(self)}({self.data!r})"
+#
+#    @property
+#    def data(self) -> Asn1Data:
+#        return self._data
+#
+#    def equals(self, other: "OctetString") -> bool:
+#        return self.data == other.data
+#
+#    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+#        if not implied:
+#            oid = oid.extend(len(self.data))
+#
+#        return oid.extend(*self.data)
+#
+#    @classmethod
+#    def decodeFromOID(
+#        cls: Type[TOctetString],
+#        nums: Iterator[int],
+#        implied: bool = False,
+#    ) -> TOctetString:
+#        if implied:
+#            length = OID.MAXLEN
+#        elif cls.MIN_SIZE == cls.MAX_SIZE:
+#            length = cls.MAX_SIZE
+#        else:
+#            length = next(nums)
+#
+#        data = bytearray()
+#        while len(data) < length:
+#            try:
+#                byte = next(nums)
+#            except StopIteration:
+#                if implied:
+#                    break
+#                else:
+#                    raise
+#
+#            try:
+#                data.append(byte)
+#            except ValueError as err:
+#                errmsg = "Sub-identifier is too large for type \"{}\": {}"
+#                raise OID.IndexDecodeError(
+#                    errmsg.format(typename(cls), byte)
+#                ) from err
+#
+#        return cls.interpret(bytes(data))
+#
+#    @classmethod
+#    def deserialize(cls: Type[TOctetString], data: Asn1Data) -> TOctetString:
+#        if len(data) < cls.MIN_SIZE:
+#            msg = "Encoded {} may not be less than {} bytes long"
+#            raise ParseError(msg.format(typename(cls), cls.MIN_SIZE))
+#        elif len(data) > cls.MAX_SIZE:
+#            msg = "Encoded {} may not be more than {} bytes long"
+#            raise ParseError(msg.format(typename(cls), cls.MAX_SIZE))
+#        elif len(data) in cls.INVALID_SIZES:
+#            msg = "Encoded {} not permitted to be {} bytes long"
+#            raise ParseError(msg.format(typename(cls), len(data)))
+#
+#        return cls.interpret(data)
+#
+#    @classmethod
+#    def interpret(cls: Type[TOctetString], data: Asn1Data) -> TOctetString:
+#        return cls(data)
+#
+#    def serialize(self) -> bytes:
+#        data = self.data
+#        if len(data) < self.MIN_SIZE:
+#            msg = "Encoded {} may not be less than {} bytes long"
+#            raise ValueError(msg.format(typename(self), self.MIN_SIZE))
+#        elif len(data) > self.MAX_SIZE:
+#            msg = "Encoded {} may not be more than {} bytes long"
+#            raise ValueError(msg.format(typename(self), self.MAX_SIZE))
+#        elif len(data) in self.INVALID_SIZES:
+#            msg = "Encoded {} not permitted to be {} bytes long"
+#            raise ValueError(msg.format(typename(self), len(data)))
+#
+#        return data[:] if isinstance(data, subbytes) else data
 
 class Null(Primitive):
     TAG = NULL

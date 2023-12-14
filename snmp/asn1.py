@@ -106,26 +106,32 @@ class INTEGER(ASN1Primitive):
 class OCTET_STRING(ASN1Primitive):
     TAG = Tag(4)
 
-    def __init__(self, data: Asn1Data) -> None:
-        if isinstance(data, subbytes):
-            self._data = data[:]
-            self._wholeMsg = data.data
-        else:
-            self._data = data
-            self._wholeMsg = data
+    def __init__(self, data: bytes = b"") -> None:
+        self._data = data
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, OCTET_STRING):
+            return NotImplemented
+
+        return self.data == other.data
+
+    def __repr__(self) -> str:
+        return f"{typename(self)}({repr(self.data)})"
 
     @property
     def data(self) -> bytes:
         return self._data
 
-    @property
-    def wholeMsg(self) -> bytes:
-        return self._wholeMsg
-
     @classmethod
     def construct(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
+        if isinstance(data, subbytes):
+            data = data[:]
+
         return cls(data)
 
     @classmethod
     def deserialize(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
         return cls.construct(data)
+
+    def serialize(self) -> bytes:
+        return self.data

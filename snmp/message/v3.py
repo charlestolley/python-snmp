@@ -73,8 +73,11 @@ class MessageFlags(OctetString):
         ))
 
     @classmethod
-    def interpret(cls, data: Asn1Data = b"") -> "MessageFlags":
-        byte = data[0]
+    def construct(cls, data: Asn1Data = b"") -> "MessageFlags":
+        try:
+            byte = data[0]
+        except IndexError as err:
+            raise ParseError(f"{typename(cls)} must contain at least one byte")
 
         try:
             securityLevel = SecurityLevel(
@@ -429,9 +432,10 @@ class SNMPv3Message(Sequence):
             wholeMsg, expected=self.TAG, copy=False
         )
 
+        os_tag = OCTET_STRING.TAG
         _, ptr = decode(ptr, expected=INTEGER.TAG,  leftovers=True, copy=False)
         _, ptr = decode(ptr, expected=SEQUENCE,     leftovers=True, copy=False)
-        ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+        ptr, _ = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
 
         return ptr
 

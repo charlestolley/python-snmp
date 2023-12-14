@@ -56,21 +56,39 @@ class INTEGERTest(unittest.TestCase):
 class OCTET_STRINGTest(unittest.TestCase):
     def setUp(self):
         self.payload = b"payload"
-        self.encoding = b"\x04\x07" + self.payload + b"leftovers"
+        self.encoding = b"\x04\x07" + self.payload
 
     def test_tag_universal_primitive_4(self):
         self.assertEqual(OCTET_STRING.TAG.cls, Tag.Class.UNIVERSAL)
         self.assertEqual(OCTET_STRING.TAG.constructed, False)
         self.assertEqual(OCTET_STRING.TAG.number, 4)
 
-    def test_data_returns_the_contents_of_the_string(self):
+    def test_data_is_read_only(self):
+        s = OCTET_STRING(self.payload)
+        self.assertRaises(AttributeError, setattr, s, "data", b"")
+
+    def test_two_strings_with_equal_data_are_equal(self):
+        self.assertEqual(OCTET_STRING(b"asdf"), OCTET_STRING(b"asdf"))
+
+    def test_two_strings_with_different_data_are_not_equal(self):
+        self.assertNotEqual(OCTET_STRING(b"asdf"), OCTET_STRING(b"fdsa"))
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        s = OCTET_STRING(b"contents")
+        self.assertEqual(eval(repr(s)), s)
+
+    def test_constructor_uses_empty_data_by_default(self):
+        self.assertEqual(OCTET_STRING().data, b"")
+
+    def test_decoded_object_data_equals_payload(self):
         for copy in (True, False):
-            s, _ = OCTET_STRING.decode(self.encoding, True, copy)
+            s = OCTET_STRING.decode(self.encoding, copy=copy)
             self.assertEqual(s.data, self.payload)
 
-    def test_wholeMsg_returns_the_full_encoding_if_decoded_as_copy_False(self):
-        s, _ = OCTET_STRING.decode(self.encoding, leftovers=True, copy=False)
-        self.assertEqual(s.wholeMsg, self.encoding)
+    def test_encode_uses_data_as_the_payload(self):
+        data = b"this is some data"
+        encoding = b"\x04" + bytes([len(data)]) + data
+        self.assertEqual(OCTET_STRING(data).encode(), encoding)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,17 +1,16 @@
 __all__ = [
     "BoundedIntegerTest", "IntegerTypesTest",
-    "IpAddressTest", "OpaqueTest",
+    "OctetStringTest", "IpAddressTest", "OpaqueTest",
     "ZeroDotZeroTest",
 ]
 
 import unittest
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.smi import BoundedInteger
 from snmp.smi import *
 from snmp.types import *
-from snmp.utils import NumberGenerator
-
-from snmp.asn1 import *
+from snmp.utils import *
 
 class BoundedIntegerTest(unittest.TestCase):
     class Nybble(BoundedInteger):
@@ -169,43 +168,64 @@ class IntegerTypesTest(unittest.TestCase):
     def test_eval_repr_Counter64_is_the_same_type(self):
         self.assertIsInstance(eval(repr(Counter64(0))), Counter64)
 
+class OctetStringTest(unittest.TestCase):
+    def test_constructor_uses_empty_data_by_default(self):
+        self.assertEqual(OctetString().data, b"")
+
+    def test_constructor_raises_ValueError_if_over_65535_bytes_long(self):
+        self.assertRaises(ValueError, OctetString, bytes(65536))
+
+    def test_decode_raises_ParseError_if_over_65535_bytes_long(self):
+        encoding = encode(OctetString.TAG, bytes(65536))
+        self.assertRaises(ParseError, OctetString.decode, encoding)
+
+    def test_original_gives_subbytes_of_the_full_encoding_if_copy_False(self):
+        encoding = b"\x04\x00"
+        s = OctetString.decode(encoding, copy=False)
+        self.assertIsInstance(s.original, subbytes)
+        self.assertEqual(s.original.data, encoding)
+
 class IpAddressTest(unittest.TestCase):
     def setUp(self):
         self.addr = "12.34.56.78"
-        self.encoding = b"\x0c\x22\x38\x4e"
-        self.data = b"\x40\x04" + self.encoding
+        self.data = b"\x0c\x22\x38\x4e"
+        self.encoding = b"\x40\x04" + self.data
 
-    def testRepr(self):
+    def test_two_objects_with_the_same_address_are_equal(self):
+        self.assertEqual(IpAddress("1.2.3.4"), IpAddress("1.2.3.4"))
+
+    def test_two_objects_with_different_addresses_are_not_equal(self):
+        self.assertNotEqual(IpAddress("1.2.3.4"), IpAddress("4.3.2.1"))
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         addr = IpAddress(self.addr)
         self.assertEqual(eval(repr(addr)), addr)
 
-    def testEquals(self):
-        self.assertTrue(IpAddress(self.addr).equals(OctetString(self.encoding)))
+    def test_constructor_raises_ValueError_if_addr_is_not_IPv4_address(self):
+        self.assertRaises(ValueError, IpAddress, "asdf")
+        self.assertRaises(ValueError, IpAddress, "1.2.3.")
+        self.assertRaises(ValueError, IpAddress, "::1")
 
-    def testNotEquals(self):
-        self.assertFalse(IpAddress(self.addr).equals(OctetString(self.data)))
+    def test_decode_raises_ParseError_if_data_is_not_four_bytes(self):
+        encodings = [
+            b"\x40\x03\xab\xcd\xef",
+            b"\x40\x05\x12\x34\x56\x78\x90",
+        ]
 
-    def testDecode(self):
-        self.assertEqual(IpAddress.decode(self.data), IpAddress(self.addr))
+        for encoding in encodings:
+            self.assertRaises(ParseError, IpAddress.decode, encoding)
 
-    def testDecodeTooShort(self):
-        self.assertRaises(ParseError, IpAddress.decode, b"\x40\x03abc")
+    def test_data_returns_network_bytes(self):
+        self.assertEqual(IpAddress(self.addr).data, self.data)
+        self.assertEqual(IpAddress.decode(self.encoding).data, self.data)
 
-    def testDecodeTooLong(self):
-        self.assertRaises(ParseError, IpAddress.decode, b"\x40\x05badIP")
-
-    def testEncode(self):
-        self.assertEqual(IpAddress(self.addr).encode(), self.data)
+    def test_encode_uses_data_for_the_payload(self):
+        self.assertEqual(IpAddress(self.addr).encode(), self.encoding)
 
 class OpaqueTest(unittest.TestCase):
-    def setUp(self):
-        self.data = b"this could contain anyting"
-
-    def testEquality(self):
-        self.assertTrue(Opaque(self.data).equals(OctetString(self.data)))
-
-    def testRepr(self):
-        self.assertEqual(eval(repr(Opaque(self.data))), Opaque(self.data))
+    def test_result_of_eval_repr_is_equal_to_the_original(self):
+        o = Opaque(b"this could contain anything")
+        self.assertEqual(eval(repr(o)), o)
 
 class ZeroDotZeroTest(unittest.TestCase):
     def setUp(self):

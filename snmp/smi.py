@@ -1,7 +1,7 @@
 __all__ = [
     "Integer", "Integer32", "Unsigned", "Unsigned32",
     "Counter32", "Gauge32", "TimeTicks", "Counter64",
-    "IpAddress", "Opaque", "zeroDotZero",
+    "OctetString", "IpAddress", "Opaque", "zeroDotZero",
 ]
 
 from socket import inet_aton, inet_ntoa
@@ -12,7 +12,8 @@ from snmp.asn1 import *
 from snmp.typing import *
 from snmp.utils import *
 
-TInteger = TypeVar("TInteger", bound="BoundedInteger")
+TInteger        = TypeVar("TInteger",       bound="BoundedInteger")
+TOctetString    = TypeVar("TOctetString",   bound="OctetString")
 
 class BoundedInteger(INTEGER):
     BITS:   ClassVar[int]
@@ -78,35 +79,62 @@ class Counter64(BoundedInteger):
     SIGNED = False
     TAG = Tag(6, cls = Tag.Class.APPLICATION)
 
+class OctetString(OCTET_STRING):
+    def __init__(self, data: Asn1Data = b"") -> None:
+        self.check(data)
+
+        self._original = data
+        if isinstance(data, subbytes):
+            data = data[:]
+
+        super().__init__(data)
+
+    @property
+    def original(self) -> bytes:
+        return self._original
+
+    @classmethod
+    def check(cls, data: Asn1Data) -> None:
+        if len(data) > 0xffff:
+            raise ValueError(f"{typename(cls)} is limited to {0xffff} bytes")
+
+    @classmethod
+    def construct(cls: TOctetString, data: Asn1Data) -> TOctetString:
+        try:
+            return cls(data)
+        except ValueError as err:
+            raise ParseError(*err.args) from err
+
 @final
-class IpAddress(OctetString):
+class IpAddress(OCTET_STRING):
     TAG = Tag(0, cls = Tag.Class.APPLICATION)
-    MIN_SIZE = 4
-    MAX_SIZE = 4
 
     def __init__(self, addr: str) -> None:
+        try:
+            data = inet_aton(addr)
+        except OSError as err:
+            raise ValueError(f"Invalid IPv4 address: \"{addr}\"") from err
+
+        super().__init__(data)
         self.addr = addr
 
     def __repr__(self) -> str:
         return f"{typename(self)}({repr(self.addr)})"
 
-    def equals(self, other: OctetString) -> bool:
-        return self.data == other.data
-
-    @property
-    def data(self) -> bytes:
-        try:
-            return inet_aton(self.addr)
-        except OSError as err:
-            raise ValueError(f"Invalid IPv4 address: \"{self.addr}\"") from err
-
     @classmethod
-    def interpret(cls, data: Asn1Data) -> "IpAddress":
-        addr = data[:] if isinstance(data, subbytes) else data
-        return cls(inet_ntoa(addr))
+    def construct(cls, data: Asn1Data) -> "IpAddress":
+        if isinstance(data, subbytes):
+            data = data[:]
+
+        try:
+            addr = inet_ntoa(data)
+        except OSError as err:
+            raise ParseError(f"Invalid IPv4 address: {data!r}") from err
+
+        return cls(addr)
 
 @final
-class Opaque(OctetString):
+class Opaque(OCTET_STRING):
     TAG = Tag(4, cls = Tag.Class.APPLICATION)
 
 zeroDotZero = OID(0, 0)
