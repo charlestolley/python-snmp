@@ -1,12 +1,13 @@
-__all__ = ["ASN1Type","ASN1Primitive", "INTEGER"]
+__all__ = ["ASN1Type","ASN1Primitive", "INTEGER", "OCTET_STRING"]
 
 from abc import abstractmethod
 from snmp.ber import *
 from snmp.typing import *
 from snmp.utils import *
 
-ASN1TypeVar = TypeVar("ASN1TypeVar",    bound="ASN1Type")
-TINTEGER    = TypeVar("TINTEGER",       bound="INTEGER")
+ASN1TypeVar     = TypeVar("ASN1TypeVar",    bound="ASN1Type")
+TINTEGER        = TypeVar("TINTEGER",       bound="INTEGER")
+TOCTET_STRING   = TypeVar("TOCTET_STRING",  bound="OCTET_STRING")
 
 class ASN1Type:
     TAG: ClassVar[Tag]
@@ -101,3 +102,30 @@ class INTEGER(ASN1Primitive):
             raise OID.IndexDecodeError(errmsg)
 
         return cls(value)
+
+class OCTET_STRING(ASN1Primitive):
+    TAG = Tag(4)
+
+    def __init__(self, data: Asn1Data) -> None:
+        if isinstance(data, subbytes):
+            self._data = data[:]
+            self._wholeMsg = data.data
+        else:
+            self._data = data
+            self._wholeMsg = data
+
+    @property
+    def data(self) -> bytes:
+        return self._data
+
+    @property
+    def wholeMsg(self) -> bytes:
+        return self._wholeMsg
+
+    @classmethod
+    def construct(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
+        return cls(data)
+
+    @classmethod
+    def deserialize(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
+        return cls.construct(data)

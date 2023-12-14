@@ -1,8 +1,9 @@
-__all__ = ["INTEGERTest"]
+__all__ = ["INTEGERTest", "OCTET_STRINGTest"]
 
 import unittest
 from snmp.asn1 import *
 from snmp.ber import *
+from snmp.utils import *
 
 class INTEGERTest(unittest.TestCase):
     def test_tag_universal_primitive_2(self):
@@ -51,6 +52,25 @@ class INTEGERTest(unittest.TestCase):
         self.assertEqual(INTEGER(-128).encode(), b"\x02\x01\x80")
         self.assertEqual(INTEGER(-129).encode(), b"\x02\x02\xff\x7f")
         self.assertEqual(INTEGER(128).encode(), b"\x02\x02\x00\x80")
+
+class OCTET_STRINGTest(unittest.TestCase):
+    def setUp(self):
+        self.payload = b"payload"
+        self.encoding = b"\x04\x07" + self.payload + b"leftovers"
+
+    def test_tag_universal_primitive_4(self):
+        self.assertEqual(OCTET_STRING.TAG.cls, Tag.Class.UNIVERSAL)
+        self.assertEqual(OCTET_STRING.TAG.constructed, False)
+        self.assertEqual(OCTET_STRING.TAG.number, 4)
+
+    def test_data_returns_the_contents_of_the_string(self):
+        for copy in (True, False):
+            s, _ = OCTET_STRING.decode(self.encoding, True, copy)
+            self.assertEqual(s.data, self.payload)
+
+    def test_wholeMsg_returns_the_full_encoding_if_decoded_as_copy_False(self):
+        s, _ = OCTET_STRING.decode(self.encoding, leftovers=True, copy=False)
+        self.assertEqual(s.wholeMsg, self.encoding)
 
 if __name__ == '__main__':
     unittest.main()
