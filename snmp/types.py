@@ -2,8 +2,8 @@ __all__ = [
     #"INTEGER", "OCTET_STRING", "NULL",
     "OBJECT_IDENTIFIER", "SEQUENCE",
     "Asn1Encodable","Primitive", "Constructed",
-    #"Integer", "OctetString", "Null",
-    "OID", "Sequence",
+    #"Integer", "OctetString", "Null", "OID",
+    "Sequence",
 ]
 
 from abc import abstractmethod
@@ -17,7 +17,7 @@ from snmp.utils import *
 #INTEGER             = Tag(2)
 #OCTET_STRING        = Tag(4)
 #NULL                = Tag(5)
-OBJECT_IDENTIFIER   = Tag(6)
+#OBJECT_IDENTIFIER   = Tag(6)
 SEQUENCE            = Tag(16, True)
 
 TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
@@ -25,7 +25,7 @@ TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
 #TInteger        = TypeVar("TInteger",       bound="Integer")
 #TOctetString    = TypeVar("TOctetString",   bound="OctetString")
 #TNull           = TypeVar("TNull",          bound="Null")
-TOID            = TypeVar("TOID",           bound="OID")
+#TOID            = TypeVar("TOID",           bound="OID")
 
 class Asn1Encodable:
     TAG: ClassVar[Tag]
@@ -87,9 +87,9 @@ class Asn1Encodable:
         ...
 
 class Primitive(Asn1Encodable):
-    @abstractmethod
-    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
-        ...
+    #@abstractmethod
+    #def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+    #    ...
 
     @classmethod
     @abstractmethod
@@ -285,259 +285,259 @@ class Primitive(Asn1Encodable):
 #    def serialize(self) -> bytes:
 #        return b""
 
-class OID(Primitive):
-    TAG = OBJECT_IDENTIFIER
-
-    DOT:    ClassVar[str] = "."
-    MULT:   ClassVar[int] = 40
-    MAXLEN: ClassVar[int] = 128
-
-    class BadPrefix(IncomingMessageError):
-        pass
-
-    class IndexDecodeError(IncomingMessageError):
-        pass
-
-    def __init__(self, *nums: int) -> None:
-        if len(nums) > self.MAXLEN:
-            errmsg = "{} may not contain more than {} sub-identifiers"
-            raise ValueError(errmsg.format(typename(self), self.MAXLEN))
-
-        assert all(0 <= n < (1 << 32) for n in nums)
-        self.nums = nums
-
-    def __repr__(self) -> str:
-        return f"{typename(self)}{self.nums}"
-
-    def __str__(self) -> str:
-        return self.DOT.join(str(n) for n in self.nums)
-
-    @overload
-    def __getitem__(self, idx: int) -> int:
-        ...
-
-    @overload
-    def __getitem__(self, idx: slice) -> Tuple[int, ...]:
-        ...
-
-    def __getitem__(self,
-        idx: Union[int, slice],
-    ) -> Union[int, Tuple[int, ...]]:
-        return self.nums.__getitem__(idx)
-
-    def __hash__(self) -> int:
-        return self.nums.__hash__()
-
-    def __iter__(self) -> Iterator[int]:
-        return self.nums.__iter__()
-
-    def __len__(self) -> int:
-        return self.nums.__len__()
-
-    def __lt__(self, other: "OID") -> bool:
-        return self.nums < other.nums
-
-    @staticmethod
-    def serializeSubIdentifier(bytearr: bytearray, num: int) -> None:
-        if num < 0x80:
-            bytearr.append(num)
-        else:
-            flag = 0
-            tmp = bytearray()
-
-            while num:
-                tmp.append((num & 0x7f) | flag)
-                flag = 0x80
-                num >>= 7
-
-            tmp.reverse()
-            bytearr.extend(tmp)
-
-    def tryDecode(self,
-        nums: Iterator[int],
-        cls: Type[TPrimitive],
-        implied: bool = False,
-    ) -> TPrimitive:
-        try:
-            return cls.decodeFromOID(nums, implied=implied)
-        except StopIteration as err:
-            errmsg = f"Incomplete {typename(cls)} index"
-            raise OID.IndexDecodeError(errmsg) from err
-
-    FIRST = re.compile(r"^\.?(\d+|$)")
-    REGEX = re.compile(r"\.(\d+)")
-
-    @classmethod
-    def parse(cls: Type[TOID], oid: str) -> TOID:
-        match = cls.FIRST.match(oid)
-
-        if match is None:
-            raise ValueError(f"Invalid OID string: {oid}")
-
-        nums = []
-        if match.group(1):
-            while match is not None:
-                nums.append(int(match.group(1)))
-                index = match.end()
-                match = cls.REGEX.match(oid, index)
-
-            if index != len(oid):
-                raise ValueError(f"Trailing characters in OID string: {oid}")
-
-        try:
-            if nums[0] > 2:
-                errmsg = "{} may not begin with {}"
-                raise ValueError(errmsg.format(typename(cls), nums[0]))
-
-            if nums[1] >= cls.MULT:
-                errmsg = "second number in {} must be less than {}"
-                raise ValueError(errmsg.format(typename(cls), nums[1]))
-        except IndexError as err:
-            pass
-
-        if any(n < 0 for n in nums):
-            raise ValueError("\"{}\" contains a negative sub-identifier")
-        elif any(n >= (1 << 32) for n in nums):
-            errmsg = "OID \"{}\" contains a sub-identifier that is too large"
-            raise ValueError(errmsg.format(oid))
-
-        return cls(*nums)
-
-    def appendIndex(self: TOID,
-        *index: Primitive,
-        implied: bool = False,
-    ) -> TOID:
-        oid = self
-        for obj in index[:-1]:
-            oid = obj.appendToOID(oid)
-
-        for obj in index[-1:]:
-            oid = obj.appendToOID(oid, implied=implied)
-
-        return oid
-
-    def extend(self: TOID, *nums: int) -> TOID:
-        nums = self.nums + nums
-        return type(self)(*nums)
-
-    # TODO: I'm not sure whether the return type annotation is correct, or
-    #       if the correct annotation even exists
-    def extractIndex(self,
-        prefix: "OID",
-        *types: Type[TPrimitive],
-        implied: bool = False,
-    ) -> Tuple[TPrimitive, ...]:
-        if len(self.nums) < len(prefix):
-            errmsg = "\"{}\" is shorter than the given prefix \"{}\""
-            raise self.BadPrefix(errmsg.format(self, prefix))
-
-        if self.nums[:len(prefix)] != prefix.nums:
-            errmsg = "\"{}\" does not begin with \"{}\""
-            raise self.BadPrefix(errmsg.format(self, prefix))
-
-        nums = iter(self.nums[len(prefix):])
-
-        index = []
-        for cls in types[:-1]:
-            index.append(self.tryDecode(nums, cls))
-
-        for cls in types[-1:]:
-            index.append(self.tryDecode(nums, cls, implied=implied))
-
-        try:
-            next(nums)
-        except StopIteration:
-            pass
-        else:
-            errmsg = "Not all sub-identifiers were consumed"
-            raise self.IndexDecodeError(errmsg)
-
-        return tuple(index)
-
-    def getIndex(self,
-        prefix: "OID",
-        cls: Type[TPrimitive] = INTEGER,    # type: ignore[assignment]
-        implied: bool = False,
-    ) -> TPrimitive:
-        return self.extractIndex(prefix, cls, implied=implied)[0]
-
-    def startswith(self, prefix: "OID") -> bool:
-        return prefix.nums == self.nums[:len(prefix)]
-
-    def equals(self, other: "OID") -> bool:
-        return self.nums == other.nums
-
-    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
-        if not implied:
-            oid = oid.extend(len(self.nums))
-
-        return oid.extend(*self.nums)
-
-    @classmethod
-    def decodeFromOID(
-        cls: Type[TOID],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TOID:
-        if implied:
-            length = OID.MAXLEN
-        else:
-            length = next(nums)
-
-        subids = []
-        for i in range(length):
-            try:
-                subids.append(next(nums))
-            except StopIteration:
-                if implied:
-                    break
-                else:
-                    raise
-
-        return cls(*subids)
-
-    @classmethod
-    def deserialize(cls: Type[TOID], data: Asn1Data) -> TOID:
-        stream = iter(data)
-
-        try:
-            oid = list(divmod(next(stream), cls.MULT))
-        except StopIteration as err:
-            raise ParseError(f"Empty {typename(cls)}") from err
-
-        value = 0
-        for byte in stream:
-            value |= byte & 0x7f
-            if byte & 0x80:
-                value <<= 7
-                if value >= (1 << 32):
-                    raise ParseError("Sub-identifier out of range")
-            else:
-                oid.append(value)
-                value = 0
-
-        if value:
-            raise ParseError("OID ended unexpectedly")
-
-        return cls(*oid)
-
-    def serialize(self) -> bytes:
-        try:
-            first = self.nums[0]
-        except IndexError:
-            return b"\x00"
-
-        try:
-            second = self.nums[1]
-        except IndexError:
-            second = 0
-
-        encoding = bytearray()
-        self.serializeSubIdentifier(encoding, first * self.MULT | second)
-        for number in self.nums[2:]:
-            self.serializeSubIdentifier(encoding, number)
-
-        return bytes(encoding)
+#class OID(Primitive):
+#    TAG = OBJECT_IDENTIFIER
+#
+#    DOT:    ClassVar[str] = "."
+#    MULT:   ClassVar[int] = 40
+#    MAXLEN: ClassVar[int] = 128
+#
+#    class BadPrefix(IncomingMessageError):
+#        pass
+#
+#    class IndexDecodeError(IncomingMessageError):
+#        pass
+#
+#    def __init__(self, *nums: int) -> None:
+#        if len(nums) > self.MAXLEN:
+#            errmsg = "{} may not contain more than {} sub-identifiers"
+#            raise ValueError(errmsg.format(typename(self), self.MAXLEN))
+#
+#        assert all(0 <= n < (1 << 32) for n in nums)
+#        self.nums = nums
+#
+#    def __repr__(self) -> str:
+#        return f"{typename(self)}{self.nums}"
+#
+#    def __str__(self) -> str:
+#        return self.DOT.join(str(n) for n in self.nums)
+#
+#    @overload
+#    def __getitem__(self, idx: int) -> int:
+#        ...
+#
+#    @overload
+#    def __getitem__(self, idx: slice) -> Tuple[int, ...]:
+#        ...
+#
+#    def __getitem__(self,
+#        idx: Union[int, slice],
+#    ) -> Union[int, Tuple[int, ...]]:
+#        return self.nums.__getitem__(idx)
+#
+#    def __hash__(self) -> int:
+#        return self.nums.__hash__()
+#
+#    def __iter__(self) -> Iterator[int]:
+#        return self.nums.__iter__()
+#
+#    def __len__(self) -> int:
+#        return self.nums.__len__()
+#
+#    def __lt__(self, other: "OID") -> bool:
+#        return self.nums < other.nums
+#
+#    @staticmethod
+#    def serializeSubIdentifier(bytearr: bytearray, num: int) -> None:
+#        if num < 0x80:
+#            bytearr.append(num)
+#        else:
+#            flag = 0
+#            tmp = bytearray()
+#
+#            while num:
+#                tmp.append((num & 0x7f) | flag)
+#                flag = 0x80
+#                num >>= 7
+#
+#            tmp.reverse()
+#            bytearr.extend(tmp)
+#
+#    def tryDecode(self,
+#        nums: Iterator[int],
+#        cls: Type[TPrimitive],
+#        implied: bool = False,
+#    ) -> TPrimitive:
+#        try:
+#            return cls.decodeFromOID(nums, implied=implied)
+#        except StopIteration as err:
+#            errmsg = f"Incomplete {typename(cls)} index"
+#            raise OID.IndexDecodeError(errmsg) from err
+#
+#    FIRST = re.compile(r"^\.?(\d+|$)")
+#    REGEX = re.compile(r"\.(\d+)")
+#
+#    @classmethod
+#    def parse(cls: Type[TOID], oid: str) -> TOID:
+#        match = cls.FIRST.match(oid)
+#
+#        if match is None:
+#            raise ValueError(f"Invalid OID string: {oid}")
+#
+#        nums = []
+#        if match.group(1):
+#            while match is not None:
+#                nums.append(int(match.group(1)))
+#                index = match.end()
+#                match = cls.REGEX.match(oid, index)
+#
+#            if index != len(oid):
+#                raise ValueError(f"Trailing characters in OID string: {oid}")
+#
+#        try:
+#            if nums[0] > 2:
+#                errmsg = "{} may not begin with {}"
+#                raise ValueError(errmsg.format(typename(cls), nums[0]))
+#
+#            if nums[1] >= cls.MULT:
+#                errmsg = "second number in {} must be less than {}"
+#                raise ValueError(errmsg.format(typename(cls), nums[1]))
+#        except IndexError as err:
+#            pass
+#
+#        if any(n < 0 for n in nums):
+#            raise ValueError("\"{}\" contains a negative sub-identifier")
+#        elif any(n >= (1 << 32) for n in nums):
+#            errmsg = "OID \"{}\" contains a sub-identifier that is too large"
+#            raise ValueError(errmsg.format(oid))
+#
+#        return cls(*nums)
+#
+#    def appendIndex(self: TOID,
+#        *index: Primitive,
+#        implied: bool = False,
+#    ) -> TOID:
+#        oid = self
+#        for obj in index[:-1]:
+#            oid = obj.appendToOID(oid)
+#
+#        for obj in index[-1:]:
+#            oid = obj.appendToOID(oid, implied=implied)
+#
+#        return oid
+#
+#    def extend(self: TOID, *nums: int) -> TOID:
+#        nums = self.nums + nums
+#        return type(self)(*nums)
+#
+#    # TODO: I'm not sure whether the return type annotation is correct, or
+#    #       if the correct annotation even exists
+#    def extractIndex(self,
+#        prefix: "OID",
+#        *types: Type[TPrimitive],
+#        implied: bool = False,
+#    ) -> Tuple[TPrimitive, ...]:
+#        if len(self.nums) < len(prefix):
+#            errmsg = "\"{}\" is shorter than the given prefix \"{}\""
+#            raise self.BadPrefix(errmsg.format(self, prefix))
+#
+#        if self.nums[:len(prefix)] != prefix.nums:
+#            errmsg = "\"{}\" does not begin with \"{}\""
+#            raise self.BadPrefix(errmsg.format(self, prefix))
+#
+#        nums = iter(self.nums[len(prefix):])
+#
+#        index = []
+#        for cls in types[:-1]:
+#            index.append(self.tryDecode(nums, cls))
+#
+#        for cls in types[-1:]:
+#            index.append(self.tryDecode(nums, cls, implied=implied))
+#
+#        try:
+#            next(nums)
+#        except StopIteration:
+#            pass
+#        else:
+#            errmsg = "Not all sub-identifiers were consumed"
+#            raise self.IndexDecodeError(errmsg)
+#
+#        return tuple(index)
+#
+#    def getIndex(self,
+#        prefix: "OID",
+#        cls: Type[TPrimitive] = INTEGER,    # type: ignore[assignment]
+#        implied: bool = False,
+#    ) -> TPrimitive:
+#        return self.extractIndex(prefix, cls, implied=implied)[0]
+#
+#    def startswith(self, prefix: "OID") -> bool:
+#        return prefix.nums == self.nums[:len(prefix)]
+#
+#    def equals(self, other: "OID") -> bool:
+#        return self.nums == other.nums
+#
+#    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+#        if not implied:
+#            oid = oid.extend(len(self.nums))
+#
+#        return oid.extend(*self.nums)
+#
+#    @classmethod
+#    def decodeFromOID(
+#        cls: Type[TOID],
+#        nums: Iterator[int],
+#        implied: bool = False,
+#    ) -> TOID:
+#        if implied:
+#            length = OID.MAXLEN
+#        else:
+#            length = next(nums)
+#
+#        subids = []
+#        for i in range(length):
+#            try:
+#                subids.append(next(nums))
+#            except StopIteration:
+#                if implied:
+#                    break
+#                else:
+#                    raise
+#
+#        return cls(*subids)
+#
+#    @classmethod
+#    def deserialize(cls: Type[TOID], data: Asn1Data) -> TOID:
+#        stream = iter(data)
+#
+#        try:
+#            oid = list(divmod(next(stream), cls.MULT))
+#        except StopIteration as err:
+#            raise ParseError(f"Empty {typename(cls)}") from err
+#
+#        value = 0
+#        for byte in stream:
+#            value |= byte & 0x7f
+#            if byte & 0x80:
+#                value <<= 7
+#                if value >= (1 << 32):
+#                    raise ParseError("Sub-identifier out of range")
+#            else:
+#                oid.append(value)
+#                value = 0
+#
+#        if value:
+#            raise ParseError("OID ended unexpectedly")
+#
+#        return cls(*oid)
+#
+#    def serialize(self) -> bytes:
+#        try:
+#            first = self.nums[0]
+#        except IndexError:
+#            return b"\x00"
+#
+#        try:
+#            second = self.nums[1]
+#        except IndexError:
+#            second = 0
+#
+#        encoding = bytearray()
+#        self.serializeSubIdentifier(encoding, first * self.MULT | second)
+#        for number in self.nums[2:]:
+#            self.serializeSubIdentifier(encoding, number)
+#
+#        return bytes(encoding)
 
 class Constructed(Asn1Encodable):
     def equals(self, other: "Constructed") -> bool:

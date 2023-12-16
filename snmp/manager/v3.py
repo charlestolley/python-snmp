@@ -17,6 +17,7 @@ from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm import *
+from snmp.smi import *
 from snmp.transport import *
 from snmp.types import *
 from snmp.typing import *

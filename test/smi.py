@@ -206,6 +206,11 @@ class IpAddressTest(unittest.TestCase):
         self.assertRaises(ValueError, IpAddress, "1.2.3.")
         self.assertRaises(ValueError, IpAddress, "::1")
 
+    def test_index_does_not_include_length_byte(self):
+        oid = OBJECT_IDENTIFIER(1, 3, 6, 1)
+        addr = IpAddress(self.addr)
+        self.assertEqual(oid.withIndex(addr), oid.extend(*self.data))
+
     def test_decode_raises_ParseError_if_data_is_not_four_bytes(self):
         encodings = [
             b"\x40\x03\xab\xcd\xef",

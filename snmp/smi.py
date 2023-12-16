@@ -2,7 +2,7 @@ __all__ = [
     "Integer", "Integer32", "Unsigned", "Unsigned32",
     "Counter32", "Gauge32", "TimeTicks", "Counter64",
     "OctetString", "IpAddress", "Opaque",
-    "NULL", "Null", "zeroDotZero",
+    "NULL", "Null", "OID", "zeroDotZero",
 ]
 
 from socket import inet_aton, inet_ntoa
@@ -122,6 +122,9 @@ class IpAddress(OCTET_STRING):
     def __repr__(self) -> str:
         return f"{typename(self)}({repr(self.addr)})"
 
+    def asOID(self, implied: bool = False) -> Iterable[int]:
+        return super().asOID(implied=True)
+
     @classmethod
     def construct(cls, data: Asn1Data) -> "IpAddress":
         if isinstance(data, subbytes):
@@ -139,4 +142,8 @@ class Opaque(OCTET_STRING):
     TAG = Tag(4, cls = Tag.Class.APPLICATION)
 
 Null = NULL
+
+class OID(OBJECT_IDENTIFIER):
+    pass
+
 zeroDotZero = OID(0, 0)

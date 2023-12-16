@@ -9,6 +9,7 @@ from snmp.dispatcher import *
 from snmp.manager import *
 from snmp.message import *
 from snmp.pdu import *
+from snmp.smi import *
 from snmp.transport import *
 from snmp.types import *
 from snmp.typing import *
