@@ -442,12 +442,12 @@ class UsmSecurityParameters(Sequence):
         salt = OctetString.decode(ptr)
 
         return cls(
-            cast(bytes, engineID.data),
+            engineID.data,
             engineBoots.value,
             engineTime.value,
-            cast(bytes, userName.data),
+            userName.data,
             signature.original,
-            cast(bytes, salt.data),
+            salt.data,
         )
 
     @classmethod
@@ -787,7 +787,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         if message.header.flags.privFlag:
             try:
                 message.plaintext = cast(PrivProtocol, user.priv).decrypt(
-                    cast(bytes, cast(OctetString, message.encryptedPDU).data),
+                    cast(OctetString, message.encryptedPDU).data,
                     securityParameters.engineBoots,
                     securityParameters.engineTime,
                     securityParameters.salt,

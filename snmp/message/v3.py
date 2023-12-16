@@ -285,8 +285,8 @@ class ScopedPDU(Sequence):
 
         return cls(
             cast(AnyPDU, pduType.decode(data)),
-            contextEngineID = cast(bytes, contextEngineID.data),
-            contextName     = cast(bytes, contextName.data),
+            contextEngineID = contextEngineID.data,
+            contextName     = contextName.data,
         )
 
 TMessage = TypeVar("TMessage", bound="SNMPv3Message")

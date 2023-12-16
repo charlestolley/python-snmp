@@ -19,6 +19,25 @@ TOID            = TypeVar("TOID",           bound="OBJECT_IDENTIFIER")
 class ASN1:
     TAG: ClassVar[Tag]
 
+    @overload
+    @classmethod
+    def decode(
+        cls: Type[TASN1],
+        data: Asn1Data,
+    ) -> TASN1:
+        ...
+
+    @overload
+    @classmethod
+    def decode(
+        cls: Type[TASN1],
+        data: Asn1Data,
+        leftovers: bool = False,
+        copy: bool = True,
+        **kwargs: Any,
+    ) -> Union[TASN1, Tuple[TASN1, subbytes]]:
+        ...
+
     @classmethod
     def decode(
         cls: Type[TASN1],
@@ -84,7 +103,7 @@ class Primitive(ASN1):
         ...
 
 class INTEGER(Primitive):
-    BYTEORDER: ClassVar[str] = "big"
+    BYTEORDER: ClassVar[Literal["big"]] = "big"
     TAG = Tag(2)
 
     def __init__(self, value: int) -> None:
@@ -104,7 +123,7 @@ class INTEGER(Primitive):
         return self._value
 
     @staticmethod
-    def bitCount(value) -> int:
+    def bitCount(value: int) -> int:
         if value < 0:
             value = -value - 1
 

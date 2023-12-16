@@ -91,7 +91,7 @@ class OctetString(OCTET_STRING):
         super().__init__(data)
 
     @property
-    def original(self) -> bytes:
+    def original(self) -> Asn1Data:
         return self._original
 
     @classmethod
@@ -100,7 +100,7 @@ class OctetString(OCTET_STRING):
             raise ValueError(f"{typename(cls)} is limited to {0xffff} bytes")
 
     @classmethod
-    def construct(cls: TOctetString, data: Asn1Data) -> TOctetString:
+    def construct(cls: Type[TOctetString], data: Asn1Data) -> TOctetString:
         try:
             return cls(data)
         except ValueError as err:

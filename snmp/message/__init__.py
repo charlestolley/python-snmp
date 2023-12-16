@@ -135,7 +135,7 @@ class Message(Sequence):
 
         return cls(
             version,
-            cast(bytes, community.data),
+            community.data,
             cast(AnyPDU, pduType.decode(ptr)),
         )
 
