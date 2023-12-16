@@ -12,6 +12,7 @@ __all__ = [
 
 import enum
 
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.smi import *
@@ -57,7 +58,7 @@ class VarBind(Sequence):
 
     def __init__(self,
         name: Union[str, OID],
-        value: Optional[Asn1Encodable] = None,
+        value: Optional[ASN1] = None,
     ) -> None:
         if not isinstance(name, OID):
             name = OID.parse(name)
@@ -68,7 +69,7 @@ class VarBind(Sequence):
         self.name = name
         self.value = value
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield self.name
         yield self.value
 
@@ -190,7 +191,7 @@ class PDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.requestID)
         yield Integer(self.errorStatus)
         yield Integer(self.errorIndex)
@@ -292,7 +293,7 @@ class BulkPDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.requestID)
         yield Integer(self.nonRepeaters)
         yield Integer(self.maxRepetitions)

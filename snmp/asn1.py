@@ -1,5 +1,5 @@
 __all__ = [
-    "ASN1Type","ASN1Primitive",
+    "ASN1","Primitive",
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER",
 ]
 
@@ -9,24 +9,24 @@ from snmp.exception import *
 from snmp.typing import *
 from snmp.utils import *
 
-ASN1TypeVar     = TypeVar("ASN1TypeVar",    bound="ASN1Type")
-TPrimitive      = TypeVar("TPrimitive",     bound="ASN1Primitive")
+TASN1           = TypeVar("TASN1",          bound="ASN1")
+TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
 TINTEGER        = TypeVar("TINTEGER",       bound="INTEGER")
 TOCTET_STRING   = TypeVar("TOCTET_STRING",  bound="OCTET_STRING")
 TNULL           = TypeVar("TNULL",          bound="NULL")
 TOID            = TypeVar("TOID",           bound="OBJECT_IDENTIFIER")
 
-class ASN1Type:
+class ASN1:
     TAG: ClassVar[Tag]
 
     @classmethod
     def decode(
-        cls: Type[ASN1TypeVar],
+        cls: Type[TASN1],
         data: Asn1Data,
         leftovers: bool = False,
         copy: bool = True,
         **kwargs: Any,
-    ) -> Union[ASN1TypeVar, Tuple[ASN1TypeVar, subbytes]]:
+    ) -> Union[TASN1, Tuple[TASN1, subbytes]]:
         if leftovers:
             encoding, tail = decode(data, cls.TAG, True, copy)
             return cls.deserialize(encoding, **kwargs), tail
@@ -39,14 +39,14 @@ class ASN1Type:
 
     @classmethod
     @abstractmethod
-    def deserialize(cls: Type[ASN1TypeVar], data: Asn1Data) -> ASN1TypeVar:
+    def deserialize(cls: Type[TASN1], data: Asn1Data) -> TASN1:
         ...
 
     @abstractmethod
     def serialize(self) -> bytes:
         ...
 
-class ASN1Primitive(ASN1Type):
+class Primitive(ASN1):
     @abstractmethod
     def asOID(self, implied: bool = False) -> Iterable[int]:
         ...
@@ -60,7 +60,7 @@ class ASN1Primitive(ASN1Type):
     ) -> TPrimitive:
         ...
 
-class INTEGER(ASN1Primitive):
+class INTEGER(Primitive):
     BYTEORDER: ClassVar[str] = "big"
     TAG = Tag(2)
 
@@ -116,7 +116,7 @@ class INTEGER(ASN1Primitive):
         except ParseError as err:
             raise OBJECT_IDENTIFIER.IndexDecodeError(*err.args) from err
 
-class OCTET_STRING(ASN1Primitive):
+class OCTET_STRING(Primitive):
     TAG = Tag(4)
 
     def __init__(self, data: bytes = b"") -> None:
@@ -172,7 +172,7 @@ class OCTET_STRING(ASN1Primitive):
     def serialize(self) -> bytes:
         return self.data
 
-class NULL(ASN1Primitive):
+class NULL(Primitive):
     TAG = Tag(5)
 
     def __eq__(self, other: Any) -> bool:
@@ -202,7 +202,7 @@ class NULL(ASN1Primitive):
     def serialize(self) -> bytes:
         return b""
 
-class OBJECT_IDENTIFIER(ASN1Primitive):
+class OBJECT_IDENTIFIER(Primitive):
     TAG = Tag(6)
 
     class BadPrefix(SNMPException):
@@ -306,9 +306,9 @@ class OBJECT_IDENTIFIER(ASN1Primitive):
 
     def decodeIndex(self: TOID,
         prefix: TOID,
-        *types: Type[ASN1Primitive],
+        *types: Type[Primitive],
         implied: bool = False,
-    ) -> Tuple[ASN1Primitive, ...]:
+    ) -> Tuple[Primitive, ...]:
         if not self.startswith(prefix):
             raise self.BadPrefix(f"{self} does not begin with {prefix}")
 
@@ -344,7 +344,7 @@ class OBJECT_IDENTIFIER(ASN1Primitive):
             raise OBJECT_IDENTIFIER.IndexDecodeError(errmsg)
 
     def withIndex(self: TOID,
-        *index: ASN1Primitive,
+        *index: Primitive,
         implied: bool = False,
     ) -> TOID:
         oid = self

@@ -1,8 +1,8 @@
 __all__ = [
-    #"INTEGER", "OCTET_STRING", "NULL",
-    "OBJECT_IDENTIFIER", "SEQUENCE",
-    "Asn1Encodable","Primitive", "Constructed",
-    #"Integer", "OctetString", "Null", "OID",
+    #"INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER",
+    "SEQUENCE",
+    "Asn1Encodable", "Constructed",
+    #"Integer", "OctetString", "Null", "OID", "Primitive",
     "Sequence",
 ]
 
@@ -21,7 +21,7 @@ from snmp.utils import *
 SEQUENCE            = Tag(16, True)
 
 TEncodable      = TypeVar("TEncodable",     bound="Asn1Encodable")
-TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
+#TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
 #TInteger        = TypeVar("TInteger",       bound="Integer")
 #TOctetString    = TypeVar("TOctetString",   bound="OctetString")
 #TNull           = TypeVar("TNull",          bound="Null")
@@ -86,20 +86,20 @@ class Asn1Encodable:
     def serialize(self) -> bytes:
         ...
 
-class Primitive(Asn1Encodable):
-    #@abstractmethod
-    #def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
-    #    ...
-
-    @classmethod
-    @abstractmethod
-    def decodeFromOID(
-        cls: Type[TPrimitive],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TPrimitive:
-        ...
-
+#class Primitive(Asn1Encodable):
+#    @abstractmethod
+#    def appendToOID(self, oid: TOID, implied: bool = False) -> TOID:
+#        ...
+#
+#    @classmethod
+#    @abstractmethod
+#    def decodeFromOID(
+#        cls: Type[TPrimitive],
+#        nums: Iterator[int],
+#        implied: bool = False,
+#    ) -> TPrimitive:
+#        ...
+#
 #class Integer(Primitive):
 #    TAG = INTEGER
 #
