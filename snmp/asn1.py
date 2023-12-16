@@ -1,6 +1,6 @@
 __all__ = [
-    "ASN1","Primitive",
-    "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER",
+    "ASN1", "Constructed", "Primitive",
+    "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
 ]
 
 from abc import abstractmethod
@@ -45,6 +45,29 @@ class ASN1:
     @abstractmethod
     def serialize(self) -> bytes:
         ...
+
+class Constructed(ASN1):
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Constructed):
+            return NotImplemented
+
+        if type(self) == type(other) and len(self) == len(other):
+            for left, right in zip(self, other):
+                if left != right:
+                    return False
+
+        return True
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[ASN1]:
+        ...
+
+    @abstractmethod
+    def __len__(self) -> int:
+        ...
+
+    def serialize(self) -> bytes:
+        return b"".join([obj.encode() for obj in self])
 
 class Primitive(ASN1):
     @abstractmethod
@@ -420,3 +443,6 @@ class OBJECT_IDENTIFIER(Primitive):
             self.serializeSubIdentifier(encoding, subidentifier)
 
         return bytes(encoding)
+
+class SEQUENCE(Constructed):
+    TAG = Tag(16, True)

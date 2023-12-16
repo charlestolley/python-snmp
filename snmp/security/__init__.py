@@ -5,7 +5,6 @@ __all__ = [
 from abc import abstractmethod
 import enum
 
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 

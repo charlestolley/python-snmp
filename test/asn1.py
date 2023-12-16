@@ -1,4 +1,7 @@
-__all__ = ["INTEGERTest", "OCTET_STRINGTest", "NULLTest", "OBJECT_IDENTIFIERTest"]
+__all__ = [
+    "INTEGERTest", "OCTET_STRINGTest", "NULLTest", "OBJECT_IDENTIFIERTest",
+    "SEQUENCETest",
+]
 
 import unittest
 from snmp.asn1 import *
@@ -399,6 +402,12 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
             OBJECT_IDENTIFIER(1, 3, 0xffffffffffffff).encode(),
             b"\x06\x09\x2b\xff\xff\xff\xff\xff\xff\xff\x7f",
         )
+
+class SEQUENCETest(unittest.TestCase):
+    def test_tag_universal_constructed_16(self):
+        self.assertEqual(SEQUENCE.TAG.cls, Tag.Class.UNIVERSAL)
+        self.assertEqual(SEQUENCE.TAG.constructed, True)
+        self.assertEqual(SEQUENCE.TAG.number, 16)
 
 if __name__ == '__main__':
     unittest.main()

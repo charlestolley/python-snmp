@@ -3,12 +3,12 @@ __all__ = [
     "Counter32", "Gauge32", "TimeTicks", "Counter64",
     "OctetString", "IpAddress", "Opaque",
     "NULL", "Null", "OID", "zeroDotZero",
+    "Sequence",
 ]
 
 from socket import inet_aton, inet_ntoa
 
 from snmp.ber import *
-from snmp.types import *
 from snmp.asn1 import *
 from snmp.typing import *
 from snmp.utils import *
@@ -147,3 +147,6 @@ class OID(OBJECT_IDENTIFIER):
     pass
 
 zeroDotZero = OID(0, 0)
+
+class Sequence(SEQUENCE):
+    pass

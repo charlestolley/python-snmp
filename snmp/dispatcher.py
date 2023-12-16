@@ -9,7 +9,6 @@ from snmp.message import *
 from snmp.pdu import AnyPDU
 from snmp.security.levels import noAuthNoPriv
 from snmp.transport import *
-from snmp.types import SEQUENCE
 from snmp.typing import *
 from snmp.utils import typename
 

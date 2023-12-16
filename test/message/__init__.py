@@ -4,7 +4,6 @@ import re
 import unittest
 
 from snmp.ber import *
-from snmp.types import *
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.message import *

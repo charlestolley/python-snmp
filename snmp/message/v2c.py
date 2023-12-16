@@ -5,7 +5,6 @@ from snmp.ber import *
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 

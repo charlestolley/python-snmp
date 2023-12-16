@@ -8,7 +8,6 @@ import unittest
 from snmp.ber import ParseError
 from snmp.pdu import *
 from snmp.smi import *
-from snmp.types import *
 
 class NullTypesTest(unittest.TestCase):
     def helper(self, cls, data):

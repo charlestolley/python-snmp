@@ -6,11 +6,11 @@ __all__ = [
 from abc import abstractmethod
 import enum
 
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.pdu import *
 from snmp.smi import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 
@@ -35,7 +35,7 @@ class MessageVersion(Sequence):
     def __init__(self, version: MessageProcessingModel) -> None:
         self.version = version
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.version)
 
     def __len__(self) -> int:
@@ -72,7 +72,7 @@ class Message(Sequence):
         self.community = community
         self.pdu = pdu
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.version)
         yield OctetString(self.community)
         yield self.pdu

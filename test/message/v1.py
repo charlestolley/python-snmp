@@ -11,7 +11,6 @@ from snmp.message.v1 import *
 from snmp.message.v1 import pduTypes
 from snmp.pdu import *
 from snmp.smi import *
-from snmp.types import *
 from snmp.utils import *
 
 class SNMPv1MessageProcessorTest(unittest.TestCase):
@@ -135,7 +134,7 @@ class SNMPv1MessageProcessorTest(unittest.TestCase):
 
     def testBasicParseSanity(self):
         version = Integer(MessageProcessingModel.SNMPv1)
-        msg = encode(SEQUENCE, version.encode() + b"meaningless garbage")
+        msg = encode(Sequence.TAG, version.encode() + b"meaningless garbage")
         self.assertRaises(ParseError, self.processor.prepareDataElements, msg)
 
     def testWrongCommunity(self):

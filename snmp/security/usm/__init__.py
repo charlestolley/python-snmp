@@ -7,13 +7,13 @@ from abc import abstractmethod
 import threading
 
 from time import time
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import IncomingMessageError
 from snmp.message.v3 import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.smi import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 
@@ -339,7 +339,7 @@ class UsmSecurityParameters(Sequence):
             self.signatureIndex = None
             self.wholeMsg = None
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield OctetString(self.engineID)
         yield Integer(self.engineBoots)
         yield Integer(self.engineTime)
@@ -454,19 +454,14 @@ class UsmSecurityParameters(Sequence):
     def findSignature(self, msgSecurityParameters: subbytes) -> subbytes:
         ptr = cast(
             subbytes,
-            decode(
-                msgSecurityParameters,
-                expected=SEQUENCE,
-                copy=False,
-            )
+            decode(msgSecurityParameters, Sequence.TAG, copy=False)
         )
 
-        os_tag = OctetString.TAG
-        _, ptr = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=Integer.TAG,  leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=Integer.TAG,  leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
-        ptr, _ = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
+        _, ptr = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
+        _, ptr = decode(ptr, Integer.TAG,       leftovers=True, copy=False)
+        _, ptr = decode(ptr, Integer.TAG,       leftovers=True, copy=False)
+        _, ptr = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
+        ptr, _ = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
         return ptr
 
 class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):

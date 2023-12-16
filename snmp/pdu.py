@@ -16,7 +16,6 @@ from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.smi import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import subbytes, typename
 

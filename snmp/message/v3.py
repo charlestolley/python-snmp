@@ -3,6 +3,7 @@ __all__ = ["HeaderData", "MessageFlags", "ScopedPDU", "SNMPv3Message"]
 import threading
 import weakref
 
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.message import *
@@ -10,7 +11,6 @@ from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.smi import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 
@@ -144,7 +144,7 @@ class HeaderData(Sequence):
         self.flags = flags
         self.securityModel = securityModel
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.id)
         yield Integer(self.maxSize)
         yield self.flags
@@ -228,7 +228,7 @@ class ScopedPDU(Sequence):
         self.contextName = contextName
         self.pdu = pdu
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield OctetString(self.contextEngineID)
         yield OctetString(self.contextName)
         yield self.pdu
@@ -312,7 +312,7 @@ class SNMPv3Message(Sequence):
         self.securityEngineID = securityEngineID
         self.securityName = securityName
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.VERSION)
         yield self.header
         yield self.securityParameters
@@ -428,14 +428,11 @@ class SNMPv3Message(Sequence):
 
     @classmethod
     def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
-        ptr: subbytes = decode(
-            wholeMsg, expected=self.TAG, copy=False
-        )
+        ptr: subbytes = decode(wholeMsg, self.TAG, copy=False)
 
-        os_tag = OctetString.TAG
-        _, ptr = decode(ptr, expected=Integer.TAG,  leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=SEQUENCE,     leftovers=True, copy=False)
-        ptr, _ = decode(ptr, expected=os_tag,       leftovers=True, copy=False)
+        _, ptr = decode(ptr, Integer.TAG,       leftovers=True, copy=False)
+        _, ptr = decode(ptr, Sequence.TAG,      leftovers=True, copy=False)
+        ptr, _ = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
 
         return ptr
 

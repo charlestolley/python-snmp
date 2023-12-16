@@ -4,7 +4,6 @@ import re
 import unittest
 from snmp.ber import *
 from snmp.smi import *
-from snmp.types import *
 from snmp.pdu import *
 from snmp.security.usm.auth import HmacSha
 
@@ -58,14 +57,14 @@ else:
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, expected=SEQUENCE, leftovers=True)
+            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
         def testEncrypt(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
             priv = self.privProtocol(privKey)
 
-            original = encode(SEQUENCE, self.data)
+            original = encode(Sequence.TAG, self.data)
             ciphertext, msgPrivParameters = priv.encrypt(
                 original,
                 self.engineBoots,
@@ -79,7 +78,7 @@ else:
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, expected=SEQUENCE, leftovers=True)
+            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
     class DesCbcTest(unittest.TestCase):
@@ -127,14 +126,14 @@ else:
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, expected=SEQUENCE, leftovers=True)
+            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
         def testEncrypt(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
             priv = self.privProtocol(privKey)
 
-            original = encode(SEQUENCE, self.data)
+            original = encode(Sequence.TAG, self.data)
             ciphertext, msgPrivParameters = priv.encrypt(
                 original,
                 self.engineBoots,
@@ -148,7 +147,7 @@ else:
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, expected=SEQUENCE, leftovers=True)
+            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
 if __name__ == '__main__':

@@ -9,7 +9,6 @@ from snmp.asn1 import *
 from snmp.ber import *
 from snmp.smi import BoundedInteger
 from snmp.smi import *
-from snmp.types import *
 from snmp.utils import *
 
 class BoundedIntegerTest(unittest.TestCase):
