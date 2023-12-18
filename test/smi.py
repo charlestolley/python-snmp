@@ -184,6 +184,13 @@ class OctetStringTest(unittest.TestCase):
         self.assertIsInstance(s.original, subbytes)
         self.assertEqual(s.original.data, encoding)
 
+    def test_the_result_of_eval_repr_has_identical_original_data(self):
+        raw = b"the quick brown fox jumps over the lazy dog"
+        data = subbytes(raw, 4, 25)
+        s = OctetString(data)
+        copy = eval(repr(s))
+        self.assertEqual(repr(s.original), repr(copy.original))
+
 class IpAddressTest(unittest.TestCase):
     def setUp(self):
         self.addr = "12.34.56.78"

@@ -91,6 +91,9 @@ class OctetString(OCTET_STRING):
 
         super().__init__(data)
 
+    def __repr__(self) -> str:
+        return f"{typename(self)}({self.original})"
+
     @property
     def original(self) -> Asn1Data:
         return self._original
