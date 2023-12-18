@@ -268,6 +268,9 @@ class OBJECT_IDENTIFIER(Primitive):
         elif second >= 40:
             raise ValueError("The second subidentifier must be less than 40")
 
+        if any(map(lambda x: x < 0, subidentifiers)):
+            raise ValueError("Sub-identifiers may not be negative")
+
         self.subidentifiers = subidentifiers
 
     def __eq__(self, other: Any) -> bool:

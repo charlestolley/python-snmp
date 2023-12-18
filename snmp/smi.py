@@ -8,11 +8,12 @@ __all__ = [
 
 from socket import inet_aton, inet_ntoa
 
-from snmp.ber import *
 from snmp.asn1 import *
+from snmp.ber import *
 from snmp.typing import *
 from snmp.utils import *
 
+TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
 TInteger        = TypeVar("TInteger",       bound="BoundedInteger")
 TOctetString    = TypeVar("TOctetString",   bound="OctetString")
 
@@ -144,7 +145,22 @@ class Opaque(OCTET_STRING):
 Null = NULL
 
 class OID(OBJECT_IDENTIFIER):
-    pass
+    def __init__(self, *subidentifiers: int) -> None:
+        if len(subidentifiers) > 128:
+            errmsg = "OID may not contain more than 128 sub-identifiers"
+            raise ValueError(errmsg)
+
+        if any(map(lambda x: x.bit_length() > 32, subidentifiers)):
+            raise ValueError("Sub-identifiers are limited to 32-bits unsigned")
+
+        super().__init__(*subidentifiers)
+
+    def getIndex(self,
+        prefix: "OID",
+        cls: Type[TPrimitive] = Integer,
+        implied: bool = False,
+    ) -> TPrimitive:
+        return self.decodeIndex(prefix, cls, implied=implied)[0]
 
 zeroDotZero = OID(0, 0)
 

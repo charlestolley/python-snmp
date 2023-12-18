@@ -130,6 +130,9 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
         self.assertRaises(ValueError, OBJECT_IDENTIFIER, 3, 39)
         self.assertRaises(ValueError, OBJECT_IDENTIFIER, 2, 40)
 
+    def test_constructor_raises_ValueError_for_negative_subidentifiers(self):
+        self.assertRaises(ValueError, OBJECT_IDENTIFIER, 1, 3, -5)
+
     def test_two_OIDs_with_equal_subidentifiers_are_equal(self):
         self.assertEqual(
             OBJECT_IDENTIFIER(1, 3, 6, 1),

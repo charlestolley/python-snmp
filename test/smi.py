@@ -1,7 +1,7 @@
 __all__ = [
     "BoundedIntegerTest", "IntegerTypesTest",
     "OctetStringTest", "IpAddressTest", "OpaqueTest",
-    "ZeroDotZeroTest",
+    "OIDTest", "ZeroDotZeroTest",
 ]
 
 import unittest
@@ -231,15 +231,63 @@ class OpaqueTest(unittest.TestCase):
         o = Opaque(b"this could contain anything")
         self.assertEqual(eval(repr(o)), o)
 
-class ZeroDotZeroTest(unittest.TestCase):
+from snmp.ber import decode_length
+class OIDTest(unittest.TestCase):
     def setUp(self):
-        self.data = b"\x06\x01\x00"
+        self.internet = OID(1, 3, 6, 1)
 
-    def testDecode(self):
-        self.assertEqual(zeroDotZero, OID.decode(self.data))
+    def test_constructor_accepts_up_to_128_subidentifiers(self):
+        _ = OID(*range(128))
 
-    def testEncode(self):
-        self.assertEqual(zeroDotZero.encode(), self.data)
+    def test_constructor_raises_ValueError_with_over_128_subidentifiers(self):
+        self.assertRaises(ValueError, OID, *range(129))
+
+    def test_decode_accepts_up_to_128_subidentifiers(self):
+        encoding = b"\x06\x7f\x2b" + bytes(range(126))
+        _ = OID.decode(encoding)
+
+    def test_decode_raises_ParseError_with_over_128_subidentifiers(self):
+        encoding = b"\x06\x81\x80\x2b" + bytes(range(127))
+        self.assertRaises(ParseError, OID.decode, encoding)
+
+    def test_constructor_accepts_32_bit_unsigned_subidentifiers(self):
+        oid = OID(1, 3, (1 << 32) - 1)
+
+    def test_constructor_raises_ValueError_for_33_bit_subidentifiers(self):
+        self.assertRaises(ValueError, OID, 1, 3, 1 << 32)
+
+    def test_decode_accepts_32_bit_unsigned_subidentifiers(self):
+        encoding = b"\x06\x06\x2b\x8f\xff\xff\xff\x7f"
+        oid = OID.decode(encoding)
+        self.assertEqual(oid[2], (1 << 32) - 1)
+
+    def test_decode_raises_ParseError_for_33_bit_subidentifiers(self):
+        encoding = b"\x06\x06\x2b\x90\x80\x80\x80\x00"
+        self.assertRaises(ParseError, OID.decode, encoding)
+
+    def test_getIndex_uses_Integer_by_default(self):
+        oid = self.internet.extend(4)
+        index = oid.getIndex(self.internet)
+        self.assertIsInstance(index, Integer)
+        self.assertEqual(index.value, 4)
+
+    def test_getIndex_works_with_non_integer_types(self):
+        data = b"OCTET STRING"
+        oid = self.internet.extend(len(data), *data)
+        index = oid.getIndex(self.internet, OctetString)
+        self.assertEqual(index.data, data)
+
+    def test_getIndex_uses_the_implied_argument(self):
+        data = b"OCTET STRING"
+        oid = self.internet.extend(*data)
+        index = oid.getIndex(self.internet, OctetString, implied=True)
+        self.assertEqual(index.data, data)
+
+class ZeroDotZeroTest(unittest.TestCase):
+    def test_contains_two_zeros(self):
+        self.assertEqual(len(zeroDotZero), 2)
+        for subidentifier in zeroDotZero:
+            self.assertEqual(subidentifier, 0)
 
 if __name__ == '__main__':
     unittest.main()
