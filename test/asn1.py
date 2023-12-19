@@ -148,6 +148,23 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
     def test_OID_is_not_equal_to_non_OID(self):
         self.assertNotEqual(OBJECT_IDENTIFIER(1), INTEGER(1))
 
+    def test_two_equal_OIDS_are_not_less_than_each_other(self):
+        oids = OBJECT_IDENTIFIER(1, 3, 6, 1), OBJECT_IDENTIFIER(1, 3, 6, 1)
+        self.assertEqual(*oids)
+        self.assertFalse(oids[0] < oids[1])
+        self.assertFalse(oids[1] < oids[0])
+
+    def test_prefix_is_less_than_extended_OID(self):
+        oid = self.internet.extend(0)
+        self.assertTrue(self.internet < oid)
+        self.assertFalse(oid < self.internet)
+
+    def test_between_two_nonequal_equal_length_OIDs_lesser_one_is_less(self):
+        oids = OBJECT_IDENTIFIER(1, 3, 6, 1), OBJECT_IDENTIFIER(1, 3, 6, 2)
+        self.assertNotEqual(*oids)
+        self.assertTrue(oids[0] < oids[1])
+        self.assertFalse(oids[1] < oids[0])
+
     def test_getitem_returns_the_subidentifier_at_the_given_index(self):
         for i, s in enumerate(self.internet):
             self.assertEqual(self.internet[i], s)

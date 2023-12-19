@@ -113,7 +113,7 @@ class INTEGER(Primitive):
         if not isinstance(other, INTEGER):
             return NotImplemented
 
-        return self.value == other.value
+        return self.value == other.value and self.TAG == other.TAG
 
     def __repr__(self) -> str:
         return f"{typename(self)}({self.value})"
@@ -168,7 +168,7 @@ class OCTET_STRING(Primitive):
         if not isinstance(other, OCTET_STRING):
             return NotImplemented
 
-        return self.data == other.data
+        return self.data == other.data and self.TAG == other.TAG
 
     def __repr__(self) -> str:
         return f"{typename(self)}({repr(self.data)})"
@@ -221,7 +221,7 @@ class NULL(Primitive):
         if not isinstance(other, NULL):
             return NotImplemented
 
-        return True
+        return self.TAG == other.TAG
 
     def __repr__(self) -> str:
         return f"{typename(self)}()"
@@ -278,6 +278,9 @@ class OBJECT_IDENTIFIER(Primitive):
             return NotImplemented
 
         return self.subidentifiers == other.subidentifiers
+
+    def __lt__(self, other: "OBJECT_IDENTIFIER") -> bool:
+        return self.subidentifiers < other.subidentifiers
 
     @overload
     def __getitem__(self, index: int) -> int:

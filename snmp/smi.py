@@ -27,14 +27,6 @@ class BoundedInteger(INTEGER):
 
         super().__init__(value)
 
-    def __eq__(self, other: Any) -> bool:
-        equal = super().__eq__(other)
-
-        if isinstance(equal, bool):
-            return equal and self.TAG == other.TAG
-        else:
-            return equal
-
     @classmethod
     def construct(cls: Type[TInteger], value: int) -> TInteger:
         try:

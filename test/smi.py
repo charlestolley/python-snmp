@@ -178,6 +178,10 @@ class OctetStringTest(unittest.TestCase):
         encoding = encode(OctetString.TAG, bytes(65536))
         self.assertRaises(ParseError, OctetString.decode, encoding)
 
+    def test_OctetString_does_not_equal_IpAddress(self):
+        data = b"\xc0\x22\x38\x4e"
+        self.assertNotEqual(OctetString(data), IpAddress.construct(data))
+
     def test_original_gives_subbytes_of_the_full_encoding_if_copy_False(self):
         encoding = b"\x04\x00"
         s = OctetString.decode(encoding, copy=False)
@@ -202,6 +206,10 @@ class IpAddressTest(unittest.TestCase):
 
     def test_two_objects_with_different_addresses_are_not_equal(self):
         self.assertNotEqual(IpAddress("1.2.3.4"), IpAddress("4.3.2.1"))
+
+    def test_IpAddress_does_not_equal_OctetString(self):
+        data = b"\xc0\x22\x38\x4e"
+        self.assertNotEqual(IpAddress.construct(data), OctetString(data))
 
     def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         addr = IpAddress(self.addr)
