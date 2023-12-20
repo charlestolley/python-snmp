@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath(
 project = "snmp"
 copyright = "2021-2023, Charles C. D. Tolley"
 author = "Charles C. D. Tolley"
-version = "0.6.0"
+version = "0.7.0"
 release = version
 extensions = ["sphinx.ext.autodoc"]
 html_theme = "python_docs_theme"
