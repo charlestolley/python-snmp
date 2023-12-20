@@ -8,7 +8,7 @@ concrete classes and method signatures are outlined below, but the parameters
 are explained here, as they are nearly identical for all methods.
 
 The variable-length `oids` parameter to the ``get*()`` methods specifies the
-objects to be queried. Each OID may either be an :class:`snmp.types.OID` object,
+objects to be queried. Each OID may either be an :class:`snmp.smi.OID` object,
 or a string containing a dot-sepearated OID representation (e.g.
 ``"1.3.6.1.2.1.1.1.0"``). The ``get()`` method performs a Get request, which
 requests the value for each queried object. The ``getNext()`` method performs a
@@ -21,7 +21,7 @@ more complete, though no less confusing, explanation of Get-Bulk, see
 
 The ``set()`` method uses a similar variable-length parameter called
 `varbinds`. As the name suggests, this parameter expects
-:class:`snmp.types.VarBind` objects. This method performs an SNMP Set operation,
+:class:`snmp.pdu.VarBind` objects. This method performs an SNMP Set operation,
 which requests that the remote engine assign ``varbind.value`` to the object
 with OID ``varbind.name``.
 

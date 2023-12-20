@@ -21,6 +21,8 @@ The simplest way to install ``snmp`` is with ``pip``:
 See the :doc:`installation` section for more options.
 
 .. toctree::
+   :hidden:
+
    installation
    getting_started
    snmp

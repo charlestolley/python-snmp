@@ -1,85 +1,81 @@
 Data Types
 ==========
 
-``snmp.types``
---------------
+ASN.1 Data Types
+----------------
 
-.. class:: Asn1Encodable
-   :canonical: snmp.types.Asn1Encodable
+.. class:: ASN1
+   :canonical: snmp.asn1.ASN1
 
-   This is the base class for all other classes documented here. It defines the
-   API for encoding and decoding SNMP objects to and from the byte strings that
-   are sent across the network. It also defines the ``==`` equality operator, as
-   well as the less-strict :meth:`equals` method.
+   This is the abstract base class for all ASN.1 data types in this library. It
+   defines the following two methods, which implement ASN.1 encoding and
+   decoding under the Basic Encoding Rules (BER):
 
-   .. method:: decode(data, leftovers=False, copy=True)
+   .. method:: decode(data, leftovers=False)
       :classmethod:
 
       Create a new object by decoding it from the byte string `data`. In the
       default case, this method expects to consume the entire string. If `data`
       encodes multiple objects, then `leftovers` should be set to ``True``, in
-      which case the leftover portion of the data will be returned as well (i.e.
-      it will return a tuple containing both the decoded object and the leftover
-      data).
+      which case the leftover portion of the data will be returned as well
+      (i.e.  it will return a tuple containing both the decoded object and the
+      leftover data).
 
-      The `copy` argument determines whether the decoded object will contain
-      a reference to the original data, or a copy. This has nothing to do with
-      performance, and everything to do with computing message signatures when
-      message authentication is required.
-
-      If the data cannot be decoded as requested, a :class:`snmp.ber.ParseError`
-      will be raised.
+      If the data cannot be decoded as requested, a
+      :class:`snmp.ber.ParseError` will be raised.
 
    .. method:: encode()
 
-      Encode an object into a byte-string. This method may throw an exception if
-      the object contains an invalid value, but should succeed otherwise.
+      Encode an object into a byte-string. This method is not expected to raise
+      any exceptions.
 
-   .. method:: __eq__(other)
+Core Data Types
+^^^^^^^^^^^^^^^
 
-      The `==` operator performs a strict equality check, which returns ``True``
-      if and only if the two objects are of the exact same type, and also have
-      the same value, as determined by the :meth:`equals` method.
+.. class:: snmp.smi.Integer(value)
 
-   .. method:: equals(other)
-
-      This method checks whether two objects represent equal values, regardless
-      of the exact type. The two types, however, must at least derive from the
-      same base class, one of :class:`Integer`, :class:`OctetString`,
-      :class:`Null`, :class:`OID`, or they may be two sequence types.
-
-.. class:: Integer(value)
-   :canonical: snmp.types.Integer
-
-   This is the base class for all other integral types. On its own, it
-   represents the built-in ASN.1 INTEGER type, which is restricted to a 32-bit
-   signed integer by the SMIv2 (see :rfc:`2578#section-2`).
+   This class represents an ASN.1 INTEGER, which is restricted to a 32-bit
+   signed integer by the SNMP SMIv2 (see :rfc:`2578#section-2`).
 
    .. property:: value
 
       The object's value as a native :class:`int`.
 
-.. class:: OctetString(data)
-   :canonical: snmp.types.OctetString
+   .. method:: __eq__ (self, other)
 
-   This class represents the built-in ASN.1 OCTET STRING type. It may be
-   subclassed to implement other types such as :class:`IpAddress`.
+      Two INTEGER types are equal if they have the same value *and* the same
+      ASN.1 tag. For example, an :class:`Unsigned` and a :class:`Gauge32` with
+      the same value are equal, but an :class:`Unsigned` is never equal to an
+      :class:`Integer`.
+
+.. class:: snmp.smi.OctetString(data)
+
+   This class represents an ASN.1 OCTET STRING, which is restricted to a
+   maximum of 65535 octets in length by the SNMP SMIv2 (see
+   :rfc:`2578#section-2`).
 
    .. property:: data
 
       The object's raw data as a bytes-like object.
 
-.. class:: Null()
-   :canonical: snmp.types.Null
+   .. method:: __eq__ (self, other)
 
-   This class represents the built-in ASN.1 NULL type. It is also the base class
-   for types like :class:`EndOfMibView`.
+      Two OCTET STRINGs are equal if they represent the same bytes *and* use
+      the same ASN.1 tag.
 
-.. class:: OID(* nums)
-   :canonical: snmp.types.OID
+.. class:: snmp.smi.Null()
+
+   This class represents the built-in ASN.1 NULL type. It is also the base
+   class for types like :class:`EndOfMibView`.
+
+   .. method:: __eq__ (self, other)
+
+      Two NULL objects are equal if they have the same ASN.1 tag.
+
+.. class:: snmp.smi.OID(* subidentifiers)
 
    This class represents an ASN.1 Object Identifier. An object identifier is
-   a sequence of up to 255 integers (called sub-identifiers) that describe a
+   a sequence of up to 128 integers (called sub-identifiers) that describe a
    path to a node in the MIB tree. For an explanation of the MIB tree, consult
    :rfc:`2578`. Object identifiers are normally expressed in string by placing
    a dot between each sub-identifier, like this: ``"1.3.6.1.2.1.1.1"``.
@@ -90,10 +86,6 @@ Data Types
    it is not possible to send an OID with less than two sub-identifiers. This
    class can be instantiated with zero or one sub-identifiers, but, when
    encoded, will be treated as if there were implicit zeros at the end.
-
-   Lastly, every instance of this class is treated as a value type, meaning that
-   its contents are immutable. Methods such as :meth:`extend`, which modify the
-   the value, always return a new object, and leave the original unchanged.
 
    .. method:: parse(oid)
       :classmethod:
@@ -117,19 +109,20 @@ Data Types
 
    .. method:: __getitem__(n)
 
-      The square bracket operator returns sub-identifier `n`, where `n` is an
-      integer between ``0`` and the length of the OID minus one. `n` may also
-      be a :class:`slice`, in which case the result is a tuple.
+      The square bracket operator returns sub-identifier `n`, or raises and
+      :class:`IndexError`. `n` may also be a :class:`slice`, in which case the
+      result is a tuple.
 
    .. method:: __iter__()
 
       Return an object to iterate over the sub-identifiers.
 
-   .. method:: extend(* nums)
+   .. method:: extend(* subidentifiers)
 
-      Append the given sub-identifiers to the OID and return it as a new object.
+      Append the given sub-identifiers to the OID and return it as a new
+      object.
 
-   .. method:: appendIndex(* index, implied=False)
+   .. method:: withIndex(* index, implied=False)
 
       Every SNMP object is identified by an OID with a format of
       `<prefix>.<index>`, where the prefix refers to an object type definied in
@@ -138,31 +131,33 @@ Data Types
 
       This method encodes the given object(s), as outlined in
       :rfc:`2578#section-7.7`, and appends the encoding(s) to the end of the
-      OID, returning a new object. For an ``INDEX`` with the ``IMPLIED`` keyword
-      attached to the final object, set the `implied` parameter to ``True``.
+      OID, returning a new object. For an ``INDEX`` with the ``IMPLIED``
+      keyword attached to the final object, set the `implied` parameter to
+      ``True``.
 
-   .. method:: extractIndex(prefix, * types, implied=False)
+   .. method:: decodeIndex(prefix, * types, implied=False)
 
-      This method is the reverse of :meth:`appendIndex`. The `prefix` argument
+      This method is the reverse of :meth:`withIndex`. The `prefix` argument
       is an OID referring to an object definition in the MIB, and the `types`
       argument gives the expected type of each object in the index. Most
       indices contain a single object, in which case the :meth:`getIndex`
       wrapper function may be more convenient. 
 
       If the OID does not begin with the given prefix, this method will raise a
-      :class:`snmp.types.OID.BadPrefix` exception. If the prefix does match,
+      :class:`snmp.smi.OID.BadPrefix` exception. If the prefix does match,
       but the index cannot be decoded, it will raise an
-      :class:`snmp.types.OID.IndexDecodeError`. The index is returned as a tuple
+      :class:`snmp.smi.OID.IndexDecodeError`. The index is returned as a tuple
       whose length matches the length of `types`.
 
       The 'implied' argument affects the decoding of :class:`OctetString` and
-      :class:`OID` objects. The encoding normally begins with a length byte, but
-      the MIB may mark the final object in an ``INDEX`` with the ``IMPLIED``
-      keyword, indicating that the encoding occupies the remainder of the OID.
+      :class:`OID` objects. The encoding normally begins with a length byte,
+      but the MIB may mark the final object in an ``INDEX`` with the
+      ``IMPLIED`` keyword, indicating that the encoding occupies the remainder
+      of the OID.
 
    .. method:: getIndex(prefix, cls=Integer, implied=False)
 
-      This method wraps a call to :meth:`extractIndex` for an index consisting
+      This method wraps a call to :meth:`decodeIndex` for an index consisting
       of only a single object. Where that method returns a tuple of length 1,
       this method returns the object directly.
 
@@ -172,32 +167,32 @@ Data Types
       begins with `prefix`, indicating that `prefix` represents a parent node
       in the conceptual MIB tree.
 
-``snmp.smi``
-------------
+Additional Data Types
+^^^^^^^^^^^^^^^^^^^^^
 
-.. class:: Unsigned(value)
-   :canonical: snmp.smi.Unsigned
+.. class:: snmp.smi.Unsigned(value)
 
-   This class represents a 32-bit unsigned integer.
-
-   .. property:: value
-
-.. class:: Integer32(value)
-   :canonical: snmp.smi.Integer32
-
-   This class is indistinguishable from :class:`snmp.types.Integer`.
+   An INTEGER with a value between ``0`` and ``(2^32)-1``.
 
    .. property:: value
 
-.. class:: Unsigned32(value)
-   :canonical: snmp.smi.Unsigned32
+   .. method:: __eq__ (self, other)
 
-   This class is indistinguishable from :class:`snmp.types.Unsigned`.
+      See :meth:`Integer.__eq__`.
+
+.. class:: snmp.smi.Integer32(value)
+
+   :class:`snmp.smi.Integer` is an alias for Integer32.
 
    .. property:: value
 
-.. class:: IpAddress(addr)
-   :canonical: snmp.smi.IpAddress
+.. class:: snmp.smi.Unsigned32(value)
+
+   :class:`snmp.smi.Unsigned` is an alias for Unsigned32.
+
+   .. property:: value
+
+.. class:: snmp.smi.IpAddress(addr)
 
    An IPv4 address.
 
@@ -209,67 +204,83 @@ Data Types
 
       A byte string encoding the address in network format.
 
-.. class:: Counter32(value)
-   :canonical: snmp.smi.Counter32
+   .. method:: __eq__ (self, other)
 
-   A 32-bit unsigned integer used to represent monotonically increasing values
-   that wrap to zero upon overflowing.
+      Two :class:`IpAddress`\es are equal if they represent the same address.
 
-   .. property:: value
+.. class:: snmp.smi.Counter32(value)
 
-.. class:: Gauge32(value)
-   :canonical: snmp.smi.Gauge32
-
-   A 32-bit unsigned integer used to represent values within a specific range
-   that do not wrap.
+   An INTEGER with a value between ``0`` and ``(2^32)-1``, used to represent
+   monotonically increasing values that wrap to zero upon overflow.
 
    .. property:: value
 
-.. class:: TimeTicks(value)
-   :canonical: snmp.smi.TimeTicks
+   .. method:: __eq__ (self, other)
 
-   A 32-bit unsigned integer used to represent time measurements in hundredths
-   of a second.
+      See :meth:`Integer.__eq__`.
+
+.. class:: snmp.smi.Gauge32(value)
+
+   An INTEGER with a value between ``0`` and ``(2^32)-1``, used to represent
+   values within a specific range that do not wrap.
 
    .. property:: value
 
-.. class:: Opaque(data)
-   :canonical: snmp.smi.Opaque
+   .. method:: __eq__ (self, other)
+
+      See :meth:`Integer.__eq__`.
+
+.. class:: snmp.smi.TimeTicks(value)
+
+   An INTEGER with a value between ``0`` and ``(2^32)-1``, used to represent
+   time measurements in hundredths of a second.
+
+   .. property:: value
+
+   .. method:: __eq__ (self, other)
+
+      See :meth:`Integer.__eq__`.
+
+.. class:: snmp.smi.Opaque(data)
 
    This data type is deprecated since SNMPv2c.
 
    .. property:: data
 
-.. class:: Counter64(value)
-   :canonical: snmp.smi.Counter64
+   .. method:: __eq__ (self, other)
 
-   A 64-bit unsigned integer with similar semantics to Counter32.
+      See :meth:`Integer.__eq__`.
+
+.. class:: snmp.smi.Counter64(value)
+
+   An INTEGER with a value between ``0`` and ``(2^64)-1``, with similar
+   semantics to Counter32.
 
    .. property:: value
 
-``snmp.pdu``
-------------
+   .. method:: __eq__ (self, other)
 
-.. class:: NoSuchObject
-   :canonical: snmp.pdu.NoSuchObject
+      See :meth:`Integer.__eq__`.
+
+PDU Data Types
+^^^^^^^^^^^^^^
+
+.. class:: snmp.pdu.NoSuchObject
 
    A special value sent in a response to indicate that the requested OID is
    unknown to the remote engine.
 
-.. class:: NoSuchInstance
-   :canonical: snmp.pdu.NoSuchInstance
+.. class:: snmp.pdu.NoSuchInstance
 
    A special value sent in a response to indicate that there is no object
    associated with the requested OID.
 
-.. class:: EndOfMibView
-   :canonical: snmp.pdu.EndOfMibView
+.. class:: snmp.pdu.EndOfMibView
 
    A special value sent in response to a Get-Next or Get-Bulk request to
    indicate that there are no more objects to return.
 
-.. class:: VarBind(name, value=None)
-   :canonical: snmp.pdu.VarBind
+.. class:: snmp.pdu.VarBind(name, value=None)
 
    An SNMP variable binding pairs an OID with a value. In actual usage, the
    OID (i.e. the "name") consists of a prefix, which refers to an object
@@ -290,8 +301,7 @@ Data Types
 
       The variable's value, which is some instance of :class:`Asn1Encodable`.
 
-.. class:: VarBindList(* args)
-   :canonical: snmp.pdu.VarBindList
+.. class:: snmp.pdu.VarBindList(* args)
 
    A VarBindList is a container for :class:`VarBind` objects. The constructor
    accepts any number of VarBinds, OIDs, or OID strings.
@@ -309,26 +319,26 @@ Data Types
 
       Return an object to iterate over the variable bindings in this list.
 
-.. class:: PDU( \
+.. class:: snmp.pdu.PDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.PDU
 
-   SNMP defines several different Protocol Data Units (PDUs), each representing a
-   specific operation, or message type. All PDUs follow the same structure, with
-   three Integer fields containing metadata, and a list of variable bindings
-   (VarBindList). Each variable binding consists of a name and a value, as
-   described in the :class:`VarBind` class documentation. This is the base class
-   for all PDU types, except for :class:`GetBulkRequestPDU`, which uses its
-   metadata fields differently than the others.
+   SNMP defines several different Protocol Data Units (PDUs), each representing
+   a specific operation, or message type. All PDUs follow the same structure,
+   with three Integer fields containing metadata, and a list of variable
+   bindings (VarBindList). Each variable binding consists of a name and a
+   value, as described in the :class:`VarBind` class documentation. This is the
+   base class for all PDU types, except for :class:`GetBulkRequestPDU`, which
+   uses its metadata fields differently than the others.
 
    When constructing a PDU object, the variable bindings are provided as
    positional arguments. These may be instances of :class:`VarBind`, but they
    can also be OIDs, either as an :class:`OID` object, or in string format. If
-   OIDs are used, then the VarBinds will be populated with :class:`Null` values.
+   OIDs are used, then the VarBinds will be populated with :class:`Null`
+   values.
 
    .. property:: requestID
 
@@ -345,11 +355,11 @@ Data Types
 
    .. property:: errorIndex
 
-      When a response contains a non-zero error status, this field indicates the
-      source of the error. A value of ``0`` indicates that the error relates to
-      the message as a whole. A value greater than ``0`` gives the index of the
-      variable binding that caused the error. Note that this means that index
-      ``1`` refers to the first variable binding in the list.
+      When a response contains a non-zero error status, this field indicates
+      the source of the error. A value of ``0`` indicates that the error
+      relates to the message as a whole. A value greater than ``0`` gives the
+      index of the variable binding that caused the error. Note that this means
+      that index ``1`` refers to the first variable binding in the list.
 
    .. property:: variableBindings
 
@@ -362,53 +372,47 @@ Data Types
       :attr:`errorStatus` field. Note that some values are only valid in newer
       versions of SNMP.
 
-.. class:: GetRequestPDU( \
+.. class:: snmp.pdu.GetRequestPDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.GetRequestPDU
 
-.. class:: GetNextRequestPDU( \
+.. class:: snmp.pdu.GetNextRequestPDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.GetNextRequestPDU
 
-.. class:: ResponsePDU( \
+.. class:: snmp.pdu.ResponsePDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.ResponsePDU
 
-.. class:: SetRequestPDU( \
+.. class:: snmp.pdu.SetRequestPDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.SetRequestPDU
 
-.. class:: TrapPDU( \
+.. class:: snmp.pdu.TrapPDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.TrapPDU
 
-.. class:: GetBulkRequestPDU( \
+.. class:: snmp.pdu.GetBulkRequestPDU( \
       * varbinds, \
       requestID=0, \
       nonRepeaters=0, \
       maxRepetitions=0, \
    )
-   :canonical: snmp.pdu.GetBulkRequestPDU
 
    .. property:: requestID
 
@@ -426,26 +430,23 @@ Data Types
 
       Same as :attr:`PDU.variableBindings`.
 
-.. class:: InformRequestPDU( \
+.. class:: snmp.pdu.InformRequestPDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.InformRequestPDU
 
-.. class:: SNMPv2TrapPDU( \
+.. class:: snmp.pdu.SNMPv2TrapPDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.SNMPv2TrapPDU
 
-.. class:: ReportPDU( \
+.. class:: snmp.pdu.ReportPDU( \
       * varbinds, \
       requestID=0, \
       errorStatus=0, \
       errorIndex=0, \
    )
-   :canonical: snmp.pdu.ReportPDU
