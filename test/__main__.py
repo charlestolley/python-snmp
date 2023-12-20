@@ -17,11 +17,7 @@ test_modules = [
 ]
 
 import importlib
-import sys
 import unittest
-
-from os.path import dirname
-sys.path.insert(0, dirname(dirname(__file__)))
 
 def allTests(cls):
     for attrname in dir(cls):

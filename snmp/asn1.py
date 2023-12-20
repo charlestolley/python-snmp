@@ -70,10 +70,12 @@ class Constructed(ASN1):
         if not isinstance(other, Constructed):
             return NotImplemented
 
-        if type(self) == type(other) and len(self) == len(other):
-            for left, right in zip(self, other):
-                if left != right:
-                    return False
+        if type(self) != type(other) or len(self) != len(other):
+            return False
+
+        for left, right in zip(self, other):
+            if left != right:
+                return False
 
         return True
 
