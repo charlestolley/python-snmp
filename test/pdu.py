@@ -8,7 +8,6 @@ import unittest
 from snmp.ber import ParseError
 from snmp.pdu import *
 from snmp.smi import *
-from snmp.types import *
 
 class NullTypesTest(unittest.TestCase):
     def helper(self, cls, data):
@@ -105,10 +104,10 @@ class VarBindListTest(unittest.TestCase):
         ifSpecific = ifEntry.extend(22)
 
         self.vblist = VarBindList(
-            VarBind(self.ifDescr.appendIndex(ifIndex), OctetString(b"lo")),
-            VarBind(self.ifMtu.appendIndex(ifIndex), Integer(1500)),
-            VarBind(ifPhysAddress.appendIndex(ifIndex), OctetString(b"macadr")),
-            VarBind(ifSpecific.appendIndex(ifIndex), zeroDotZero),
+            VarBind(self.ifDescr.withIndex(ifIndex), OctetString(b"lo")),
+            VarBind(self.ifMtu.withIndex(ifIndex), Integer(1500)),
+            VarBind(ifPhysAddress.withIndex(ifIndex), OctetString(b"macadr")),
+            VarBind(ifSpecific.withIndex(ifIndex), zeroDotZero),
         )
 
         self.data = bytes.fromhex(re.sub(r"\n", "", """

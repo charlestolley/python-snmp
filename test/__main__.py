@@ -1,7 +1,7 @@
 test_modules = [
     "utils",
     "ber",
-    "types",
+    "asn1",
     "smi",
     "pdu",
     "message",

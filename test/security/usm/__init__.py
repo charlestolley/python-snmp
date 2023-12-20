@@ -22,7 +22,7 @@ from snmp.security.usm import (
 )
 
 from snmp.security.usm.auth import *
-from snmp.types import *
+from snmp.smi import *
 from snmp.utils import *
 
 class DummyAuthProtocol(AuthProtocol):

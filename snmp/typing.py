@@ -5,6 +5,7 @@ __all__ = [
     "Deque",
     "Dict",
     "Generic",
+    "Iterable",
     "Iterator",
     "List",
     "Literal",
@@ -36,6 +37,7 @@ import sys
 if sys.version_info[:2] >= (3, 9):
     from collections import deque as Deque
     from builtins import dict as Dict
+    from collections.abc import Iterable
     from collections.abc import Iterator
     from builtins import list as List
     from collections.abc import Mapping
@@ -45,6 +47,7 @@ if sys.version_info[:2] >= (3, 9):
 else:
     from typing import Deque
     from typing import Dict
+    from typing import Iterable
     from typing import Iterator
     from typing import List
     from typing import Mapping

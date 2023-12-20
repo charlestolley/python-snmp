@@ -4,7 +4,7 @@ import re
 import unittest
 
 from snmp.ber import *
-from snmp.types import *
+from snmp.smi import *
 from snmp.pdu import *
 from snmp.message import *
 
@@ -50,7 +50,7 @@ class MessageVersionTest(unittest.TestCase):
 
 class MessageTest(unittest.TestCase):
     def setUp(self):
-        self.types = {GetRequestPDU.TYPE: GetRequestPDU}
+        self.types = {GetRequestPDU.TAG: GetRequestPDU}
         self.template = re.sub(r"\n", "", """
             30 2f
                02 01 {:02x}

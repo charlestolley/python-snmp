@@ -115,10 +115,5 @@ The output of this example should look something like this:
 
 .. code-block:: console
 
-   ResponsePDU:
-       Request ID: 560757371
-       Error Status: 0
-       Error Index: 0
-       Variable Bindings:
-           1.3.6.1.2.1.1.4.0: OctetString(b'Me <me@example.org>')
-           1.3.6.1.2.1.1.6.0: OctetString(b'Sitting on the Dock of the Bay')
+   1.3.6.1.2.1.1.4.0: OctetString(b'Me <me@example.org>')
+   1.3.6.1.2.1.1.6.0: OctetString(b'Sitting on the Dock of the Bay')

@@ -12,7 +12,7 @@ from snmp.message.v3 import pduTypes
 from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
-from snmp.types import *
+from snmp.smi import *
 from snmp.utils import *
 
 class MessageFlagsTest(unittest.TestCase):

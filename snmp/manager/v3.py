@@ -9,6 +9,7 @@ import threading
 import time
 import weakref
 
+from snmp.asn1 import *
 from snmp.dispatcher import *
 from snmp.exception import *
 from snmp.message import *
@@ -17,8 +18,8 @@ from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm import *
+from snmp.smi import *
 from snmp.transport import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 from . import *
@@ -713,7 +714,7 @@ class SNMPv3UsmManager(Generic[T]):
         *varbinds: Union[
             Tuple[
                 Union[str, OID],
-                Optional[Asn1Encodable],
+                Optional[ASN1],
             ],
             VarBind,
         ],

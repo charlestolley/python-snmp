@@ -12,10 +12,10 @@ __all__ = [
 
 import enum
 
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.smi import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import subbytes, typename
 
@@ -25,20 +25,20 @@ TBulkPDU = TypeVar("TBulkPDU", bound="BulkPDU")
 
 @final
 class NoSuchObject(Null):
-    TYPE = Tag(0, cls = Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(0, cls = Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class NoSuchInstance(Null):
-    TYPE = Tag(1, cls = Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(1, cls = Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class EndOfMibView(Null):
-    TYPE = Tag(2, cls = Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(2, cls = Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class VarBind(Sequence):
     TYPES = {
-        cls.TYPE: cls for cls in cast(Tuple[Primitive, ...], (
+        cls.TAG: cls for cls in cast(Tuple[Primitive, ...], (
             Integer,
             OctetString,
             Null,
@@ -57,7 +57,7 @@ class VarBind(Sequence):
 
     def __init__(self,
         name: Union[str, OID],
-        value: Optional[Asn1Encodable] = None,
+        value: Optional[ASN1] = None,
     ) -> None:
         if not isinstance(name, OID):
             name = OID.parse(name)
@@ -68,7 +68,7 @@ class VarBind(Sequence):
         self.name = name
         self.value = value
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield self.name
         yield self.value
 
@@ -190,7 +190,7 @@ class PDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.requestID)
         yield Integer(self.errorStatus)
         yield Integer(self.errorIndex)
@@ -292,7 +292,7 @@ class BulkPDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.requestID)
         yield Integer(self.nonRepeaters)
         yield Integer(self.maxRepetitions)
@@ -386,39 +386,39 @@ class Confirmed:
 
 @final
 class GetRequestPDU(PDU, Read, Confirmed):
-    TYPE = Tag(0, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(0, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class GetNextRequestPDU(PDU, Read, Confirmed):
-    TYPE = Tag(1, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(1, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class ResponsePDU(PDU, Response):
-    TYPE = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class SetRequestPDU(PDU, Write, Confirmed):
-    TYPE = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class TrapPDU(PDU, Notification):
-    TYPE = Tag(4, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(4, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class GetBulkRequestPDU(BulkPDU, Read, Confirmed):
-    TYPE = Tag(5, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(5, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class InformRequestPDU(PDU, Notification, Confirmed):
-    TYPE = Tag(6, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(6, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class SNMPv2TrapPDU(PDU, Notification):
-    TYPE = Tag(7, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(7, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class ReportPDU(PDU, Response, Internal):
-    TYPE = Tag(8, True, Tag.Class.CONTEXT_SPECIFIC)
+    TAG = Tag(8, True, Tag.Class.CONTEXT_SPECIFIC)
 
 class ErrorResponse(SNMPException):
     def __init__(self,

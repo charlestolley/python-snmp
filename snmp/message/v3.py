@@ -3,18 +3,19 @@ __all__ = ["HeaderData", "MessageFlags", "ScopedPDU", "SNMPv3Message"]
 import threading
 import weakref
 
+from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
-from snmp.types import *
+from snmp.smi import *
 from snmp.typing import *
 from snmp.utils import *
 
 pduTypes = {
-    cls.TYPE: cls for cls in cast(Tuple[Type[AnyPDU], ...], (
+    cls.TAG: cls for cls in cast(Tuple[Type[AnyPDU], ...], (
         GetRequestPDU,
         GetNextRequestPDU,
         ResponsePDU,
@@ -72,8 +73,11 @@ class MessageFlags(OctetString):
         ))
 
     @classmethod
-    def interpret(cls, data: Asn1Data = b"") -> "MessageFlags":
-        byte = data[0]
+    def construct(cls, data: Asn1Data = b"") -> "MessageFlags":
+        try:
+            byte = data[0]
+        except IndexError as err:
+            raise ParseError(f"{typename(cls)} must contain at least one byte")
 
         try:
             securityLevel = SecurityLevel(
@@ -140,7 +144,7 @@ class HeaderData(Sequence):
         self.flags = flags
         self.securityModel = securityModel
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.id)
         yield Integer(self.maxSize)
         yield self.flags
@@ -224,7 +228,7 @@ class ScopedPDU(Sequence):
         self.contextName = contextName
         self.pdu = pdu
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield OctetString(self.contextEngineID)
         yield OctetString(self.contextName)
         yield self.pdu
@@ -281,8 +285,8 @@ class ScopedPDU(Sequence):
 
         return cls(
             cast(AnyPDU, pduType.decode(data)),
-            contextEngineID = cast(bytes, contextEngineID.data),
-            contextName     = cast(bytes, contextName.data),
+            contextEngineID = contextEngineID.data,
+            contextName     = contextName.data,
         )
 
 TMessage = TypeVar("TMessage", bound="SNMPv3Message")
@@ -308,7 +312,7 @@ class SNMPv3Message(Sequence):
         self.securityEngineID = securityEngineID
         self.securityName = securityName
 
-    def __iter__(self) -> Iterator[Asn1Encodable]:
+    def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.VERSION)
         yield self.header
         yield self.securityParameters
@@ -424,13 +428,11 @@ class SNMPv3Message(Sequence):
 
     @classmethod
     def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
-        ptr: subbytes = decode(
-            wholeMsg, expected=self.TYPE, copy=False
-        )
+        ptr: subbytes = decode(wholeMsg, self.TAG, copy=False)
 
-        _, ptr = decode(ptr, expected=INTEGER,      leftovers=True, copy=False)
-        _, ptr = decode(ptr, expected=SEQUENCE,     leftovers=True, copy=False)
-        ptr, _ = decode(ptr, expected=OCTET_STRING, leftovers=True, copy=False)
+        _, ptr = decode(ptr, Integer.TAG,       leftovers=True, copy=False)
+        _, ptr = decode(ptr, Sequence.TAG,      leftovers=True, copy=False)
+        ptr, _ = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
 
         return ptr
 

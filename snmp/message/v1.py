@@ -7,12 +7,11 @@ from snmp.ber import *
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
-from snmp.types import *
 from snmp.typing import *
 from snmp.utils import *
 
 pduTypes = {
-    cls.TYPE: cls for cls in cast(Tuple[Type[PDU], ...], (
+    cls.TAG: cls for cls in cast(Tuple[Type[PDU], ...], (
         GetRequestPDU,
         GetNextRequestPDU,
         ResponsePDU,
