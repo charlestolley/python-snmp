@@ -5,7 +5,7 @@ __all__ = [
     "GetRequestPDU", "GetNextRequestPDU", "GetBulkRequestPDU",
     "SetRequestPDU",
     "ResponsePDU", "ReportPDU",
-    "InformRequestPDU", "TrapPDU", "SNMPv2TrapPDU",
+    "InformRequestPDU", "SNMPv2TrapPDU",
     "Read", "Write", "Response", "Internal", "Notification", "Confirmed",
     "ErrorStatus", "ErrorResponse",
 ]
@@ -76,11 +76,10 @@ class VarBind(Sequence):
         return 2
 
     def __repr__(self) -> str:
-        args = ", ".join((repr(self.name), repr(self.value)))
-        return "{}({})".format(typename(self), args)
+        return f"{typename(self)}({self.name!r}, {self.value!r})"
 
     def __str__(self) -> str:
-        return "{}: {}".format(self.name, self.value)
+        return f"{self.name}: {self.value}"
 
     @classmethod
     def deserialize(cls, data: Asn1Data) -> "VarBind":
@@ -130,13 +129,13 @@ class VarBindList(Sequence):
 
     def __repr__(self) -> str:
         args = ", ".join(repr(var) for var in self.variables)
-        return "{}({})".format(typename(self), args)
+        return f"{typename(self)}({args})"
 
     def __str__(self) -> str:
         return self.toString()
 
     def toString(self, indent: str = "") -> str:
-        return "\n".join("{}{}".format(indent, var) for var in self.variables)
+        return "\n".join(f"{indent}{var}" for var in self.variables)
 
     @classmethod
     def deserialize(cls, data: Asn1Data) -> "VarBindList":
@@ -200,18 +199,20 @@ class PDU(Constructed):
         return 4
 
     def __repr__(self) -> str:
-        args = []
+        arguments = []
         if self.requestID:
-            args.append("requestID={}".format(self.requestID))
+            arguments.append("requestID={}".format(self.requestID))
 
         if self.errorStatus:
-            args.append("errorStatus={}".format(self.errorStatus))
+            arguments.append("errorStatus={}".format(self.errorStatus))
 
         if self.errorIndex:
-            args.append("errorIndex={}".format(self.errorIndex))
+            arguments.append("errorIndex={}".format(self.errorIndex))
 
-        args.append("variableBindings={}".format(repr(self.variableBindings)))
-        return "{}({})".format(typename(self), ", ".join(args))
+        arguments.append(f"variableBindings={self.variableBindings!r}")
+
+        args = ", ".join(arguments)
+        return f"{typename(self)}({args})"
 
     def __str__(self) -> str:
         return self.toString()
@@ -270,7 +271,7 @@ class PDU(Constructed):
 
         return cls(
             requestID=requestID,
-            errorStatus=ErrorStatus(errorStatus),
+            errorStatus=errorStatus,
             errorIndex=errorIndex,
             variableBindings=variableBindings,
         )
@@ -302,18 +303,20 @@ class BulkPDU(Constructed):
         return 4
 
     def __repr__(self) -> str:
-        args = []
+        arguments = []
         if self.requestID:
-            args.append("requestID={}".format(self.requestID))
+            arguments.append("requestID={}".format(self.requestID))
 
         if self.nonRepeaters:
-            args.append("nonRepeaters={}".format(self.nonRepeaters))
+            arguments.append("nonRepeaters={}".format(self.nonRepeaters))
 
         if self.maxRepetitions:
-            args.append("maxRepetitions={}".format(self.maxRepetitions))
+            arguments.append("maxRepetitions={}".format(self.maxRepetitions))
 
-        args.append("variableBindings={}".format(repr(self.variableBindings)))
-        return "{}({})".format(typename(self), ", ".join(args))
+        arguments.append("variableBindings={}".format(repr(self.variableBindings)))
+
+        args = ", ".join(arguments)
+        return f"{typename(self)}({args})"
 
     def __str__(self) -> str:
         return self.toString()
@@ -399,10 +402,6 @@ class ResponsePDU(PDU, Response):
 @final
 class SetRequestPDU(PDU, Write, Confirmed):
     TAG = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
-
-@final
-class TrapPDU(PDU, Notification):
-    TAG = Tag(4, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
 class GetBulkRequestPDU(BulkPDU, Read, Confirmed):

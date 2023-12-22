@@ -14,7 +14,6 @@ pduTypes = {
         GetNextRequestPDU,
         ResponsePDU,
         SetRequestPDU,
-        TrapPDU,
         GetBulkRequestPDU,
         InformRequestPDU,
         SNMPv2TrapPDU,

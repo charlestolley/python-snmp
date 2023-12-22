@@ -16,7 +16,6 @@ pduTypes = {
         GetNextRequestPDU,
         ResponsePDU,
         SetRequestPDU,
-        TrapPDU,
     ))
 }
 
