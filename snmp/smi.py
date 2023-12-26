@@ -84,7 +84,7 @@ class OctetString(OCTET_STRING):
         super().__init__(data)
 
     def __repr__(self) -> str:
-        return f"{typename(self)}({self.original})"
+        return f"{typename(self)}({self.original!r})"
 
     @property
     def original(self) -> Asn1Data:
@@ -152,7 +152,7 @@ class OID(OBJECT_IDENTIFIER):
 
     def getIndex(self,
         prefix: "OID",
-        cls: Type[TPrimitive] = Integer,
+        cls: Type[TPrimitive] = Integer,    # type: ignore[assignment]
         implied: bool = False,
     ) -> TPrimitive:
         return self.decodeIndex(prefix, cls, implied=implied)[0]

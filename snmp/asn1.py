@@ -356,9 +356,9 @@ class OBJECT_IDENTIFIER(Primitive):
 
     def decodeIndex(self: TOID,
         prefix: TOID,
-        *types: Type[Primitive],
+        *types: Type[TPrimitive],
         implied: bool = False,
-    ) -> Tuple[Primitive, ...]:
+    ) -> Tuple[TPrimitive, ...]:
         if not self.startswith(prefix):
             raise self.BadPrefix(f"{self} does not begin with {prefix}")
 
