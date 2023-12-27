@@ -23,7 +23,7 @@ class Engine:
     }
 
     def __init__(self,
-        defaultVersion: MessageProcessingModel = MessageProcessingModel.SNMPv3,
+        defaultVersion: ProtocolVersion = ProtocolVersion.SNMPv3,
         defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
         defaultSecurityModel: SecurityModel = SecurityModel.USM,
         defaultCommunity: bytes = b"",
@@ -161,7 +161,7 @@ class Engine:
 
     def Manager(self,
         address: Any,
-        version: Optional[MessageProcessingModel] = None,
+        version: Optional[ProtocolVersion] = None,
         domain: Optional[TransportDomain] = None,
         localAddress: Any = None,
         autowait: Optional[bool] = None,
@@ -210,14 +210,14 @@ class Engine:
 
         if version is None:
             version = self.defaultVersion
-        elif not isinstance(version, MessageProcessingModel):
-            version = MessageProcessingModel(version)
+        elif not isinstance(version, ProtocolVersion):
+            version = ProtocolVersion(version)
 
-        if version == MessageProcessingModel.SNMPv3:
+        if version == ProtocolVersion.SNMPv3:
             return self.v3Manager(channel, autowait, **kwargs)
-        elif version == MessageProcessingModel.SNMPv2c:
+        elif version == ProtocolVersion.SNMPv2c:
             return self.v2cManager(channel, autowait, **kwargs)
-        elif version == MessageProcessingModel.SNMPv1:
+        elif version == ProtocolVersion.SNMPv1:
             return self.v1Manager(channel, autowait, **kwargs)
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")

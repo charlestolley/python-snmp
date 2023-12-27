@@ -291,7 +291,7 @@ class ScopedPDU(Sequence):
 
 TMessage = TypeVar("TMessage", bound="SNMPv3Message")
 class SNMPv3Message(Sequence):
-    VERSION = MessageProcessingModel.SNMPv3
+    VERSION = ProtocolVersion.SNMPv3
 
     def __init__(self,
         header: HeaderData,
@@ -395,7 +395,7 @@ class SNMPv3Message(Sequence):
         )
 
         try:
-            version = MessageProcessingModel(msgVersion.value)
+            version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
             raise BadVersion(msgVersion.value) from err
 
@@ -465,7 +465,7 @@ class CacheEntry:
         self.securityLevel = securityLevel
 
 class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
-    VERSION = MessageProcessingModel.SNMPv3
+    VERSION = ProtocolVersion.SNMPv3
 
     def __init__(self, msgMaxSize: int) -> None:
         self.msgMaxSize = msgMaxSize

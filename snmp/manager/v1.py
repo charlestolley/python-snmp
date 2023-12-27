@@ -162,7 +162,7 @@ class SNMPv1Manager(Generic[T]):
     ) -> None:
         self.dispatcher.sendPdu(
             self.channel,
-            MessageProcessingModel.SNMPv1,
+            ProtocolVersion.SNMPv1,
             pdu,
             handle,
             community,

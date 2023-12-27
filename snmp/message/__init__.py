@@ -1,6 +1,7 @@
 __all__ = [
-    "BadVersion", "Message", "MessageProcessor", "MessageVersion",
-    "MessageProcessingModel", "RequestHandle",
+    "BadVersion", "ProtocolVersion",
+    "VersionOnlyMessage", "Message",
+    "RequestHandle", "MessageProcessor",
 ]
 
 from abc import abstractmethod
@@ -17,13 +18,12 @@ from snmp.utils import *
 T = TypeVar("T")
 TPDU = TypeVar("TPDU", bound=AnyPDU)
 TMessage = TypeVar("TMessage", bound="Message")
-TMessageVersion = TypeVar("TMessageVersion", bound="MessageVersion")
 
 @final
 class BadVersion(IncomingMessageError):
     pass
 
-class MessageProcessingModel(enum.IntEnum):
+class ProtocolVersion(enum.IntEnum):
     SNMPv1  = 0
     SNMPv2c = 1
     SNMPv3  = 3
@@ -31,8 +31,9 @@ class MessageProcessingModel(enum.IntEnum):
     # Python 3.11 changes IntEnum.__str__()
     __str__ = enum.Enum.__str__
 
-class MessageVersion(Sequence):
-    def __init__(self, version: MessageProcessingModel) -> None:
+@final
+class VersionOnlyMessage(Sequence):
+    def __init__(self, version: ProtocolVersion) -> None:
         self.version = version
 
     def __iter__(self) -> Iterator[ASN1]:
@@ -45,26 +46,26 @@ class MessageVersion(Sequence):
         return f"{typename(self)}({str(self.version)})"
 
     @classmethod
-    def deserialize(cls: Type[TMessageVersion],
+    def deserialize(cls,
         data: Asn1Data,
-    ) -> TMessageVersion:
+    ) -> "VersionOnlyMessage":
         msgVersion, _ = cast(
             Tuple[Integer, subbytes],
             Integer.decode(data, leftovers=True),
         )
 
         try:
-            version = MessageProcessingModel(msgVersion.value)
+            version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
             raise BadVersion(msgVersion.value) from err
 
         return cls(version)
 
 class Message(Sequence):
-    VERSIONS = (MessageProcessingModel.SNMPv1, MessageProcessingModel.SNMPv2c)
+    VERSIONS = (ProtocolVersion.SNMPv1, ProtocolVersion.SNMPv2c)
 
     def __init__(self,
-        version: MessageProcessingModel,
+        version: ProtocolVersion,
         community: bytes,
         pdu: AnyPDU,
     ) -> None:
@@ -111,7 +112,7 @@ class Message(Sequence):
         )
 
         try:
-            version = MessageProcessingModel(msgVersion.value)
+            version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
             raise BadVersion(msgVersion.value) from err
 
@@ -149,7 +150,7 @@ class RequestHandle(Generic[T]):
         ...
 
 class MessageProcessor(Generic[T, TPDU]):
-    VERSION: ClassVar[MessageProcessingModel]
+    VERSION: ClassVar[ProtocolVersion]
 
     @abstractmethod
     def prepareDataElements(self, msg: Asn1Data) -> Tuple[T, RequestHandle[T]]:

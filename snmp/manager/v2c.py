@@ -162,7 +162,7 @@ class SNMPv2cManager(Generic[T]):
     ) -> None:
         self.dispatcher.sendPdu(
             self.channel,
-            MessageProcessingModel.SNMPv2c,
+            ProtocolVersion.SNMPv2c,
             pdu,
             handle,
             community,

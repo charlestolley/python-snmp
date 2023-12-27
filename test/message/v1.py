@@ -34,7 +34,7 @@ class SNMPv1MessageProcessorTest(unittest.TestCase):
         sysDescr = OctetString(b"Description of the system")
         self.pdu = SetRequestPDU(VarBind("1.3.6.1.2.1.1.0", sysDescr))
         self.response = Message(
-            MessageProcessingModel.SNMPv1,
+            ProtocolVersion.SNMPv1,
             self.community,
             ResponsePDU(
                 variableBindings=self.pdu.variableBindings,
@@ -66,7 +66,7 @@ class SNMPv1MessageProcessorTest(unittest.TestCase):
         )
 
         message = Message.decode(msg, types=pduTypes)
-        self.assertEqual(message.version, MessageProcessingModel.SNMPv1)
+        self.assertEqual(message.version, ProtocolVersion.SNMPv1)
         self.assertEqual(message.community, self.community)
 
         pdu = message.pdu
@@ -133,7 +133,7 @@ class SNMPv1MessageProcessorTest(unittest.TestCase):
         self.assertEqual(sys.getrefcount(self.handle), refcount)
 
     def testBasicParseSanity(self):
-        version = Integer(MessageProcessingModel.SNMPv1)
+        version = Integer(ProtocolVersion.SNMPv1)
         msg = encode(Sequence.TAG, version.encode() + b"meaningless garbage")
         self.assertRaises(ParseError, self.processor.prepareDataElements, msg)
 

@@ -34,7 +34,7 @@ class CacheEntry:
         self.handle = weakref.ref(handle)
 
 class SNMPv1MessageProcessor(MessageProcessor[Message, PDU]):
-    VERSION = MessageProcessingModel.SNMPv1
+    VERSION = ProtocolVersion.SNMPv1
 
     def __init__(self) -> None:
         self.cacheLock = threading.Lock()

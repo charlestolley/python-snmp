@@ -5,9 +5,9 @@ __all__ = [
 ]
 
 from snmp.engine import Engine
-from snmp.message import MessageProcessingModel
+from snmp.message import ProtocolVersion
 from snmp.security.levels import *
 
-SNMPv1  = MessageProcessingModel.SNMPv1
-SNMPv2c = MessageProcessingModel.SNMPv2c
-SNMPv3  = MessageProcessingModel.SNMPv3
+SNMPv1  = ProtocolVersion.SNMPv1
+SNMPv2c = ProtocolVersion.SNMPv2c
+SNMPv3  = ProtocolVersion.SNMPv3

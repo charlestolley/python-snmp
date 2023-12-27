@@ -1,5 +1,6 @@
-__all__ = ["MessageTest", "MessageVersionTest"]
+__all__ = ["VersionOnlyMessageTest", "MessageTest"]
 
+import os
 import re
 import unittest
 
@@ -8,50 +9,37 @@ from snmp.smi import *
 from snmp.pdu import *
 from snmp.message import *
 
-class MessageVersionTest(unittest.TestCase):
-    def testSNMPv1(self):
-        msg = bytes.fromhex("30 03 02 01 00")
-        msgVersion = MessageVersion.decode(msg)
-        self.assertEqual(msgVersion.version, MessageProcessingModel.SNMPv1)
+class VersionOnlyMessageTest(unittest.TestCase):
+    def setUp(self):
+        self.messages = {
+            ProtocolVersion.SNMPv1: bytes.fromhex("30 03 02 01 00"),
+            ProtocolVersion.SNMPv2c: bytes.fromhex("30 03 02 01 01"),
+            ProtocolVersion.SNMPv3: bytes.fromhex("30 03 02 01 03"),
+        }
 
-    def testSNMPv2c(self):
-        msg = bytes.fromhex("30 03 02 01 01")
-        msgVersion = MessageVersion.decode(msg)
-        self.assertEqual(msgVersion.version, MessageProcessingModel.SNMPv2c)
+    def test_the_result_of_eval_repr_equals_the_original(self):
+        prefix = VersionOnlyMessage(ProtocolVersion.SNMPv3)
+        self.assertEqual(eval(repr(prefix)), prefix)
 
-    def testSNMPv3(self):
-        msg = bytes.fromhex("30 03 02 01 03")
-        msgVersion = MessageVersion.decode(msg)
-        self.assertEqual(msgVersion.version, MessageProcessingModel.SNMPv3)
+    def test_determines_the_version_of_any_message(self):
+        for version, message in self.messages.items():
+            prefix = VersionOnlyMessage.decode(message)
+            self.assertEqual(version, prefix.version)
 
-    def testBadVersion(self):
-        msg = bytes.fromhex("30 03 02 01 02")
-        self.assertRaises(BadVersion, MessageVersion.decode, msg)
+    def test_decode_raises_BadVersion_for_unknown_version(self):
+        message = bytes.fromhex("30 03 02 01 02")
+        self.assertRaises(BadVersion, VersionOnlyMessage.decode, message)
 
-    def testEquality(self):
-        msg = bytes.fromhex("30 03 02 01 03")
-        self.assertEqual(
-            MessageVersion.decode(msg),
-            MessageVersion(MessageProcessingModel.SNMPv3),
-        )
-
-    def testRepr(self):
-        msgVersion = MessageVersion(MessageProcessingModel.SNMPv3)
-        duplicate = eval(repr(msgVersion))
-
-        self.assertEqual(duplicate, msgVersion)
-        self.assertIsInstance(duplicate.version, MessageProcessingModel)
-
-    def testEncode(self):
-        self.assertEqual(
-            MessageVersion(MessageProcessingModel.SNMPv3).encode(),
-            bytes.fromhex("30 03 02 01 03"),
-        )
+    def test_decode_ignores_everything_after_version_field(self):
+        encoding = bytes.fromhex("30 10 02 01 00") + os.getrandom(13)
+        VersionOnlyMessage.decode(encoding)
 
 class MessageTest(unittest.TestCase):
     def setUp(self):
-        self.types = {GetRequestPDU.TAG: GetRequestPDU}
-        self.template = re.sub(r"\n", "", """
+        community = b"testCommunity"
+        pdu = GetRequestPDU("1.3.6.1.2.1.1.0", requestID=0x789abcde)
+
+        template = re.sub(r"\n", "", """
             30 2f
                02 01 {:02x}
                04 0d 74 65 73 74 43 6f 6d 6d 75 6e 69 74 79
@@ -65,33 +53,35 @@ class MessageTest(unittest.TestCase):
                         05 00
         """)
 
-        self.message = Message(
-            MessageProcessingModel.SNMPv1,
-            b"testCommunity",
-            GetRequestPDU("1.3.6.1.2.1.1.0", requestID=0x789abcde),
+        self.types = {GetRequestPDU.TAG: GetRequestPDU}
+        self.versions = (ProtocolVersion.SNMPv1, ProtocolVersion.SNMPv2c)
+
+        self.encodings = {}
+        self.messages = {}
+
+        for version in ProtocolVersion:
+            self.encodings[version] = bytes.fromhex(template.format(version))
+            self.messages[version] = Message(version, community, pdu)
+
+    def test_two_Messages_with_different_versions_are_not_equal(self):
+        self.assertNotEqual(
+            self.messages[ProtocolVersion.SNMPv1],
+            self.messages[ProtocolVersion.SNMPv2c],
         )
 
-    def testSNMPv1Message(self):
-        version = MessageProcessingModel.SNMPv1
-        encoding = bytes.fromhex(self.template.format(version))
-        self.message.version = version
+    def test_decode_raises_ParseError_if_the_PDU_tag_is_not_in_types(self):
+        for version in self.versions:
+            encoding = self.encodings[version]
+            self.assertRaises(ParseError, Message.decode, encoding)
 
-        message = Message.decode(encoding, types=self.types)
-        self.assertEqual(message, self.message)
+    def test_Message_can_decode_SNMPv1_and_SNMPv2c_message(self):
+        for version in self.versions:
+            encoding = self.encodings[version]
+            message = Message.decode(encoding, types=self.types)
+            self.assertEqual(message, self.messages[version])
 
-    def testSNMPv2cMessage(self):
-        version = MessageProcessingModel.SNMPv2c
-        encoding = bytes.fromhex(self.template.format(version))
-        self.message.version = version
-
-        message = Message.decode(encoding, types=self.types)
-        self.assertEqual(message, self.message)
-
-    def testSNMPv3Message(self):
-        version = MessageProcessingModel.SNMPv3
-        encoding = bytes.fromhex(self.template.format(version))
-        self.message.version = version
-
+    def test_decode_raises_BadVersion_on_SNMPv3_message(self):
+        encoding = self.encodings[ProtocolVersion.SNMPv3]
         self.assertRaises(
             BadVersion,
             Message.decode,
@@ -99,26 +89,18 @@ class MessageTest(unittest.TestCase):
             types=self.types,
         )
 
-    def testInvalidType(self):
-        version = MessageProcessingModel.SNMPv1
-        encoding = bytes.fromhex(self.template.format(version))
-        self.message.version = version
+    def test_the_result_of_eval_repr_equals_the_original_object(self):
+        for version in self.versions:
+            message = self.messages[version]
+            self.assertEqual(eval(repr(message)), message)
 
-        self.assertRaises(
-            ParseError,
-            Message.decode,
-            encoding,
-        )
-
-    def testRepr(self):
-        self.assertEqual(eval(repr(self.message)), self.message)
-
-    def testEncode(self):
-        version = MessageProcessingModel.SNMPv1
-        encoding = bytes.fromhex(self.template.format(version))
-        self.message.version = version
-
-        self.assertEqual(self.message.encode(), encoding)
+    def test_the_result_of_decode_encode_equals_the_original(self):
+        for version in self.versions:
+            message = self.messages[version]
+            self.assertEqual(
+                Message.decode(message.encode(), types=self.types),
+                message,
+            )
 
 if __name__ == "__main__":
     unittest.main()

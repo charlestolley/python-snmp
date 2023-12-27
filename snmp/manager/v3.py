@@ -633,7 +633,7 @@ class SNMPv3UsmManager(Generic[T]):
     ) -> None:
         self.dispatcher.sendPdu(
             self.channel,
-            MessageProcessingModel.SNMPv3,
+            ProtocolVersion.SNMPv3,
             pdu,
             handle,
             engineID,

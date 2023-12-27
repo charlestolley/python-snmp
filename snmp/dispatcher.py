@@ -19,7 +19,7 @@ class Dispatcher(TransportListener[T]):
     ) -> None:
         self.lock = threading.Lock()
         self.msgProcessors: Dict[
-            MessageProcessingModel,
+            ProtocolVersion,
             MessageProcessor[Any, Any],
         ] = {}
 
@@ -48,7 +48,7 @@ class Dispatcher(TransportListener[T]):
     def hear(self, transport: Transport[T], address: T, data: bytes) -> None:
         try:
             try:
-                msgVersion = MessageVersion.decode(data).version
+                msgVersion = VersionOnlyMessage.decode(data).version
             except ParseError:
                 return
 
@@ -71,7 +71,7 @@ class Dispatcher(TransportListener[T]):
 
     def sendPdu(self,
         channel: TransportChannel[T],
-        mpm: MessageProcessingModel,
+        msgVersion: ProtocolVersion,
         pdu: AnyPDU,
         handle: RequestHandle,  # type: ignore[type-arg]
         *args: Any,
@@ -79,9 +79,9 @@ class Dispatcher(TransportListener[T]):
     ) -> None:
         with self.lock:
             try:
-                mp = self.msgProcessors[mpm]
+                mp = self.msgProcessors[msgVersion]
             except KeyError as err:
-                version = str(MessageProcessingModel(mpm))
+                version = str(ProtocolVersion(msgVersion))
                 raise ValueError("{} is not enabled".format(version)) from err
 
         msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
