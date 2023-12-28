@@ -426,7 +426,7 @@ class ErrorResponse(SNMPException):
         request: "AnyPDU",
     ) -> None:
         self.status = status
-        self.cause: Union[VarBind, AnyPDU, int] = None
+        self.cause: Union[VarBind, AnyPDU, int]
 
         details = ""
         if index == 0:

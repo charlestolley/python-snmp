@@ -136,7 +136,7 @@ class Message(Sequence):
         return cls(
             version,
             community.data,
-            cast(AnyPDU, pduType.decode(ptr)),
+            pduType.decode(ptr),
         )
 
 class RequestHandle(Generic[T]):

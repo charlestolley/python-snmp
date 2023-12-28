@@ -1,4 +1,5 @@
 from snmp.dispatcher import *
+from snmp.exception import *
 from snmp.manager.v1 import *
 from snmp.manager.v2c import *
 from snmp.manager.v3 import *
@@ -13,6 +14,9 @@ from snmp.transport.udp import *
 from snmp.typing import *
 
 Address = Tuple[str, int]
+
+class NoDefaultUser(SNMPException):
+    pass
 
 class Engine:
     TRANSPORTS = {
@@ -136,6 +140,11 @@ class Engine:
 
             if defaultUserName is None:
                 defaultUserName = self.usm.getDefaultUser(namespace)
+
+                if defaultUserName is None:
+                    errmsg = "You must add at least one user before" \
+                        " you can create an SNMPv3 Manager"
+                    raise NoDefaultUser(errmsg)
 
             if defaultSecurityLevel is None:
                 defaultSecurityLevel = self.usm.getDefaultSecurityLevel(

@@ -40,7 +40,7 @@ class Credentials:
             self.authProtocol = authProtocol
             self.authKey = authProtocol.computeKey(authSecret or secret)
 
-    def __eq__(self, other: Any):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Credentials):
             return NotImplemented
 
@@ -55,10 +55,12 @@ class Credentials:
         priv = None
 
         if self.authProtocol is not None:
+            assert self.authKey is not None
             key = self.authProtocol.localizeKey(self.authKey, engineID)
             auth = self.authProtocol(key)
 
             if self.privProtocol is not None:
+                assert self.privKey is not None
                 key = self.authProtocol.localizeKey(self.privKey, engineID)
                 priv = self.privProtocol(key)
 

@@ -288,7 +288,7 @@ class ScopedPDU(Sequence):
             raise ParseError(f"Invalid PDU type: {identifier}") from err
 
         return cls(
-            cast(AnyPDU, pduType.decode(data)),
+            pduType.decode(data),
             contextEngineID = contextEngineID.data,
             contextName     = contextName.data,
         )
@@ -322,15 +322,19 @@ class SNMPv3Message(Sequence):
         yield self.securityParameters
 
         if self.header.flags.privFlag:
-            if __debug__ and self.encryptedPDU is None:
+            try:
+                assert self.encryptedPDU is not None
+            except AssertionError as err:
                 errmsg = "encryptedPDU is required when privFlag is True"
-                raise SNMPLibraryBug(errmsg)
+                raise SNMPLibraryBug(errmsg) from err
 
             yield self.encryptedPDU
         else:
-            if __debug__ and self.scopedPDU is None:
+            try:
+                assert self.scopedPDU is not None
+            except AssertionError as err:
                 errmsg = "scopedPDU is required when privFlag is False"
-                raise SNMPLibraryBug(errmsg)
+                raise SNMPLibraryBug(errmsg) from err
 
             yield self.scopedPDU
 
@@ -389,7 +393,8 @@ class SNMPv3Message(Sequence):
         ...
 
     @classmethod
-    def decode(cls: Type[TMessage],
+    def decode(
+        cls: Type[TMessage],
         data: Asn1Data,
         leftovers: bool = False,
         copy: bool = False,
@@ -545,10 +550,12 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
 
         securityModule.processIncoming(message)
 
-        if __debug__ and message.scopedPDU is None:
+        try:
+            assert message.scopedPDU is not None
+        except AssertionError as err:
             errmsg = "securityModule.processIncoming() did not assign a" \
                 "  value for message.scopedPDU"
-            raise SNMPLibraryBug(errmsg)
+            raise SNMPLibraryBug(errmsg) from err
 
         if isinstance(message.scopedPDU.pdu, Response):
             try:

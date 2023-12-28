@@ -22,6 +22,10 @@ class UsmSecurityParameters(Sequence):
         self.userName = userName
         self.salt = salt
 
+        self.signature: bytes
+        self.signatureIndex: Optional[int]
+        self.wholeMsg: Optional[bytes]
+
         if isinstance(signature, subbytes):
             self.signature = signature[:]
             self.signatureIndex = signature.start
@@ -43,6 +47,7 @@ class UsmSecurityParameters(Sequence):
         return 6
 
     def __repr__(self) -> str:
+        signature: Asn1Data
         if self.wholeMsg is None:
             signature = self.signature
         else:
@@ -50,11 +55,9 @@ class UsmSecurityParameters(Sequence):
                 errmsg = "wholeMsg is defined but signatureIndex is None"
                 raise SNMPLibraryBug(errmsg)
 
-            signature = subbytes(
-                self.wholeMsg,
-                self.signatureIndex,
-                self.signatureIndex + len(self.signature),
-            )
+            start = cast(int, self.signatureIndex)
+            stop = start + len(self.signature)
+            signature = subbytes(self.wholeMsg, start, stop)
 
         args = (
             str(self.engineID),

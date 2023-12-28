@@ -196,7 +196,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         config = self.getNamespace(namespace)
         return config.findUser(userName).defaultSecurityLevel
 
-    def getDefaultUser(self, namespace: str = "") -> str:
+    def getDefaultUser(self, namespace: str = "") -> Optional[str]:
         return self.getNamespace(namespace).defaultUserName
 
     def getNamespace(self, namespace: str = "") -> NamespaceConfig:

@@ -30,7 +30,7 @@ class UserConfig:
         self.credentials = credentials
         self.defaultSecurityLevel = defaultSecurityLevel
 
-    def __eq__(self, other: Any):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, UserConfig):
             return NotImplemented
 
