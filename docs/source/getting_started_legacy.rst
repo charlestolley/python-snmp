@@ -14,7 +14,7 @@ community using the ``defaultCommunity`` argument.
 
    from snmp import Engine, SNMPv2c
 
-   with Engine(SNMPv2c, defaultCommunity="public") as engine:
+   with Engine(SNMPv2c, defaultCommunity=b"public") as engine:
        # This block will contain the entire SNMP application
        ...
 
