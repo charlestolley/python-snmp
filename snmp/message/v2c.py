@@ -21,6 +21,9 @@ pduTypes = {
     ))
 }
 
+class CacheError(SNMPException):
+    pass
+
 class LateResponse(IncomingMessageError):
     pass
 
@@ -60,7 +63,7 @@ class SNMPv2cMessageProcessor(MessageProcessor[Message, AnyPDU]):
 
             retry += 1
 
-        raise Exception("Failed to allocate request ID")
+        raise CacheError("Failed to allocate request ID")
 
     def retrieve(self, requestID: int) -> CacheEntry:
         with self.cacheLock:
@@ -87,6 +90,7 @@ class SNMPv2cMessageProcessor(MessageProcessor[Message, AnyPDU]):
 
             handle = entry.handle()
             if handle is None:
+                self.uncache(message.pdu.requestID)
                 raise LateResponse("Handle has already been released")
 
             if entry.community != message.community:

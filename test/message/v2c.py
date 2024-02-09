@@ -1,5 +1,6 @@
 __all__ = ["SNMPv2cMessageProcessorTest"]
 
+import random
 import sys
 import unittest
 import weakref
@@ -41,24 +42,31 @@ class SNMPv2cMessageProcessorTest(unittest.TestCase):
             ),
         )
 
-    def testRequestID(self):
+    def test_prepareOutgoingMessage_sets_pdu_requestID_if_zero(self):
+        self.assertEqual(self.pdu.requestID, 0)
+        self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
+        self.assertNotEqual(self.pdu.requestID, 0)
+
+    def test_pOM_does_not_set_pdu_requestID_if_nonzero(self):
+        requestID = random.randint(1, (1 << 31) - 1)
+        self.pdu.requestID = requestID
+        self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
+        self.assertEqual(self.pdu.requestID, requestID)
+
+    # NOTE: depends on the private "generator" attribute
+    def test_prepareOutgoingMessage_replaces_generator_when_it_reaches_0(self):
         generator = NumberGenerator(1)
         _ = next(generator)
 
-        # NOTE: relies on non-public attribute
         self.processor.generator = generator
-        _ = self.processor.prepareOutgoingMessage(
-            self.pdu,
-            self.handle,
-            self.community,
-        )
+        self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
 
         self.assertIsNot(self.processor.generator, generator)
         self.assertNotEqual     (self.pdu.requestID, 0)
         self.assertGreaterEqual (self.pdu.requestID, -(1<<31))
         self.assertLess         (self.pdu.requestID,  (1<<31))
 
-    def testGenerateMessage(self):
+    def test_prepareOutgoingMessage_returns_encoded_message(self):
         msg = self.processor.prepareOutgoingMessage(
             self.pdu,
             self.handle,
@@ -73,21 +81,21 @@ class SNMPv2cMessageProcessorTest(unittest.TestCase):
         self.assertEqual(pdu.requestID, self.pdu.requestID)
         self.assertEqual(pdu.variableBindings, self.pdu.variableBindings)
 
-    def testAddCallback(self):
-        self.assertIsNone(self.handle.callback)
+    def test_prepareOutgoingMessage_adds_callback_if_pdu_requestID_is_0(self):
         self.assertEqual(self.pdu.requestID, 0)
+        self.assertIsNone(self.handle.callback)
 
-        _ = self.processor.prepareOutgoingMessage(
-            self.pdu,
-            self.handle,
-            self.community,
-        )
+        self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
 
         self.assertIsNotNone(self.handle.callback)
-        self.assertNotEqual(self.pdu.requestID, 0)
         self.assertEqual(self.handle.requestID, self.pdu.requestID)
 
-    def testCallback(self):
+    def test_pOM_does_not_add_callback_if_pdu_requestID_is_nonzero(self):
+        self.pdu.requestID = 1
+        self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
+        self.assertIsNone(self.handle.callback)
+
+    def test_handle_callback_uncaches_request(self):
         _ = self.processor.prepareOutgoingMessage(
             self.pdu,
             self.handle,
@@ -104,41 +112,53 @@ class SNMPv2cMessageProcessorTest(unittest.TestCase):
             self.response.encode(),
         )
 
-    def testResend(self):
-        _ = self.processor.prepareOutgoingMessage(
-            self.pdu,
-            self.handle,
-            self.community,
-        )
-
-        unusedHandle = self.Handle()
-        _ = self.processor.prepareOutgoingMessage(
-            self.pdu,
-            unusedHandle,
-            self.community,
-        )
-
-        self.assertIsNone(unusedHandle.callback)
-        self.assertEqual(self.handle.requestID, self.pdu.requestID)
-        self.handle.callback(self.handle.requestID)
-
-    def testHandleOwnership(self):
+    def test_pOM_does_not_store_a_strong_reference_to_the_handle(self):
         refcount = sys.getrefcount(self.handle)
-        _ = self.processor.prepareOutgoingMessage(
-            self.pdu,
-            self.handle,
-            self.community,
-        )
-
+        self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
         self.assertEqual(sys.getrefcount(self.handle), refcount)
 
-    def testBasicParseSanity(self):
+    # NOTE: depends on the private "generator" attribute
+    def test_pOM_raises_SNMPException_if_no_cache_slot_found(self):
+        n = 1000
+        self.processor.generator = iter(range(n, 0, -1))
+
+        handles = list()
+        for i in range(n):
+            pdu = GetRequestPDU(self.pdu.variableBindings[0].name)
+            handles.append(self.Handle())
+            self.processor.prepareOutgoingMessage(pdu, handles[-1], b"")
+
+        self.processor.generator = iter(range(n, 0, -1))
+        self.assertRaises(
+            SNMPException,
+            self.processor.prepareOutgoingMessage,
+            self.pdu,
+            self.handle,
+            b"",
+        )
+
+    def test_prepareDataElements_raises_ParseError_on_invalid_message(self):
         version = Integer(ProtocolVersion.SNMPv2c)
         msg = encode(Sequence.TAG, version.encode() + b"meaningless garbage")
         self.assertRaises(ParseError, self.processor.prepareDataElements, msg)
 
-    def testWrongCommunity(self):
-        _ = self.processor.prepareOutgoingMessage(
+    def test_pDE_returns_decoded_message_with_the_correct_handle(self):
+        self.processor.prepareOutgoingMessage(
+            self.pdu,
+            self.handle,
+            self.community,
+        )
+
+        self.response.pdu.requestID = self.pdu.requestID
+        message, handle = self.processor.prepareDataElements(
+            self.response.encode(),
+        )
+
+        self.assertEqual(message, self.response)
+        self.assertIs(handle, self.handle)
+
+    def test_pDE_raises_IncomingMessageError_if_community_does_not_match(self):
+        self.processor.prepareOutgoingMessage(
             self.pdu,
             self.handle,
             self.community,
@@ -153,30 +173,28 @@ class SNMPv2cMessageProcessorTest(unittest.TestCase):
             self.response.encode(),
         )
 
-    def testValidResponse(self):
-        _ = self.processor.prepareOutgoingMessage(
+    def test_pDE_raises_IncomingMessageError_after_handle_callback(self):
+        self.processor.prepareOutgoingMessage(
             self.pdu,
             self.handle,
             self.community,
         )
 
+        self.handle.callback(self.handle.requestID)
         self.response.pdu.requestID = self.pdu.requestID
-        message, handle = self.processor.prepareDataElements(
+
+        self.assertRaises(
+            IncomingMessageError,
+            self.processor.prepareDataElements,
             self.response.encode(),
         )
 
-        self.assertEqual(message, self.response)
-        self.assertIs(handle, self.handle)
-
-    def testDanglingHandle(self):
-        _ = self.processor.prepareOutgoingMessage(
+    def test_pDE_raises_IncomingMessageError_if_handle_is_destroyed(self):
+        self.processor.prepareOutgoingMessage(
             self.pdu,
             self.handle,
             self.community,
         )
-
-        self.response.pdu.requestID = self.pdu.requestID
-        _, handle = self.processor.prepareDataElements(self.response.encode())
 
         handle = weakref.ref(self.handle)
         self.handle = None
@@ -184,29 +202,40 @@ class SNMPv2cMessageProcessorTest(unittest.TestCase):
         if handle() is not None:
             self.skipTest("handle was not immediately destroyed")
 
+        self.response.pdu.requestID = self.pdu.requestID
+
         self.assertRaises(
             IncomingMessageError,
             self.processor.prepareDataElements,
             self.response.encode(),
         )
 
-    def testDuplicateResponse(self):
-        _ = self.processor.prepareOutgoingMessage(
+    # NOTE: depends on the private "retrieve()" method
+    def test_pDE_uncaches_request_if_handle_is_destroyed(self):
+        self.processor.prepareOutgoingMessage(
             self.pdu,
             self.handle,
             self.community,
         )
 
-        self.response.pdu.requestID = self.pdu.requestID
-        message, handle = self.processor.prepareDataElements(
-            self.response.encode(),
-        )
+        handle = weakref.ref(self.handle)
+        self.handle = None
 
-        handle.callback(self.handle.requestID)
+        if handle() is not None:
+            self.skipTest("handle was not immediately destroyed")
+
+        self.response.pdu.requestID = self.pdu.requestID
+        self.processor.retrieve(self.pdu.requestID)
+
+        try:
+            self.processor.prepareDataElements(self.response.encode())
+        except IncomingMessageError:
+            pass
+
         self.assertRaises(
-            IncomingMessageError,
-            self.processor.prepareDataElements,
-            self.response.encode(),
+            KeyError,
+            self.processor.retrieve,
+            self.pdu.requestID,
         )
 
 if __name__ == "__main__":
