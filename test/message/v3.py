@@ -206,14 +206,22 @@ class ScopedPDUTest(unittest.TestCase):
             b"someContext",
         )
 
-    def testDecode(self):
+    def test_decode_raises_ParseError_if_PDU_tag_is_not_in_types(self):
+        self.assertRaises(
+            ParseError,
+            ScopedPDU.decode,
+            self.encoding,
+            types={},
+        )
+
+    def test_decode_example_matches_the_hand_computed_result(self):
         scopedPDU = ScopedPDU.decode(self.encoding, types=pduTypes)
         self.assertEqual(scopedPDU, self.scopedPDU)
 
-    def testEncode(self):
+    def test_encode_example_matches_the_hand_computed_result(self):
         self.assertEqual(self.scopedPDU.encode(), self.encoding)
 
-    def testRepr(self):
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         self.assertEqual(eval(repr(self.scopedPDU)), self.scopedPDU)
 
 class SNMPv3MessageTest(unittest.TestCase):
@@ -322,42 +330,97 @@ class SNMPv3MessageTest(unittest.TestCase):
             ),
         )
 
-    def testDecodePlain(self):
+        self.reprMessage = SNMPv3Message(
+            HeaderData(
+                0x33dc831f,
+                1500,
+                MessageFlags(authPriv),
+                SecurityModel.USM,
+            ),
+            encryptedPDU=OctetString(b"Just pretend this is encrypted"),
+            securityParameters=OctetString(b"And pretent this is useful"),
+            securityEngineID=b"This is an engine ID",
+            securityName=b"This is my name",
+        )
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        messages = (
+            self.plainMessage,
+            self.encryptedMessage,
+            self.reprMessage,
+        )
+
+        for message in messages:
+            self.assertEqual(eval(repr(message)), message)
+
+    def test__str__does_not_throw_an_exception_for_these_examples(self):
+        messages = (
+            self.plainMessage,
+            self.encryptedMessage,
+            self.reprMessage,
+        )
+
+        for message in messages:
+            self.assertIsInstance(str(message), str)
+
+    def test_decode_raises_IncomingMessageError_for_bad_version(self):
+        encoding = bytes.fromhex(
+            "3016020102300d020100020201e404010302010304000400",
+        )
+
+        self.assertRaises(IncomingMessageError, SNMPv3Message.decode, encoding)
+
+    def test_constructor_raises_ValueError_for_missing_PDU_by_privFlag(self):
+        self.assertRaisesRegex(
+            ValueError,
+            "scopedPDU",
+            SNMPv3Message,
+            HeaderData(0, 0, MessageFlags(authNoPriv), SecurityModel.USM),
+        )
+
+        self.assertRaisesRegex(
+            ValueError,
+            "encryptedPDU",
+            SNMPv3Message,
+            HeaderData(0, 0, MessageFlags(authPriv), SecurityModel.USM),
+        )
+
+    def test_set_scopedPDU_by_assigning_encoding_to_plaintext_attribute(self):
+        scopedPDU = ScopedPDU(ResponsePDU(), b"")
+        message = SNMPv3Message(
+            HeaderData(0, 0, MessageFlags(authPriv), SecurityModel.USM),
+            encryptedPDU = OctetString(),
+        )
+
+        self.assertIsNone(message.scopedPDU)
+        message.plaintext = scopedPDU.encode()
+        self.assertEqual(message.scopedPDU, scopedPDU)
+
+    def test_fSP_returns_securityParameters_as_a_subbytes_of_wholeMsg(self):
+        sp = SNMPv3Message.findSecurityParameters(self.plain)
+        self.assertIsInstance(sp, subbytes)
+        self.assertIs(sp.data, self.plain)
+        self.assertEqual(sp, self.plainMessage.securityParameters.data)
+
+    def test_decode_does_not_set_securityEngineID_or_securityName(self):
+        message = SNMPv3Message.decode(self.plain)
+        self.assertIsNone(message.securityEngineID)
+        self.assertIsNone(message.securityName)
+
+    def test_example_plain_decodes_to_example_plainMessage(self):
         self.assertEqual(SNMPv3Message.decode(self.plain), self.plainMessage)
 
-    def testDecodeEncrypted(self):
+    def test_example_encrypted_decodes_to_example_encryptedMessage(self):
         self.assertEqual(
             SNMPv3Message.decode(self.encrypted),
             self.encryptedMessage,
         )
 
-    def testEncodePlain(self):
+    def test_example_plainMessage_encodes_to_example_plain(self):
         self.assertEqual(self.plainMessage.encode(), self.plain)
 
-    def testEncodeEncrypted(self):
+    def test_example_encryptedMessage_encodes_to_example_encrypted(self):
         self.assertEqual(self.encryptedMessage.encode(), self.encrypted)
-
-    def testPlainRepr(self):
-        self.assertEqual(eval(repr(self.plainMessage)), self.plainMessage)
-
-    def testEncryptedRepr(self):
-        self.assertEqual(
-            eval(repr(self.encryptedMessage)),
-            self.encryptedMessage,
-        )
-
-    def testSecurityParameters(self):
-        self.assertIsNone(self.plainMessage.securityEngineID)
-        self.assertIsNone(self.plainMessage.securityName)
-        self.assertIsNone(self.encryptedMessage.securityEngineID)
-        self.assertIsNone(self.encryptedMessage.securityName)
-
-    def testFindSecurityParameters(self):
-        plainIndex = SNMPv3Message.findSecurityParameters(self.plain)
-        encryptedIndex = SNMPv3Message.findSecurityParameters(self.encrypted)
-
-        self.assertEqual(plainIndex, subbytes(self.plain, 26, 64))
-        self.assertEqual(encryptedIndex, subbytes(self.encrypted, 25, 63))
 
 if __name__ == "__main__":
     unittest.main()
