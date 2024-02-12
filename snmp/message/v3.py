@@ -43,8 +43,6 @@ class UnknownSecurityModel(IncomingMessageError):
 
 @final
 class MessageFlags(OctetString):
-    MIN_SIZE = 1
-
     AUTH_FLAG: ClassVar[int]        = (1 << 0)
     PRIV_FLAG: ClassVar[int]        = (1 << 1)
     REPORTABLE_FLAG: ClassVar[int]  = (1 << 2)

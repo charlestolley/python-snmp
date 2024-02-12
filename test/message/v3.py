@@ -7,6 +7,7 @@ import re
 import unittest
 
 from snmp.ber import *
+from snmp.exception import *
 from snmp.message.v3 import *
 from snmp.message.v3 import pduTypes
 from snmp.pdu import *
@@ -16,97 +17,109 @@ from snmp.smi import *
 from snmp.utils import *
 
 class MessageFlagsTest(unittest.TestCase):
-    def testDefaultConstructor(self):
+    def test_auth_priv_and_reportable_flags_are_off_by_default(self):
         flags = MessageFlags()
         self.assertFalse(flags.authFlag)
         self.assertFalse(flags.privFlag)
         self.assertFalse(flags.reportableFlag)
 
-    def testNoAuthNoPriv(self):
-        flags = MessageFlags(noAuthNoPriv)
-        self.assertFalse(flags.authFlag)
-        self.assertFalse(flags.privFlag)
-        self.assertFalse(flags.reportableFlag)
+    def test_two_objects_with_identical_flags_are_equal(self):
+        self.assertEqual(
+            MessageFlags(authNoPriv, True),
+            MessageFlags(authNoPriv, True),
+        )
 
-    def testAuthNoPriv(self):
-        flags = MessageFlags(authNoPriv)
-        self.assertTrue(flags.authFlag)
-        self.assertFalse(flags.privFlag)
-        self.assertFalse(flags.reportableFlag)
+    def test_two_objects_with_different_flags_are_not_equal(self):
+        self.assertNotEqual(MessageFlags(authPriv), MessageFlags(authNoPriv))
 
-    def testAuthPriv(self):
-        flags = MessageFlags(authPriv)
-        self.assertTrue(flags.authFlag)
-        self.assertTrue(flags.privFlag)
-        self.assertFalse(flags.reportableFlag)
+    def test_securityLevel_parameter_initializes_auth_and_priv_flags(self):
+        for level in (noAuthNoPriv, authNoPriv, authPriv):
+            flags = MessageFlags(level)
+            self.assertEqual(level.auth, flags.authFlag)
+            self.assertEqual(level.priv, flags.privFlag)
 
-    def testReportableFlagInit(self):
-        flags = MessageFlags(reportable=True)
-        self.assertFalse(flags.authFlag)
-        self.assertFalse(flags.privFlag)
-        self.assertTrue(flags.reportableFlag)
+    def test_reportable_parameter_initializes_reportableFlag(self):
+        for reportable in (False, True):
+            flags = MessageFlags(reportable=reportable)
+            self.assertEqual(reportable, flags.reportableFlag)
 
-    def testRepr(self):
-        flags = MessageFlags(authPriv, True)
-        self.assertEqual(eval(repr(flags)), flags)
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        test_cases = (
+            MessageFlags(authPriv, False),
+            MessageFlags(authNoPriv, True),
+            MessageFlags(reportable=True)
+        )
 
-    def testDecodeEmpty(self):
+        for flags in test_cases:
+            self.assertEqual(eval(repr(flags)), flags)
+
+    def test_decode_raises_ParseError_on_empty_string(self):
         self.assertRaises(ParseError, MessageFlags.decode, b"\x04\x00")
 
-    def testDecode(self):
-        flags = MessageFlags.decode(b"\x04\x01\x07")
-        self.assertTrue(flags.authFlag)
-        self.assertTrue(flags.privFlag)
-        self.assertTrue(flags.reportableFlag)
+    def test_decode_raises_IncomingMessageError_on_invalid_securityLevel(self):
+        self.assertRaises(
+            IncomingMessageError,
+            MessageFlags.decode,
+            b"\x04\x01\x02",
+        )
 
-    def testDecodeLong(self):
-        flags = MessageFlags.decode(b"\x04\x02\x07\x00")
-        self.assertTrue(flags.authFlag)
-        self.assertTrue(flags.privFlag)
-        self.assertTrue(flags.reportableFlag)
+    def test_decode_sets_each_flag_based_on_the_correct_bit(self):
+        test_cases = (
+            (b"\x04\x01\x01", MessageFlags(authNoPriv)),
+            (b"\x04\x01\x03", MessageFlags(authPriv)),
+            (b"\x04\x01\x04", MessageFlags(reportable=True)),
+            (b"\x04\x01\x07", MessageFlags(authPriv, True)),
+        )
 
-    def testDecodeUnknownFlag(self):
-        flags = MessageFlags.decode(b"\x04\x01\x09")
-        self.assertTrue(flags.authFlag)
-        self.assertFalse(flags.privFlag)
-        self.assertFalse(flags.reportableFlag)
+        for encoding, flags in test_cases:
+            self.assertEqual(MessageFlags.decode(encoding), flags)
 
-    def testSetAuth(self):
+    def test_decode_ignores_extra_bytes(self):
+        self.assertEqual(
+            MessageFlags.decode(b"\x04\x02\x07\x00"),
+            MessageFlags(authPriv, True),
+        )
+
+    def test_decode_ignores_extra_bits(self):
+        self.assertEqual(
+            MessageFlags.decode(b"\x04\x01\x09"),
+            MessageFlags(authNoPriv),
+        )
+
+    def test_authFlag_is_assignable(self):
         flags = MessageFlags()
         flags.authFlag = True
         self.assertTrue(flags.authFlag)
-
-    def testUnsetAuth(self):
-        flags = MessageFlags(authNoPriv)
         flags.authFlag = False
         self.assertFalse(flags.authFlag)
 
-    def testSetPrivInvalid(self):
+    def test_privFlag_is_assignable(self):
+        flags = MessageFlags(authNoPriv)
+        flags.privFlag = True
+        self.assertTrue(flags.privFlag)
+        flags.privFlag = False
+        self.assertFalse(flags.privFlag)
+
+    def test_reportableFlag_is_assignable(self):
+        flags = MessageFlags()
+        flags.reportableFlag = True
+        self.assertTrue(flags.reportableFlag)
+        flags.reportableFlag = False
+        self.assertFalse(flags.reportableFlag)
+
+    def test_authFlag_setter_raises_ValueError_for_invalid_securityLevel(self):
+        def assignAuthFlag(flags, auth):
+            flags.authFlag = auth
+
+        flags = MessageFlags(authPriv)
+        self.assertRaises(ValueError, assignAuthFlag, flags, False)
+
+    def test_privFlag_setter_raises_ValueError_for_invalid_securityLevel(self):
         def assignPrivFlag(flags, priv):
             flags.privFlag = priv
 
         flags = MessageFlags()
         self.assertRaises(ValueError, assignPrivFlag, flags, True)
-
-    def testSetPriv(self):
-        flags = MessageFlags(authNoPriv)
-        flags.privFlag = True
-        self.assertTrue(flags.privFlag)
-
-    def testUnsetAuth(self):
-        flags = MessageFlags(authPriv)
-        flags.privFlag = False
-        self.assertFalse(flags.privFlag)
-
-    def testSetReportableFlag(self):
-        flags = MessageFlags()
-        flags.reportableFlag = True
-        self.assertTrue(flags.reportableFlag)
-
-    def testUnSetReportableFlag(self):
-        flags = MessageFlags(reportable=True)
-        flags.reportableFlag = False
-        self.assertFalse(flags.reportableFlag)
 
 class HeaderDataTest(unittest.TestCase):
     def setUp(self):
