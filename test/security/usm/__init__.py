@@ -969,7 +969,7 @@ class UsmIncomingTest(unittest.TestCase):
             HeaderData(
                 0x7090fb77,
                 1500,
-                MessageFlags(authPriv, False),
+                MessageFlags(authNoPriv, False),
                 SecurityModel.USM,
             ),
             ScopedPDU(
@@ -983,13 +983,13 @@ class UsmIncomingTest(unittest.TestCase):
                 b'remoteEngineID',
             ),
             securityParameters=OctetString(bytes.fromhex(re.sub("\n", "", """
-                30 2b
+                30 27
                    04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
                    02 01 1d
                    02 02 03 c2
                    04 08 73 6f 6d 65 55 73 65 72
                    04 02 23 19
-                   04 04 73 61 6c 74
+                   04 00
             """))),
         )
 
