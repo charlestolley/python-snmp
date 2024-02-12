@@ -1,6 +1,6 @@
 __all__ = ["VersionOnlyMessageTest", "MessageTest"]
 
-import os
+import random
 import re
 import unittest
 
@@ -31,8 +31,9 @@ class VersionOnlyMessageTest(unittest.TestCase):
         self.assertRaises(BadVersion, VersionOnlyMessage.decode, message)
 
     def test_decode_ignores_everything_after_version_field(self):
-        encoding = bytes.fromhex("30 10 02 01 00") + os.getrandom(13)
-        VersionOnlyMessage.decode(encoding)
+        encoding = bytes.fromhex("30 10 02 01 00")
+        garbage = bytes([random.randint(0,255) for _ in range(13)])
+        VersionOnlyMessage.decode(encoding + garbage)
 
 class MessageTest(unittest.TestCase):
     def setUp(self):
