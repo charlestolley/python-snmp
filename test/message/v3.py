@@ -138,13 +138,41 @@ class HeaderDataTest(unittest.TestCase):
             SecurityModel.USM,
         )
 
-    def testDecode(self):
+    def test_decode_raises_ParseError_if_msgID_is_negative(self):
+        valid   = bytes.fromhex("3010020400000000020205dc040107020103")
+        invalid = bytes.fromhex("30100204ffffffff020205dc040107020103")
+
+        _ = HeaderData.decode(valid)
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_ParseError_if_msgID_is_too_large(self):
+        valid   = bytes.fromhex("30110205007fffffff020205dc040107020103")
+        invalid = bytes.fromhex("301102050080000000020205dc040107020103")
+
+        _ = HeaderData.decode(valid)
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_ParseError_if_msgMaxSize_is_below_484(self):
+        valid   = bytes.fromhex("300d020100020201e4040107020103")
+        invalid = bytes.fromhex("300d020100020201e3040107020103")
+
+        _ = HeaderData.decode(valid)
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_ParseError_if_msgMaxSize_is_too_large(self):
+        valid   = bytes.fromhex("30100201000205007fffffff040107020103")
+        invalid = bytes.fromhex("301002010002050080000000040107020103")
+
+        _ = HeaderData.decode(valid)
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_example_matches_the_hand_computed_result(self):
         self.assertEqual(HeaderData.decode(self.encoding), self.header)
 
-    def testEncode(self):
+    def test_encode_example_matches_the_hand_computed_result(self):
         self.assertEqual(self.header.encode(), self.encoding)
 
-    def testRepr(self):
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         self.assertEqual(eval(repr(self.header)), self.header)
 
 class ScopedPDUTest(unittest.TestCase):
