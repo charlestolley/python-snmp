@@ -299,15 +299,6 @@ class SNMPv3Message(Sequence):
         securityEngineID: Optional[bytes] = None,
         securityName: Optional[bytes] = None,
     ) -> None:
-        if header.flags.privFlag:
-            if encryptedPDU is None:
-                errmsg = "encryptedPDU is required when privFlag is True"
-                raise ValueError(errmsg)
-        else:
-            if scopedPDU is None:
-                errmsg = "scopedPDU is required when privFlag is False"
-                raise ValueError(errmsg)
-
         self.header = header
         self.scopedPDU = scopedPDU
         self.encryptedPDU = encryptedPDU
@@ -325,10 +316,16 @@ class SNMPv3Message(Sequence):
         yield self.securityParameters
 
         if self.header.flags.privFlag:
-            assert self.encryptedPDU is not None
+            if __debug__ and self.encryptedPDU is None:
+                errmsg = "encryptedPDU is required when privFlag is True"
+                raise SNMPLibraryBug(errmsg)
+
             yield self.encryptedPDU
         else:
-            assert self.scopedPDU is not None
+            if __debug__ and self.scopedPDU is None:
+                errmsg = "scopedPDU is required when privFlag is False"
+                raise SNMPLibraryBug(errmsg)
+
             yield self.scopedPDU
 
     def __len__(self) -> int:

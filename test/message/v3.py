@@ -370,20 +370,18 @@ class SNMPv3MessageTest(unittest.TestCase):
 
         self.assertRaises(IncomingMessageError, SNMPv3Message.decode, encoding)
 
-    def test_constructor_raises_ValueError_for_missing_PDU_by_privFlag(self):
-        self.assertRaisesRegex(
-            ValueError,
-            "scopedPDU",
-            SNMPv3Message,
+    def test_encode_raises_SNMPLibraryBug_for_missing_PDU_by_privFlag(self):
+        plain = SNMPv3Message(
             HeaderData(0, 0, MessageFlags(authNoPriv), SecurityModel.USM),
         )
 
-        self.assertRaisesRegex(
-            ValueError,
-            "encryptedPDU",
-            SNMPv3Message,
+        self.assertRaisesRegex(SNMPLibraryBug, "scopedPDU", plain.encode)
+
+        encrypted = SNMPv3Message(
             HeaderData(0, 0, MessageFlags(authPriv), SecurityModel.USM),
         )
+
+        self.assertRaisesRegex(SNMPLibraryBug, "encryptedPDU", encrypted.encode)
 
     def test_set_scopedPDU_by_assigning_encoding_to_plaintext_attribute(self):
         scopedPDU = ScopedPDU(ResponsePDU(), b"")
