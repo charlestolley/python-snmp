@@ -3,7 +3,6 @@ __all__ = [
     "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
 ]
 
-from abc import abstractmethod
 from snmp.ber import *
 from snmp.exception import *
 from snmp.typing import *
@@ -57,13 +56,11 @@ class ASN1:
         return encode(self.TAG, self.serialize())
 
     @classmethod
-    @abstractmethod
     def deserialize(cls: Type[TASN1], data: Asn1Data) -> TASN1:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def serialize(self) -> bytes:
-        ...
+        raise NotImplementedError()
 
 class Constructed(ASN1):
     def __eq__(self, other: Any) -> bool:
@@ -79,30 +76,26 @@ class Constructed(ASN1):
 
         return True
 
-    @abstractmethod
     def __iter__(self) -> Iterator[ASN1]:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def __len__(self) -> int:
-        ...
+        raise NotImplementedError()
 
     def serialize(self) -> bytes:
         return b"".join([obj.encode() for obj in self])
 
 class Primitive(ASN1):
-    @abstractmethod
     def asOID(self, implied: bool = False) -> Iterable[int]:
-        ...
+        raise NotImplementedError()
 
     @classmethod
-    @abstractmethod
     def fromOID(
         cls: Type[TPrimitive],
         nums: Iterator[int],
         implied: bool = False,
     ) -> TPrimitive:
-        ...
+        raise NotImplementedError()
 
 class INTEGER(Primitive):
     BYTEORDER: ClassVar[Literal["big"]] = "big"

@@ -4,7 +4,6 @@ __all__ = [
     "RequestHandle", "MessageProcessor",
 ]
 
-from abc import abstractmethod
 import enum
 
 from snmp.asn1 import *
@@ -141,26 +140,22 @@ class Message(Sequence):
         )
 
 class RequestHandle(Generic[T]):
-    @abstractmethod
     def addCallback(self, func: Callable[[int], None], idNum: int) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def push(self, response: T) -> None:
-        ...
+        raise NotImplementedError()
 
 class MessageProcessor(Generic[T, TPDU]):
     VERSION: ClassVar[ProtocolVersion]
 
-    @abstractmethod
     def prepareDataElements(self, msg: Asn1Data) -> Tuple[T, RequestHandle[T]]:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def prepareOutgoingMessage(self,
         pdu: TPDU,
         handle: RequestHandle[T],
         *args: Any,
         **kwargs: Any,
     ) -> bytes:
-        ...
+        raise NotImplementedError()

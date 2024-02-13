@@ -3,7 +3,6 @@ __all__ = [
     "AuthProtocol", "PrivProtocol", "UserBasedSecurityModule",
 ]
 
-from abc import abstractmethod
 import threading
 
 from time import time
@@ -18,54 +17,46 @@ from snmp.typing import *
 from snmp.utils import *
 
 class AuthProtocol:
-    @abstractmethod
     def __init__(self, key: bytes) -> None:
-        ...
+        raise NotImplementedError()
 
     @classmethod
-    @abstractmethod
     def computeKey(cls, secret: bytes) -> bytes:
-        ...
+        raise NotImplementedError()
 
     @classmethod
-    @abstractmethod
     def localizeKey(cls, key: bytes, engineID: bytes) -> bytes:
-        ...
+        raise NotImplementedError()
 
     @classmethod
     def localize(cls, secret: bytes, engineID: bytes) -> bytes:
         return cls.localizeKey(cls.computeKey(secret), engineID)
 
     @property
-    @abstractmethod
     def msgAuthenticationParameters(self) -> bytes:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def sign(self, data: bytes) -> bytes:
-        ...
+        raise NotImplementedError()
 
 class PrivProtocol:
-    @abstractmethod
     def __init__(self, key: bytes) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def decrypt(self,
         data: bytes,
         engineBoots: int,
         engineTime: int,
         salt: bytes,
     ) -> bytes:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def encrypt(self,
         data: bytes,
         engineBoots: int,
         engineTime: int,
     ) -> Tuple[bytes, bytes]:
-        ...
+        raise NotImplementedError()
 
 class UnsupportedSecLevel(IncomingMessageError):
     pass

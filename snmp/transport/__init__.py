@@ -3,7 +3,6 @@ __all__ = [
     "TransportDomain", "TransportListener", "TransportMultiplexor"
 ]
 
-from abc import abstractmethod
 from collections import namedtuple
 import enum
 import os
@@ -30,20 +29,17 @@ class Transport(Generic[T]):
     DOMAIN: ClassVar[TransportDomain]
 
     @classmethod
-    @abstractmethod
     def normalizeAddress(cls,
         address: Any = None,
         usage: Optional[AddressUsage] = None,
     ) -> T:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def close(self) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def send(self, address: T, data: bytes) -> None:
-        ...
+        raise NotImplementedError()
 
 class TransportChannel(Generic[T]):
     def __init__(self,
@@ -63,27 +59,22 @@ class TransportChannel(Generic[T]):
         self.transport.send(self.address, data)
 
 class TransportListener(Generic[T]):
-    @abstractmethod
     def hear(self, transport: Transport[T], address: T, data: bytes) -> None:
-        ...
+        raise NotImplementedError()
 
 class TransportMultiplexor(Generic[T]):
 
-    @abstractmethod
     def register(self, sock: Transport[T]) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def listen(self, listener: TransportListener[T]) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def stop(self) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def close(self) -> None:
-        ...
+        raise NotImplementedError()
 
 supported = ("posix")
 if os.name in supported:

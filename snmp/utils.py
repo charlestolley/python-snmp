@@ -1,6 +1,5 @@
 __all__ = ["ComparableWeakRef", "NumberGenerator", "subbytes", "typename"]
 
-from abc import ABCMeta, abstractmethod
 from random import randint
 import weakref
 

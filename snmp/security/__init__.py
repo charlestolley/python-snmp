@@ -2,7 +2,6 @@ __all__ = [
     "SecurityLevel", "SecurityModel", "SecurityModule", "SecurityParameters",
 ]
 
-from abc import abstractmethod
 import enum
 
 from snmp.smi import *
@@ -78,17 +77,15 @@ class SecurityParameters:
 class SecurityModule(Generic[TMessage]):
     MODEL: ClassVar[SecurityModel]
 
-    @abstractmethod
     def processIncoming(self,
         message: TMessage,
         timestamp: Optional[float] = None,
     ) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def prepareOutgoing(self,
         message: TMessage,
         engineID: bytes,
         securityName: bytes,
     ) -> bytes:
-        ...
+        raise NotImplementedError()

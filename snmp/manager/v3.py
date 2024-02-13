@@ -1,6 +1,5 @@
 __all__ = ["SNMPv3UsmManager"]
 
-from abc import abstractmethod
 from collections import deque
 
 import heapq
@@ -88,21 +87,17 @@ class State:
         else:
             self.manager = weakref.proxy(arg)
 
-    @abstractmethod
     def onInactive(self) -> None:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def onRequest(self, auth: bool) -> bool:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def onReport(self, engineID: bytes) -> bool:
-        ...
+        raise NotImplementedError()
 
-    @abstractmethod
     def onResponse(self, engineID: bytes, auth: bool) -> bool:
-        ...
+        raise NotImplementedError()
 
 # User did not provide an engine ID, and
 # has not yet attempted to send any requests

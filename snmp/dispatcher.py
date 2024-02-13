@@ -2,7 +2,6 @@ __all__ = ["Dispatcher"]
 
 import threading
 
-from abc import abstractmethod
 from snmp.ber import ParseError, decode
 from snmp.exception import *
 from snmp.message import *
