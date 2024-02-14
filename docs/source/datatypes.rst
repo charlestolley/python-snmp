@@ -450,3 +450,20 @@ PDU Data Types
       errorStatus=0, \
       errorIndex=0, \
    )
+
+.. class:: snmp.pdu.ErrorResponse()
+
+   .. py:attribute:: status
+      :type: snmp.pdu.PDU.ErrorStatus
+
+      Contains the ``error-status`` from the ``ResponsePDU`` that triggered
+      this exception.
+
+   .. py:attribute:: cause
+      :type: snmp.pdu.PDU | snmp.pdu.VarBind | int
+
+      Indicates the portion of the request that caused the failure. It is
+      expected to to refer either to the request PDU itself, or to a single
+      :class:`snmp.pdu.VarBind` from the request. However, if ``error-index``
+      field of the response is invalid, then this attribute will contain the
+      ``error-index`` itself.
