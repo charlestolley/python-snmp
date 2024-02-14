@@ -400,13 +400,6 @@ PDU Data Types
       errorIndex=0, \
    )
 
-.. class:: snmp.pdu.TrapPDU( \
-      * varbinds, \
-      requestID=0, \
-      errorStatus=0, \
-      errorIndex=0, \
-   )
-
 .. class:: snmp.pdu.GetBulkRequestPDU( \
       * varbinds, \
       requestID=0, \
