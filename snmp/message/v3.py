@@ -1,4 +1,7 @@
-__all__ = ["HeaderData", "MessageFlags", "ScopedPDU", "SNMPv3Message"]
+__all__ = [
+    "HeaderData", "MessageFlags", "ScopedPDU",
+    "SNMPv3Message", "SNMPv3MessageProcessor",
+]
 
 import threading
 import weakref
@@ -26,6 +29,9 @@ pduTypes = {
         ReportPDU,
     ))
 }
+
+class CacheError(SNMPException):
+    pass
 
 class InvalidMessage(IncomingMessageError):
     pass
@@ -499,7 +505,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
 
             retry += 1
 
-        raise Exception("Failed to allocate message ID")
+        raise CacheError("Failed to allocate message ID")
 
     def retrieve(self, msgID: int) -> CacheEntry:
         with self.cacheLock:
@@ -538,7 +544,11 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
                 raise UnknownSecurityModel(securityModel) from e
 
         securityModule.processIncoming(message)
-        assert message.scopedPDU is not None
+
+        if __debug__ and message.scopedPDU is None:
+            errmsg = "securityModule.processIncoming() did not assign a" \
+                "  value for message.scopedPDU"
+            raise SNMPLibraryBug(errmsg)
 
         if isinstance(message.scopedPDU.pdu, Response):
             try:
@@ -553,7 +563,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
 
             report = isinstance(message.scopedPDU.pdu, Internal)
             if (not report
-            and entry.securityLevel < message.header.flags.securityLevel):
+            and message.header.flags.securityLevel < entry.securityLevel):
                 raise ResponseMismatch.byField("Security Level")
 
             if not report and entry.engineID != message.securityEngineID:
@@ -594,18 +604,24 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
                 errmsg = f"Security Model {securityModel} has not been enabled"
                 raise ValueError(errmsg) from err
 
-        entry = CacheEntry(
-            engineID,
-            contextName,
-            handle,
-            securityName,
-            securityModel,
-            securityLevel)
+        reportable = isinstance(pdu, Confirmed)
 
-        msgID = self.cache(entry)
-        handle.addCallback(self.uncache, msgID)
+        if reportable:
+            entry = CacheEntry(
+                engineID,
+                contextName,
+                handle,
+                securityName,
+                securityModel,
+                securityLevel)
 
-        flags = MessageFlags(securityLevel, isinstance(pdu, Confirmed))
+            msgID = self.cache(entry)
+            handle.addCallback(self.uncache, msgID)
+        else:
+            # This feature is not yet implemented
+            msgID = next(self.generator)
+
+        flags = MessageFlags(securityLevel, reportable)
         header = HeaderData(msgID, self.msgMaxSize, flags, securityModel)
         scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
         message = SNMPv3Message(header, scopedPDU)
