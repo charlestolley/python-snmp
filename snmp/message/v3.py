@@ -547,7 +547,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
 
             report = isinstance(message.scopedPDU.pdu, Internal)
             if (not report
-            and entry.securityLevel < message.header.flags.securityLevel):
+            and message.header.flags.securityLevel < entry.securityLevel):
                 raise ResponseMismatch.byField("Security Level")
 
             if not report and entry.engineID != message.securityEngineID:
