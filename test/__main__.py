@@ -12,7 +12,8 @@ test_modules = [
     "security.levels",
     "security.usm",
     "security.usm.auth",
-    "security.usm.priv",
+    "security.usm.priv.openssl",
+    "security.usm.priv.pycryptodome",
     "transport.udp",
 ]
 

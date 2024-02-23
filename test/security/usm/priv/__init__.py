@@ -1,4 +1,4 @@
-__all__ = ["AesCfb128Test", "DesCbcTest"]
+__all__ = ["makeAesCfb128Test", "makeDesCbcTest"]
 
 import re
 import unittest
@@ -7,11 +7,7 @@ from snmp.smi import *
 from snmp.pdu import *
 from snmp.security.usm.auth import HmacSha
 
-try:
-    from snmp.security.usm.priv import *
-except ImportError:
-    __all__.clear()
-else:
+def makeAesCfb128Test(AesCfb128):
     class AesCfb128Test(unittest.TestCase):
         def setUp(self):
             self.authProtocol = HmacSha
@@ -34,7 +30,7 @@ else:
             self.engineBoots = 918273645
             self.engineTime  = 546372819
 
-        def testDecrypt(self):
+        def test_decrypt_successfully_decrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
             priv = self.privProtocol(privKey)
 
@@ -60,7 +56,7 @@ else:
             contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
-        def testEncrypt(self):
+        def test_encrypt_successfully_encrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
             priv = self.privProtocol(privKey)
 
@@ -81,6 +77,9 @@ else:
             contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
+    return AesCfb128Test
+
+def makeDesCbcTest(DesCbc):
     class DesCbcTest(unittest.TestCase):
         def setUp(self):
             self.authProtocol = HmacSha
@@ -103,7 +102,7 @@ else:
             self.engineBoots = 918273645
             self.engineTime  = 546372819
 
-        def testDecrypt(self):
+        def test_decrypt_successfully_decrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
             priv = self.privProtocol(privKey)
 
@@ -129,7 +128,7 @@ else:
             contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
-        def testEncrypt(self):
+        def test_encrypt_successfully_encrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
             priv = self.privProtocol(privKey)
 
@@ -150,5 +149,4 @@ else:
             contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
             self.assertEqual(contents, self.data)
 
-if __name__ == '__main__':
-    unittest.main()
+    return DesCbcTest
