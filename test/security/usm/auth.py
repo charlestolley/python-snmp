@@ -9,56 +9,82 @@ from snmp.security.usm.auth import *
 
 class HmacMd5Test(unittest.TestCase):
     def setUp(self):
-        self.authProtocol = HmacMd5
         self.engineID = bytes(11) + b"\x02"
         self.secret = b"maplesyrup"
 
-        self.authKey = bytes.fromhex(re.sub(r"\n", "", """
-            52 6f 5e ed 9f cc e2 6f 89 64 c2 93 07 87 d8 2b
-        """))
+        self.authKey = bytes.fromhex(
+            "52 6f 5e ed 9f cc e2 6f 89 64 c2 93 07 87 d8 2b"
+        )
 
-        self.digest = bytes.fromhex(re.sub(r"\n", "", """
-            07 5f 47 b1 57 95 d1 15 77 df 58 19
-        """))
+        self.intermediateKey = bytes.fromhex(
+            "9f af 32 83 88 4e 92 83 4e bc 98 47 d8 ed d9 63"
+        )
 
-    def testLocalize(self):
-        authKey = self.authProtocol.localize(self.secret, self.engineID)
+        self.digest = bytes.fromhex("07 5f 47 b1 57 95 d1 15 77 df 58 19")
+
+    def test_msgAuthenticationParameters_contains_12_zero_bytes(self):
+        auth = HmacMd5(self.authKey)
+        self.assertEqual(auth.msgAuthenticationParameters, bytes(12))
+
+    def test_computeKey_generates_RFC3414_A_3_1_intermediate_key(self):
+        intermediateKey = HmacMd5.computeKey(self.secret)
+        self.assertEqual(intermediateKey, self.intermediateKey)
+
+    def test_localizeKey_generates_RFC3414_A_3_1_key_from_intermediate(self):
+        args = (self.intermediateKey, self.engineID)
+        authKey = HmacMd5.localizeKey(*args)
         self.assertEqual(authKey, self.authKey)
 
-    def testSign(self):
-        auth = self.authProtocol(self.authKey)
+    def test_localize_generates_RFC3414_A_3_1_key_from_secret(self):
+        authKey = HmacMd5.localize(self.secret, self.engineID)
+        self.assertEqual(authKey, self.authKey)
+
+    def test_sign_produces_the_expected_digest_for_an_example(self):
+        auth = HmacMd5(self.authKey)
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
 class HmacShaTest(unittest.TestCase):
     def setUp(self):
-        self.authProtocol = HmacSha
         self.engineID = bytes(11) + b"\x02"
         self.secret = b"maplesyrup"
 
-        self.authKey = bytes.fromhex(re.sub(r"\n", "", """
-            66 95 fe bc 92 88 e3 62 82 23 5f c7 15 1f 12 84
-            97 b3 8f 3f
-        """))
+        self.authKey = bytes.fromhex(
+            "66 95 fe bc 92 88 e3 62 82 23 5f c7 15 1f 12 84 97 b3 8f 3f"
+        )
 
-        self.digest = bytes.fromhex(re.sub(r"\n", "", """
-            60 e3 8c 0e 8d e1 8f e2 b4 17 fc 4d
-        """))
+        self.intermediateKey = bytes.fromhex(
+            "9f b5 cc 03 81 49 7b 37 93 52 89 39 ff 78 8d 5d 79 14 52 11"
+        )
 
-    def testLocalize(self):
-        authKey = self.authProtocol.localize(self.secret, self.engineID)
+        self.digest = bytes.fromhex("60 e3 8c 0e 8d e1 8f e2 b4 17 fc 4d")
+
+    def test_msgAuthenticationParameters_contains_12_zero_bytes(self):
+        auth = HmacSha(self.authKey)
+        self.assertEqual(auth.msgAuthenticationParameters, bytes(12))
+
+    def test_computeKey_generates_RFC3414_A_3_2_intermediate_key(self):
+        intermediateKey = HmacSha.computeKey(self.secret)
+        self.assertEqual(intermediateKey, self.intermediateKey)
+
+    def test_localizeKey_generates_RFC3414_A_3_2_key_from_intermediate(self):
+        args = (self.intermediateKey, self.engineID)
+        authKey = HmacSha.localizeKey(*args)
         self.assertEqual(authKey, self.authKey)
 
-    def testSign(self):
-        auth = self.authProtocol(self.authKey)
+    def test_localize_generates_RFC3414_A_3_2_key_from_secret(self):
+        authKey = HmacSha.localize(self.secret, self.engineID)
+        self.assertEqual(authKey, self.authKey)
+
+    def test_sign_produces_the_expected_digest_for_an_example(self):
+        auth = HmacSha(self.authKey)
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
 class HmacSha224Test(unittest.TestCase):
     def setUp(self):
-        self.authProtocol = HmacSha224
         self.engineID = bytes(11) + b"\x02"
         self.secret = b"maplesyrup"
 
@@ -67,23 +93,22 @@ class HmacSha224Test(unittest.TestCase):
             10 f6 9b 90 e1 78 2b e6 82 07 56 74
         """))
 
-        self.digest = bytes.fromhex(re.sub(r"\n", "", """
-            1d 6f 2b fe d5 dc 44 94 12 ec 42 01 72 7f d0 41
-        """))
+        self.digest = bytes.fromhex(
+            "1d 6f 2b fe d5 dc 44 94 12 ec 42 01 72 7f d0 41"
+        )
 
-    def testLocalize(self):
-        authKey = self.authProtocol.localize(self.secret, self.engineID)
+    def test_localize_generates_the_expected_key_for_RFC3414_example(self):
+        authKey = HmacSha224.localize(self.secret, self.engineID)
         self.assertEqual(authKey, self.authKey)
 
-    def testSign(self):
-        auth = self.authProtocol(self.authKey)
+    def test_sign_produces_the_expected_digest_for_an_example(self):
+        auth = HmacSha224(self.authKey)
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
 class HmacSha256Test(unittest.TestCase):
     def setUp(self):
-        self.authProtocol = HmacSha256
         self.engineID = bytes(11) + b"\x02"
         self.secret = b"maplesyrup"
 
@@ -97,19 +122,18 @@ class HmacSha256Test(unittest.TestCase):
             df 57 63 80 99 35 8f 54
         """))
 
-    def testLocalize(self):
-        authKey = self.authProtocol.localize(self.secret, self.engineID)
+    def test_localize_generates_the_expected_key_for_RFC3414_example(self):
+        authKey = HmacSha256.localize(self.secret, self.engineID)
         self.assertEqual(authKey, self.authKey)
 
-    def testSign(self):
-        auth = self.authProtocol(self.authKey)
+    def test_sign_produces_the_expected_digest_for_an_example(self):
+        auth = HmacSha256(self.authKey)
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
 class HmacSha384Test(unittest.TestCase):
     def setUp(self):
-        self.authProtocol = HmacSha384
         self.engineID = bytes(11) + b"\x02"
         self.secret = b"maplesyrup"
 
@@ -124,19 +148,18 @@ class HmacSha384Test(unittest.TestCase):
             8d 77 2a 59 95 1f 81 96 c2 54 2a 19 75 07 b3 af
         """))
 
-    def testLocalize(self):
-        authKey = self.authProtocol.localize(self.secret, self.engineID)
+    def test_localize_generates_the_expected_key_for_RFC3414_example(self):
+        authKey = HmacSha384.localize(self.secret, self.engineID)
         self.assertEqual(authKey, self.authKey)
 
-    def testSign(self):
-        auth = self.authProtocol(self.authKey)
+    def test_sign_produces_the_expected_digest_for_an_example(self):
+        auth = HmacSha384(self.authKey)
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
 class HmacSha512Test(unittest.TestCase):
     def setUp(self):
-        self.authProtocol = HmacSha512
         self.engineID = bytes(11) + b"\x02"
         self.secret = b"maplesyrup"
 
@@ -153,12 +176,12 @@ class HmacSha512Test(unittest.TestCase):
             14 84 5a 89 a1 cd b7 42 4a f5 c7 07 11 c3 b9 f4
         """))
 
-    def testLocalize(self):
-        authKey = self.authProtocol.localize(self.secret, self.engineID)
+    def test_localize_generates_the_expected_key_for_RFC3414_example(self):
+        authKey = HmacSha512.localize(self.secret, self.engineID)
         self.assertEqual(authKey, self.authKey)
 
-    def testSign(self):
-        auth = self.authProtocol(self.authKey)
+    def test_sign_produces_the_expected_digest_for_an_example(self):
+        auth = HmacSha512(self.authKey)
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
