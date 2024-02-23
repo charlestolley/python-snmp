@@ -10,6 +10,7 @@ test_modules = [
     "message.v3",
     "security",
     "security.levels",
+    "security.usm.timekeeper",
     "security.usm",
     "security.usm.auth",
     "security.usm.priv.openssl",
