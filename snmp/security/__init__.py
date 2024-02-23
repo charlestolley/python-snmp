@@ -1,5 +1,5 @@
 __all__ = [
-    "SecurityLevel", "SecurityModel", "SecurityModule", "SecurityParameters",
+    "SecurityLevel", "SecurityModel", "SecurityModule",
 ]
 
 import enum
@@ -61,18 +61,6 @@ class SecurityLevel:
 
 class SecurityModel(enum.IntEnum):
     USM = 3
-
-class SecurityParameters:
-    def __init__(self, engineID: bytes, userName: bytes):
-        self.securityEngineID = engineID
-        self.securityName = userName
-
-    def __repr__(self) -> str:
-        return "{}({!r}, {!r})".format(
-            typename(self),
-            self.securityEngineID,
-            self.securityName,
-        )
 
 class SecurityModule(Generic[TMessage]):
     MODEL: ClassVar[SecurityModel]

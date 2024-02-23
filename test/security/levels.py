@@ -4,19 +4,19 @@ import unittest
 from snmp.security.levels import *
 
 class SecurityLevelsTest(unittest.TestCase):
-    def testNoAuthNoPriv(self):
+    def test_noAuthNoPriv_auth_is_False_and_priv_is_False(self):
         self.assertFalse(noAuthNoPriv.auth)
         self.assertFalse(noAuthNoPriv.priv)
 
-    def testAuthNoPriv(self):
+    def test_authNoPriv_auth_is_True_and_priv_is_False(self):
         self.assertTrue (authNoPriv.auth)
         self.assertFalse(authNoPriv.priv)
 
-    def testAuthPriv(self):
+    def test_authPriv_auth_is_True_and_priv_is_True(self):
         self.assertTrue(authPriv.auth)
         self.assertTrue(authPriv.priv)
 
-    def testStr(self):
+    def test__str__function_returns_the_name(self):
         self.assertEqual(str(noAuthNoPriv), "noAuthNoPriv")
         self.assertEqual(str(authNoPriv), "authNoPriv")
         self.assertEqual(str(authPriv), "authPriv")
