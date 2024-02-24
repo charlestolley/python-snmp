@@ -11,6 +11,7 @@ test_modules = [
     "security",
     "security.levels",
     "security.usm.timekeeper",
+    "security.usm.credentials",
     "security.usm",
     "security.usm.auth",
     "security.usm.priv.openssl",

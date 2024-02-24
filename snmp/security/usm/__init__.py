@@ -6,8 +6,6 @@ __all__ = [
 import threading
 from time import time
 
-from .timekeeper import TimeKeeper
-
 from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import IncomingMessageError
@@ -60,6 +58,9 @@ class PrivProtocol:
     ) -> Tuple[bytes, bytes]:
         raise NotImplementedError()
 
+from .credentials import *
+from .timekeeper import *
+
 class UnsupportedSecLevel(IncomingMessageError):
     pass
 
@@ -86,40 +87,6 @@ class InvalidUserName(ValueError):
 
 class InvalidSecurityLevel(ValueError):
     pass
-
-class Credentials:
-    def __init__(self,
-        authProtocol: Optional[Type[AuthProtocol]] = None,
-        authSecret: Optional[bytes] = None,
-        privProtocol: Optional[Type[PrivProtocol]] = None,
-        privSecret: Optional[bytes] = None,
-        secret: bytes = b"",
-    ) -> None:
-        self.authProtocol = None
-        self.authKey = None
-        self.privProtocol = None
-        self.privKey = None
-
-        if authProtocol is None:
-            self.maxSecurityLevel = noAuthNoPriv
-        else:
-            if privProtocol is None:
-                self.maxSecurityLevel = authNoPriv
-            else:
-                self.maxSecurityLevel = authPriv
-                self.privProtocol = privProtocol
-                self.privKey = authProtocol.computeKey(privSecret or secret)
-
-            self.authProtocol = authProtocol
-            self.authKey = authProtocol.computeKey(authSecret or secret)
-
-class LocalizedCredentials:
-    def __init__(self,
-        auth: Optional[AuthProtocol] = None,
-        priv: Optional[PrivProtocol] = None,
-    ) -> None:
-        self.auth = auth
-        self.priv = priv
 
 class DiscoveredEngine:
     def __init__(self) -> None:
@@ -368,37 +335,6 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         self.timekeeper = TimeKeeper()
         self.users = UserTable()
 
-    @staticmethod
-    def localizeCredentials(
-        engineID: bytes,
-        credentials: Optional[Credentials] = None,
-    ) -> LocalizedCredentials:
-        if credentials is None:
-           credentials = Credentials()
-
-        auth = None
-        priv = None
-
-        if credentials.authProtocol is not None:
-            assert credentials.authKey is not None
-            auth = credentials.authProtocol(
-                credentials.authProtocol.localizeKey(
-                    credentials.authKey,
-                    engineID,
-                )
-            )
-
-            if credentials.privProtocol is not None:
-                assert credentials.privKey is not None
-                priv = credentials.privProtocol(
-                    credentials.authProtocol.localizeKey(
-                        credentials.privKey,
-                        engineID,
-                    )
-                )
-
-        return LocalizedCredentials(auth, priv)
-
     def addUser(self,
         userName: str,
         authProtocol: Optional[Type[AuthProtocol]] = None,
@@ -502,7 +438,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
                     self.users.assignCredentials(
                         engineID,
                         userName.encode(),
-                        self.localizeCredentials(engineID, entry.credentials)
+                        entry.credentials.localize(engineID),
                     )
 
             return assigned
