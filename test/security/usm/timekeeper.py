@@ -1,8 +1,133 @@
-__all__ = ["TimeKeeperTest"]
+__all__ = ["EngineTimeTest", "TimeKeeperTest"]
 
+import time
 import unittest
 
-from snmp.security.usm.timekeeper import *
+from snmp.security.usm.timekeeper import EngineTime, TimeKeeper
+
+class EngineTimeTest(unittest.TestCase):
+    def setUp(self):
+        self.engineBoots = 4887
+        self.engineTime = 1942
+        self.timestamp = 8264.0
+
+        self.et = EngineTime(
+            self.engineBoots,
+            self.engineTime,
+            self.timestamp,
+            True,
+        )
+
+    def test_snmpEngineTime_computes_seconds_since_the_last_boot(self):
+        delta = 5
+        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
+        self.assertEqual(engineTime, self.engineTime + delta)
+
+    def test_snmpEngineTime_rounds_down(self):
+        delta = 23.9
+        deltaInt = 23
+        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
+        self.assertEqual(engineTime, self.engineTime + deltaInt)
+
+    def test_update_with_larger_engineTime_updates_local_notion(self):
+        delta = 5
+        offset = 1.9
+
+        self.et.update(
+            self.engineBoots,
+            self.engineTime + delta,
+            self.timestamp + delta - offset,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
+        self.assertEqual(engineTime, self.engineTime + delta + int(offset))
+
+    def test_update_local_notion_even_for_fractional_changes(self):
+        self.et.update(
+            self.engineBoots,
+            self.engineTime + 1,
+            self.timestamp + 0.6,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + 1.5)
+        self.assertEqual(engineTime, self.engineTime + 1)
+        engineTime = self.et.snmpEngineTime(self.timestamp + 1.7)
+        self.assertEqual(engineTime, self.engineTime + 2)
+
+    def test_slow_update_does_not_change_the_notion_of_time(self):
+        delta = 12
+        delay = 3
+
+        self.et.update(
+            self.engineBoots,
+            self.engineTime - delay,
+            self.timestamp,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
+        self.assertEqual(engineTime, self.engineTime + delta)
+
+    def test_update_has_no_effect_if_engineBoots_is_too_low(self):
+        delta = 5
+        self.et.update(
+            self.engineBoots - 1,
+            self.engineTime + 7852,
+            self.timestamp + 1,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
+        self.assertEqual(engineTime, self.engineTime + delta)
+
+    def test_update_resets_engineTime_when_engineBoots_is_incremented(self):
+        self.et.update(self.engineBoots + 1, 0, self.timestamp + 1)
+        engineTime = self.et.snmpEngineTime(self.timestamp + 5)
+        self.assertEqual(self.et.snmpEngineBoots, self.engineBoots + 1)
+        self.assertEqual(engineTime, 4)
+
+    def test_update_engineBoots_maxes_out_at_32_bit_signed_max(self):
+        self.et.update(1 << 31, 0, self.timestamp + 1)
+        self.assertEqual(self.et.snmpEngineBoots, (1 << 31) - 1)
+        et = EngineTime(1 << 31, 0, self.timestamp)
+        self.assertEqual(et.snmpEngineBoots, (1 << 31) - 1)
+
+    def test_hint_has_no_effect_if_authenticated(self):
+        self.et.hint(self.engineBoots + 1, 0, self.timestamp)
+        engineTime = self.et.snmpEngineTime(self.timestamp)
+        self.assertEqual(engineTime, self.engineTime)
+
+    def test_hint_clobbers_the_previous_notion(self):
+        et = EngineTime(self.engineBoots, self.engineTime, self.timestamp)
+
+        et.hint(self.engineBoots + 3, 99, self.timestamp)
+        engineTime = et.snmpEngineTime(self.timestamp)
+        self.assertEqual(engineTime, 99)
+
+        et.hint(self.engineBoots - 1, self.engineTime * 2, self.timestamp)
+        engineTime = et.snmpEngineTime(self.timestamp)
+        self.assertEqual(engineTime, self.engineTime * 2)
+
+    def test_update_clobbers_unauthenticated_notion(self):
+        et = EngineTime(
+            self.engineBoots + 3,
+            self.engineTime * 9,
+            self.timestamp,
+        )
+
+        et.update(self.engineBoots, self.engineTime, self.timestamp)
+        self.assertEqual(et.snmpEngineBoots, self.engineBoots)
+        self.assertEqual(et.snmpEngineTime(self.timestamp), self.engineTime)
+
+    def test_valid_indicates_that_engineBoots_has_not_maxed_out(self):
+        self.assertTrue(self.et.valid)
+        self.et.update((1 << 31) - 2, 0, self.timestamp)
+        self.assertTrue(self.et.valid)
+        self.et.update(1 << 31, 0, self.timestamp)
+        self.assertFalse(self.et.valid)
+
+    def test_computeAge_tells_how_long_since_the_message_was_generated(self):
+        delay = 123
+        age = self.et.computeAge(self.engineTime, self.timestamp + delay)
+        self.assertEqual(age, delay)
 
 class TimeKeeperTest(unittest.TestCase):
     def setUp(self):
@@ -16,7 +141,7 @@ class TimeKeeperTest(unittest.TestCase):
             self.engineID,
             self.engineBoots,
             self.engineTime,
-            timestamp=self.timestamp,
+            self.timestamp,
         )
 
     def test_getEngineTime_returns_zeros_for_unfamiliar_engineID(self):
@@ -78,7 +203,7 @@ class TimeKeeperTest(unittest.TestCase):
             self.engineID,
             self.engineBoots,
             self.engineTime,
-            timestamp=self.timestamp,
+            self.timestamp,
         )
 
         newEngineBoots = self.engineBoots + 9
@@ -106,7 +231,7 @@ class TimeKeeperTest(unittest.TestCase):
             self.engineID,
             self.engineBoots,
             self.engineTime,
-            timestamp=self.timestamp,
+            self.timestamp,
         )
 
         delta = 5
@@ -168,7 +293,7 @@ class TimeKeeperTest(unittest.TestCase):
             self.engineID,
             newEngineBoots,
             newEngineTime,
-            timestamp=timestamp,
+            timestamp,
         )
 
         invalid = self.timekeeper.updateAndVerify(
@@ -193,7 +318,7 @@ class TimeKeeperTest(unittest.TestCase):
             self.engineID,
             0x7fffffff,
             0,
-            timestamp=self.timestamp + 1,
+            self.timestamp + 1,
         )
 
         self.assertFalse(valid)

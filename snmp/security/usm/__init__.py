@@ -361,16 +361,12 @@ class UsmSecurityParameters(Sequence):
 class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
     MODEL = SecurityModel.USM
 
-    def __init__(self, engineID: Optional[bytes] = None) -> None:
-        self.engineID = engineID
+    def __init__(self) -> None:
         self.engines: Dict[bytes, DiscoveredEngine] = {}
         self.lock = threading.Lock()
         self.namespaces: Dict[str, NameSpace] = {}
         self.timekeeper = TimeKeeper()
         self.users = UserTable()
-
-        if self.engineID is not None:
-            self.timekeeper.hint(self.engineID)
 
     @staticmethod
     def localizeCredentials(
@@ -565,17 +561,8 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
                 message.encryptedPDU = OctetString(ciphertext)
 
         else:
-            if engineID == self.engineID:
-                engineTimeParameters = self.timekeeper.getEngineTime(
-                    engineID,
-                    timestamp=timestamp,
-                )
-
-                snmpEngineBoots, snmpEngineTime = engineTimeParameters
-            else:
-                snmpEngineBoots = 0
-                snmpEngineTime = 0
-
+            snmpEngineBoots = 0
+            snmpEngineTime = 0
             msgAuthenticationParameters = b''
             msgPrivacyParameters = b''
 
@@ -614,8 +601,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
 
         message.securityEngineID = securityParameters.engineID
         message.securityName     = securityParameters.userName
-
-        remoteIsAuthoritative = (securityParameters.engineID != self.engineID)
+        remoteIsAuthoritative = True
 
         if not message.header.flags.authFlag:
             if remoteIsAuthoritative:
@@ -668,7 +654,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
                 securityParameters.engineID,
                 securityParameters.engineBoots,
                 securityParameters.engineTime,
-                timestamp=timestamp,
+                timestamp,
             ):
                 raise NotInTimeWindow((
                     securityParameters.engineID,

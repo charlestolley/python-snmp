@@ -5,30 +5,87 @@ from time import time
 
 from snmp.typing import *
 
-class TimeEntry:
+class EngineTime:
+    MAX_ENGINE_BOOTS: ClassVar[int] = (1 << 31) - 1
+
     def __init__(self,
         engineBoots: int,
-        latestBootTime: Optional[float] = None,
+        engineTime: int,
+        timestamp: float,
         authenticated: bool = False,
     ) -> None:
-        if latestBootTime is None:
-            latestBootTime = time()
-
         self.authenticated = authenticated
         self.snmpEngineBoots = engineBoots
-        self.latestBootTime = latestBootTime
-        self.latestReceivedEngineTime = 0
+        self.setEngineTime(engineTime, timestamp)
+
+    @property
+    def snmpEngineBoots(self) -> int:
+        return self._snmpEngineBoots
+
+    @snmpEngineBoots.setter
+    def snmpEngineBoots(self, engineBoots: int) -> None:
+        self._snmpEngineBoots = min(engineBoots, self.MAX_ENGINE_BOOTS)
+
+    @property
+    def valid(self) -> bool:
+        return self.snmpEngineBoots < self.MAX_ENGINE_BOOTS
 
     def snmpEngineTime(self, timestamp: float) -> int:
         return int(timestamp - self.latestBootTime)
 
+    def setEngineTime(self, engineTime: int, timestamp: float) -> None:
+        self.latestBootTime = timestamp - engineTime
+
+    def computeAge(self, engineTime: int, timestamp: float) -> int:
+        return self.snmpEngineTime(timestamp) - engineTime
+
+    def hint(self,
+        engineBoots: int,
+        engineTime: int,
+        timestamp: float,
+    ) -> None:
+        if not self.authenticated:
+            self.snmpEngineBoots = engineBoots
+            self.setEngineTime(engineTime, timestamp)
+
+    def update(self,
+        engineBoots: int,
+        engineTime: int,
+        timestamp: float,
+    ) -> None:
+        if self.authenticated:
+            if engineBoots == self.snmpEngineBoots:
+                if engineTime > self.snmpEngineTime(timestamp):
+                    self.setEngineTime(engineTime, timestamp)
+            elif engineBoots > self.snmpEngineBoots:
+                self.snmpEngineBoots = engineBoots
+                self.setEngineTime(engineTime, timestamp)
+        else:
+            self.snmpEngineBoots = engineBoots
+            self.setEngineTime(engineTime, timestamp)
+            self.authenticated = True
+
 class TimeKeeper:
-    MAX_ENGINE_BOOTS: ClassVar[int] = (1 << 31) - 1
     TIME_WINDOW_SIZE: ClassVar[int] = 150
 
     def __init__(self) -> None:
         self.lock = Lock()
-        self.table: Dict[bytes, TimeEntry] = {}
+        self.table: Dict[bytes, EngineTime] = {}
+
+    def assertEntry(self,
+        engineID: bytes,
+        msgBoots: int,
+        msgTime: int,
+        timestamp: float,
+        authenticated: bool = False,
+    ) -> EngineTime:
+        try:
+            et = self.table[engineID]
+        except KeyError as err:
+            et = EngineTime(msgBoots, msgTime, timestamp, authenticated)
+            self.table[engineID] = et
+
+        return et
 
     def getEngineTime(self,
         engineID: bytes,
@@ -39,67 +96,33 @@ class TimeKeeper:
 
         with self.lock:
             try:
-                entry = self.table[engineID]
+                et = self.table[engineID]
             except KeyError:
                 return 0, 0
 
-            return entry.snmpEngineBoots, entry.snmpEngineTime(timestamp)
+            return et.snmpEngineBoots, et.snmpEngineTime(timestamp)
 
     def hint(self,
         engineID: bytes,
-        msgBoots: int = 0,
-        msgTime: int = 0,
-        timestamp: Optional[float] = None,
+        msgBoots: int,
+        msgTime: int,
+        timestamp: float,
     ) -> None:
-        self.updateAndVerify(engineID, msgBoots, msgTime, False, timestamp)
+        with self.lock:
+            et = self.assertEntry(engineID, msgBoots, msgTime, timestamp)
+            et.hint(msgBoots, msgTime, timestamp)
 
     def updateAndVerify(self,
         engineID: bytes,
         msgBoots: int,
         msgTime: int,
-        auth: bool = True,
-        timestamp: Optional[float] = None,
+        timestamp: float,
     ) -> bool:
-        if timestamp is None:
-            timestamp = time()
-
         with self.lock:
-            try:
-                entry = self.table[engineID]
-            except KeyError as err:
-                entry = TimeEntry(msgBoots, timestamp - msgTime, auth)
-                self.table[engineID] = entry
+            et = self.assertEntry(engineID, msgBoots, msgTime, timestamp, True)
+            et.update(msgBoots, msgTime, timestamp)
 
-            withinTimeWindow = False
-            if not entry.authenticated:
-                entry.snmpEngineBoots = msgBoots
-                entry.latestBootTime = timestamp - msgTime
-                entry.latestReceivedEngineTime = msgTime
-                withinTimeWindow = True
-            elif auth:
-                if msgBoots > entry.snmpEngineBoots:
-                    entry.snmpEngineBoots = msgBoots
-                    entry.latestBootTime = timestamp
-                    entry.latestReceivedEngineTime = 0
-
-                if msgBoots == entry.snmpEngineBoots:
-                    if msgTime > entry.latestReceivedEngineTime:
-                        calculatedBootTime = timestamp - msgTime
-                        if calculatedBootTime < entry.latestBootTime:
-                            entry.latestBootTime = calculatedBootTime
-
-                        entry.latestReceivedEngineTime = msgTime
-                        withinTimeWindow = True
-                    else:
-                        snmpEngineTime = entry.snmpEngineTime(timestamp)
-                        difference = snmpEngineTime - msgTime
-                        if difference <= self.TIME_WINDOW_SIZE:
-                            withinTimeWindow = True
-
-                if entry.snmpEngineBoots == self.MAX_ENGINE_BOOTS:
-                    withinTimeWindow = False
-
-            if auth:
-                entry.authenticated = True
-
-            return withinTimeWindow
+            return (msgBoots == et.snmpEngineBoots
+                and et.computeAge(msgTime, timestamp) <= self.TIME_WINDOW_SIZE
+                and et.valid
+            )
