@@ -1,6 +1,5 @@
 __all__ = [
-    "DiscoveredEngineTest",
-    "UserTableTest", "UsmSecurityParametersTest",
+    "DiscoveredEngineTest", "UserTableTest",
     "UsmLocalizeTest", "UsmUserConfigTest",
     "UsmOutgoingTest", "UsmSyncTest", "UsmIncomingTest",
 ]
@@ -11,15 +10,13 @@ import unittest
 
 from snmp.exception import *
 from snmp.message.v3 import *
-from snmp.message.v3 import pduTypes
 from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm import *
 from snmp.security.usm.credentials import *
 from snmp.security.usm import (
-    DiscoveredEngine, PrivProtocol, TimeKeeper,
-    UserTable, UsmSecurityParameters
+    DiscoveredEngine, PrivProtocol, TimeKeeper, UserTable,
 )
 
 from snmp.security.usm.auth import *
@@ -139,82 +136,6 @@ class UserTableTest(unittest.TestCase):
             self.users.getCredentials(self.engineID, self.user),
             self.credentials,
         )
-
-class UsmSecurityParametersTest(unittest.TestCase):
-    def setUp(self):
-        self.message = bytes.fromhex(re.sub("\n", "", """
-            30 81 97
-               02 01 03
-               30 10
-                  02 04 28 6e 48 41
-                  02 02 05 dc
-                  04 01 03
-                  02 01 03
-               04 2e
-                  30 2c
-                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
-                     02 02 05 d4
-                     02 02 14 d0
-                     04 08 73 6f 6d 65 55 73 65 72
-                     04 02 9a 00
-                     04 04 73 61 6c 74
-               04 50
-                  30 4e
-                     04 0e 72 65 6d 6f 74 65 45 6e 67 69 6e 65 49 44
-                     04 00
-                     a2 3a
-                        02 04 26 cf 6e 26
-                        02 01 00
-                        02 01 00
-                        30 2c
-                           30 2a
-                              06 07 2b 06 01 02 01 01 00
-                              04 1f 54 68 69 73 20 73 74 72 69 6e 67
-                                    20 64 65 73 63 72 69 62 65 73 20
-                                    6d 79 20 73 79 73 74 65 6d
-        """))
-
-        self.encoding = subbytes(self.message, 26, 72)
-
-        self.securityParameters = UsmSecurityParameters(
-            b"remoteEngineID",
-            1492,
-            5328,
-            b"someUser",
-            b"\x9a\x00",
-            b"salt",
-        )
-
-    def testDecode(self):
-        self.assertEqual(
-            UsmSecurityParameters.decode(self.encoding),
-            self.securityParameters,
-        )
-
-    def testEncode(self):
-        self.assertEqual(
-            self.securityParameters.encode(),
-            self.encoding,
-        )
-
-    def testRepr(self):
-        self.assertEqual(
-            eval(repr(self.securityParameters)),
-            self.securityParameters,
-        )
-
-    def testSignatureIndex(self):
-        securityParameters = UsmSecurityParameters.decode(self.encoding)
-        self.assertIs(securityParameters.wholeMsg, self.message)
-        self.assertEqual(securityParameters.signatureIndex, 64)
-
-    def testMissingSignatureIndex(self):
-        self.assertIsNone(self.securityParameters.wholeMsg)
-        self.assertIsNone(self.securityParameters.signatureIndex)
-
-    def testFindSignature(self):
-        signature = UsmSecurityParameters.findSignature(self.encoding)
-        self.assertEqual(signature, subbytes(self.encoding, 38, 40))
 
 class UsmLocalizeTest(unittest.TestCase):
     def setUp(self):
