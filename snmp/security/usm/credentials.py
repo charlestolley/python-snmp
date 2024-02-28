@@ -40,6 +40,16 @@ class Credentials:
             self.authProtocol = authProtocol
             self.authKey = authProtocol.computeKey(authSecret or secret)
 
+    def __eq__(self, other: Any):
+        if not isinstance(other, Credentials):
+            return NotImplemented
+
+        return (self.authProtocol == other.authProtocol
+            and self.privProtocol == other.privProtocol
+            and self.authKey == other.authKey
+            and self.privKey == other.privKey
+        )
+
     def localize(self, engineID: bytes) -> LocalizedCredentials:
         auth = None
         priv = None

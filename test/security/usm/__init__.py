@@ -15,9 +15,9 @@ from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm import *
 from snmp.security.usm.credentials import *
-from snmp.security.usm import (
-    DiscoveredEngine, PrivProtocol, TimeKeeper, UserTable,
-)
+from snmp.security.usm.timekeeper import *
+from snmp.security.usm.users import *
+from snmp.security.usm import DiscoveredEngine, UserTable
 
 from snmp.security.usm.auth import *
 from snmp.smi import *
@@ -222,10 +222,6 @@ class UsmUserConfigTest(unittest.TestCase):
         self.usm.addUser("user2", default=True)
         self.assertEqual(self.usm.getDefaultUser(), "user2")
 
-    def testDuplicateUser(self):
-        self.usm.addUser(self.user)
-        self.assertRaises(ValueError, self.usm.addUser, self.user)
-
     def testNamespaces(self):
         self.usm.addUser(self.user)
         self.usm.addUser(self.user, namespace=self.namespace)
@@ -290,22 +286,6 @@ class UsmUserConfigTest(unittest.TestCase):
             self.usm.getDefaultSecurityLevel(self.user, self.namespace),
             noAuthNoPriv,
         )
-
-    def testSingleSecret(self):
-        secret = b"sharedSecret"
-        key = self.authProtocol.computeKey(secret)
-        self.usm.addUser(
-            self.user,
-            authProtocol=self.authProtocol,
-            privProtocol=self.privProtocol,
-            secret=secret,
-        )
-
-        # NOTE: this block relies on non-public behavior
-        space = self.usm.getNameSpace()
-        credentials = space[self.user].credentials
-        self.assertEqual(credentials.authKey, key)
-        self.assertEqual(credentials.privKey, key)
 
 class UsmOutgoingTest(unittest.TestCase):
     def setUp(self):

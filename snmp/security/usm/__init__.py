@@ -1,5 +1,5 @@
 __all__ = [
-    "InvalidEngineID", "InvalidUserName", "InvalidSecurityLevel",
+    "InvalidEngineID", "InvalidSecurityLevel", "InvalidUserName",
     "AuthProtocol", "PrivProtocol", "UserBasedSecurityModule",
 ]
 
@@ -61,6 +61,7 @@ class PrivProtocol:
 from .credentials import *
 from .parameters import *
 from .timekeeper import *
+from .users import *
 
 class UnsupportedSecLevel(IncomingMessageError):
     pass
@@ -81,9 +82,6 @@ class DecryptionError(IncomingMessageError):
     pass
 
 class InvalidEngineID(ValueError):
-    pass
-
-class InvalidUserName(ValueError):
     pass
 
 class InvalidSecurityLevel(ValueError):
@@ -148,38 +146,13 @@ class UserTable:
         except KeyError as err:
             raise InvalidUserName(userName) from err
 
-class UserEntry:
-    def __init__(self,
-        defaultSecurityLevel: SecurityLevel,
-        credentials: Credentials
-    ) -> None:
-        self.credentials = credentials
-        self.defaultSecurityLevel = defaultSecurityLevel
-
-class NameSpace:
-    def __init__(self, defaultUserName: str):
-        self.defaultUserName = defaultUserName
-        self.users: Dict[str, UserEntry] = {}
-
-    def __iter__(self) -> Iterator[Tuple[str, UserEntry]]:
-        return self.users.items().__iter__()
-
-    def __contains__(self, key: str) -> bool:
-        return self.users.__contains__(key)
-
-    def __getitem__(self, key: str) -> UserEntry:
-        return self.users.__getitem__(key)
-
-    def __setitem__(self, key: str, item: UserEntry) -> None:
-        return self.users.__setitem__(key, item)
-
 class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
     MODEL = SecurityModel.USM
 
     def __init__(self) -> None:
         self.engines: Dict[bytes, DiscoveredEngine] = {}
         self.lock = threading.Lock()
-        self.namespaces: Dict[str, NameSpace] = {}
+        self.namespaces: Dict[str, NamespaceConfig] = {}
         self.timekeeper = TimeKeeper()
         self.users = UserTable()
 
@@ -202,60 +175,31 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             secret,
         )
 
-        if defaultSecurityLevel is None:
-            defaultSecurityLevel = credentials.maxSecurityLevel
-        elif defaultSecurityLevel > credentials.maxSecurityLevel:
-            errmsg = "Unable to support {} without the \"{}\" argument"
-
-            if credentials.maxSecurityLevel.auth:
-                param = "privProtocol"
-            else:
-                param = "authProtocol"
-
-            raise ValueError(errmsg.format(defaultSecurityLevel, param))
-
         with self.lock:
             try:
-                space = self.namespaces[namespace]
+                config = self.namespaces[namespace]
             except KeyError:
-                space = NameSpace(userName)
-                self.namespaces[namespace] = space
-            else:
-                if userName in space:
-                    errmsg = f"User \"{userName}\" is already defined"
+                config = NamespaceConfig()
+                self.namespaces[namespace] = config
 
-                    if namespace:
-                        errmsg += f" in namespace \"{namespace}\""
-
-                    raise ValueError(errmsg)
-
-                if default:
-                    space.defaultUserName = userName
-
-            space[userName] = UserEntry(defaultSecurityLevel, credentials)
+            config.addUser(
+                userName,
+                credentials,
+                defaultSecurityLevel,
+                default,
+            )
 
     def getDefaultSecurityLevel(self,
         userName: str,
         namespace: str = "",
     ) -> SecurityLevel:
-        space = self.getNameSpace(namespace)
-
-        try:
-            user = space[userName]
-        except KeyError as err:
-            errmsg = f"No user \"{userName}\""
-
-            if namespace:
-                errmsg += f" in namespace \"{namespace}\""
-
-            raise ValueError(errmsg) from err
-
-        return user.defaultSecurityLevel
+        config = self.getNamespace(namespace)
+        return config.findUser(userName).defaultSecurityLevel
 
     def getDefaultUser(self, namespace: str = "") -> str:
-        return self.getNameSpace(namespace).defaultUserName
+        return self.getNamespace(namespace).defaultUserName
 
-    def getNameSpace(self, namespace: str = "") -> NameSpace:
+    def getNamespace(self, namespace: str = "") -> NamespaceConfig:
         try:
             return self.namespaces[namespace]
         except KeyError as err:
@@ -281,12 +225,12 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
 
             # Read as "assigned but not initialized"
             if not initialized and assigned:
-                ns = self.namespaces[namespace]
-                for userName, entry in ns:
+                config = self.namespaces[namespace]
+                for userName, userConfig in config:
                     self.users.assignCredentials(
                         engineID,
                         userName.encode(),
-                        entry.credentials.localize(engineID),
+                        userConfig.credentials.localize(engineID),
                     )
 
             return assigned

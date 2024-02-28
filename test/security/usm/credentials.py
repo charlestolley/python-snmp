@@ -14,6 +14,22 @@ class CredentialsTest(unittest.TestCase):
         self.privSecret = b"Is it secret?"
         self.secret = self.privSecret + b" " + self.authSecret
 
+    def test_two_identical_sets_of_credentials_are_equal(self):
+        ap = DummyAuthProtocol
+        pp = DummyPrivProtocol
+
+        c1 = Credentials(ap, self.secret, pp, self.secret)
+        c2 = Credentials(ap, privProtocol=pp, secret=self.secret)
+        self.assertEqual(c1, c2)
+
+    def test_two_different_sets_of_credentials_are_not_equal(self):
+        ap = DummyAuthProtocol
+        pp = DummyPrivProtocol
+
+        c1 = Credentials(ap, self.authSecret, pp, self.privSecret)
+        c2 = Credentials(ap, privProtocol=pp, secret=self.secret)
+        self.assertNotEqual(c1, c2)
+
     def test_maxSecurityLevel_with_no_authProtocol_is_noAuthNoPriv(self):
         credentials = Credentials()
         self.assertEqual(credentials.maxSecurityLevel, noAuthNoPriv)
