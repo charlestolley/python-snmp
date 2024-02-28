@@ -4,6 +4,7 @@ test_modules = [
     "asn1",
     "smi",
     "pdu",
+    "message.version",
     "message",
     "message.v1",
     "message.v2c",
