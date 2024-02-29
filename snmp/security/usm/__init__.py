@@ -81,9 +81,6 @@ class WrongDigest(IncomingMessageError):
 class DecryptionError(IncomingMessageError):
     pass
 
-class InvalidEngineID(ValueError):
-    pass
-
 class InvalidSecurityLevel(ValueError):
     pass
 
@@ -92,21 +89,21 @@ class DiscoveredEngine:
         self.namespace: Optional[str] = None
         self.refCount = 0
 
-    def assign(self, namespace: str) -> Tuple[bool, bool]:
+    def reserve(self, namespace: str) -> Tuple[bool, bool]:
+        reserved = True
         assigned = True
-        initialized = True
 
         if namespace != self.namespace:
             if self.refCount:
-                assigned = False
+                reserved = False
             else:
                 self.namespace = namespace
-                initialized = False
+                assigned = False
 
-        if assigned:
+        if reserved:
             self.refCount += 1
 
-        return assigned, initialized
+        return reserved, assigned
 
     def release(self, namespace: str) -> bool:
         assert self.namespace == namespace
@@ -115,46 +112,14 @@ class DiscoveredEngine:
         self.refCount -= 1
         return self.refCount == 0
 
-class UserTable:
-    def __init__(self) -> None:
-        self.engines: Dict[bytes, Dict[bytes, LocalizedCredentials]] = {}
-
-    def assignCredentials(self,
-        engineID: bytes,
-        userName: bytes,
-        credentials: LocalizedCredentials,
-    ) -> None:
-        try:
-            users = self.engines[engineID]
-        except KeyError:
-            users = dict()
-            self.engines[engineID] = users
-
-        users[userName] = credentials
-
-    def getCredentials(self,
-        engineID: bytes,
-        userName: bytes,
-    ) -> LocalizedCredentials:
-        try:
-            users = self.engines[engineID]
-        except KeyError as err:
-            raise InvalidEngineID(engineID) from err
-
-        try:
-            return users[userName]
-        except KeyError as err:
-            raise InvalidUserName(userName) from err
-
 class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
     MODEL = SecurityModel.USM
 
     def __init__(self) -> None:
+        self.users = UserRegistry()
         self.engines: Dict[bytes, DiscoveredEngine] = {}
         self.lock = threading.Lock()
-        self.namespaces: Dict[str, NamespaceConfig] = {}
         self.timekeeper = TimeKeeper()
-        self.users = UserTable()
 
     def addUser(self,
         userName: str,
@@ -167,48 +132,34 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         namespace: str = "",
     ) -> None:
-        credentials = Credentials(
-            authProtocol,
-            authSecret,
-            privProtocol,
-            privSecret,
-            secret,
-        )
-
         with self.lock:
-            try:
-                config = self.namespaces[namespace]
-            except KeyError:
-                config = NamespaceConfig()
-                self.namespaces[namespace] = config
-
-            config.addUser(
-                userName,
-                credentials,
-                defaultSecurityLevel,
+            self.users.addUser(
+                userName.encode(),
+                authProtocol,
+                authSecret,
+                privProtocol,
+                privSecret,
+                secret,
                 default,
+                defaultSecurityLevel,
+                namespace,
             )
 
     def getDefaultSecurityLevel(self,
         userName: str,
         namespace: str = "",
     ) -> SecurityLevel:
-        config = self.getNamespace(namespace)
-        return config.findUser(userName).defaultSecurityLevel
+        with self.lock:
+            return self.users.getDefaultSecurityLevel(
+                userName.encode(),
+                namespace,
+            )
 
     def getDefaultUser(self, namespace: str = "") -> Optional[str]:
-        return self.getNamespace(namespace).defaultUserName
+        with self.lock:
+            user = self.users.getDefaultUser(namespace)
 
-    def getNamespace(self, namespace: str = "") -> NamespaceConfig:
-        try:
-            return self.namespaces[namespace]
-        except KeyError as err:
-            errmsg = "No users defined"
-
-            if namespace:
-                errmsg += f" in namespace \"{namespace}\""
-
-            raise ValueError(errmsg) from err
+        return user.decode() if user is not None else None
 
     def registerRemoteEngine(self,
         engineID: bytes,
@@ -221,19 +172,13 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
                 engine = DiscoveredEngine()
                 self.engines[engineID] = engine
 
-            assigned, initialized = engine.assign(namespace)
+            reserved, assigned = engine.reserve(namespace)
 
-            # Read as "assigned but not initialized"
-            if not initialized and assigned:
-                config = self.namespaces[namespace]
-                for userName, userConfig in config:
-                    self.users.assignCredentials(
-                        engineID,
-                        userName.encode(),
-                        userConfig.credentials.localize(engineID),
-                    )
+            # Read as "reserved but not assigned"
+            if not assigned and reserved:
+                self.users.assign(engineID, namespace)
 
-            return assigned
+            return reserved
 
     def unregisterRemoteEngine(self,
         engineID: bytes,

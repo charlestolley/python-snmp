@@ -13,6 +13,12 @@ class LocalizedCredentials:
         self.auth = auth
         self.priv = priv
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, LocalizedCredentials):
+            return NotImplemented
+
+        return self.auth == other.auth and self.priv == other.priv
+
 class Credentials:
     def __init__(self,
         authProtocol: Optional[Type[AuthProtocol]] = None,

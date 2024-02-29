@@ -1,4 +1,4 @@
-__all__ = []
+__all__ = ["CredentialsTest", "LocalizedCredentialsTest"]
 
 import unittest
 
@@ -99,6 +99,19 @@ class CredentialsTest(unittest.TestCase):
             localizedCredentials.priv.key,
             DummyAuthProtocol.localize(self.secret, self.engineID),
         )
+
+class LocalizedCredentialsTest(unittest.TestCase):
+    def test_two_objects_with_equal_auth_and_priv_are_equal(self):
+        a = LocalizedCredentials(193, "beef")
+        b = LocalizedCredentials(193, "beef")
+        self.assertEqual(a, b)
+
+    def test_two_different_objects_are_not_equal(self):
+        a = LocalizedCredentials(193, "beef")
+        b = LocalizedCredentials(192, "beef")
+        c = LocalizedCredentials(193, "beer")
+        self.assertNotEqual(a, b)
+        self.assertNotEqual(a, c)
 
 if __name__ == "__main__":
     unittest.main()
