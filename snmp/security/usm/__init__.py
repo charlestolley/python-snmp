@@ -206,8 +206,8 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             with self.lock:
                 user = self.users.getCredentials(engineID, securityName)
 
-            if not user.auth:
-                userName = securityName.decode
+            if user.auth is None:
+                userName = securityName.decode()
                 errmsg = f"Authentication is disabled for user \"{userName}\""
                 raise InvalidSecurityLevel(errmsg)
 
@@ -220,13 +220,14 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             msgPrivacyParameters = b''
 
             if message.header.flags.privFlag:
-                if not user.priv:
-                    userName = securityName.decode
+                if user.priv is None:
+                    userName = securityName.decode()
                     errmsg = f"Privacy is disabled for user \"{userName}\""
                     raise InvalidSecurityLevel(errmsg)
 
+                assert message.scopedPDU is not None
                 ciphertext, msgPrivacyParameters = user.priv.encrypt(
-                    cast(ScopedPDU, message.scopedPDU).encode(),
+                    message.scopedPDU.encode(),
                     snmpEngineBoots,
                     snmpEngineTime,
                 )
@@ -256,7 +257,8 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
                 SNMPv3Message.findSecurityParameters(wholeMsg)
             )
 
-            signature = cast(AuthProtocol, user.auth).sign(wholeMsg)
+            assert user.auth is not None
+            signature = user.auth.sign(wholeMsg)
             wholeMsg = location.replace(signature)
 
         return wholeMsg
@@ -311,13 +313,13 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         if len(securityParameters.signature) != len(padding):
             raise WrongDigest("Invalid signature length")
 
-        assert securityParameters.wholeMsg is not None
-        wholeMsg = bytearray(securityParameters.wholeMsg)
-
         assert securityParameters.signatureIndex is not None
         start = securityParameters.signatureIndex
         stop = start + len(padding)
-        wholeMsg[start:stop] = padding
+
+        assert securityParameters.wholeMsg is not None
+        signature = subbytes(securityParameters.wholeMsg, start, stop)
+        wholeMsg = signature.replace(padding)
 
         if user.auth.sign(wholeMsg) != securityParameters.signature:
             raise WrongDigest("Invalid signature")

@@ -1,7 +1,5 @@
 from importlib import import_module
 
-from snmp.exception import IncomingMessageError
-
 packages = (
     "openssl",
     "pycryptodome",
