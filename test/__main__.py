@@ -5,7 +5,7 @@ test_modules = [
     "smi",
     "pdu",
     "message.version",
-    "message",
+    "message.core",
     "message.v1",
     "message.v2c",
     "message.v3",
