@@ -1,8 +1,5 @@
 __all__ = ["TimeKeeper"]
 
-from threading import Lock
-from time import time
-
 from snmp.typing import *
 
 class EngineTime:
@@ -69,7 +66,6 @@ class TimeKeeper:
     TIME_WINDOW_SIZE: ClassVar[int] = 150
 
     def __init__(self) -> None:
-        self.lock = Lock()
         self.table: Dict[bytes, EngineTime] = {}
 
     def assertEntry(self,
@@ -89,18 +85,14 @@ class TimeKeeper:
 
     def getEngineTime(self,
         engineID: bytes,
-        timestamp: Optional[float] = None,
+        timestamp: float,
     ) -> Tuple[int, int]:
-        if timestamp is None:
-            timestamp = time()
+        try:
+            et = self.table[engineID]
+        except KeyError:
+            return 0, 0
 
-        with self.lock:
-            try:
-                et = self.table[engineID]
-            except KeyError:
-                return 0, 0
-
-            return et.snmpEngineBoots, et.snmpEngineTime(timestamp)
+        return et.snmpEngineBoots, et.snmpEngineTime(timestamp)
 
     def hint(self,
         engineID: bytes,
@@ -108,9 +100,8 @@ class TimeKeeper:
         msgTime: int,
         timestamp: float,
     ) -> None:
-        with self.lock:
-            et = self.assertEntry(engineID, msgBoots, msgTime, timestamp)
-            et.hint(msgBoots, msgTime, timestamp)
+        et = self.assertEntry(engineID, msgBoots, msgTime, timestamp)
+        et.hint(msgBoots, msgTime, timestamp)
 
     def updateAndVerify(self,
         engineID: bytes,
@@ -118,11 +109,10 @@ class TimeKeeper:
         msgTime: int,
         timestamp: float,
     ) -> bool:
-        with self.lock:
-            et = self.assertEntry(engineID, msgBoots, msgTime, timestamp, True)
-            et.update(msgBoots, msgTime, timestamp)
+        et = self.assertEntry(engineID, msgBoots, msgTime, timestamp, True)
+        et.update(msgBoots, msgTime, timestamp)
 
-            return (msgBoots == et.snmpEngineBoots
-                and et.computeAge(msgTime, timestamp) <= self.TIME_WINDOW_SIZE
-                and et.valid
-            )
+        return (msgBoots == et.snmpEngineBoots
+            and et.computeAge(msgTime, timestamp) <= self.TIME_WINDOW_SIZE
+            and et.valid
+        )

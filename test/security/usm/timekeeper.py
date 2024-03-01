@@ -145,9 +145,9 @@ class TimeKeeperTest(unittest.TestCase):
         )
 
     def test_getEngineTime_returns_zeros_for_unfamiliar_engineID(self):
-        engineBoots, engineTime = self.timekeeper.getEngineTime(b"unknown")
-        self.assertEqual(engineBoots, 0)
-        self.assertEqual(engineTime, 0)
+        eboots, etime = self.timekeeper.getEngineTime(b"unknown", time.time())
+        self.assertEqual(eboots, 0)
+        self.assertEqual(etime, 0)
 
     def test_getEngineTime_computes_engineTime_from_timestamp(self):
         delta = 23.7
