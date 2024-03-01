@@ -84,42 +84,13 @@ class DecryptionError(IncomingMessageError):
 class InvalidSecurityLevel(ValueError):
     pass
 
-class DiscoveredEngine:
-    def __init__(self) -> None:
-        self.namespace: Optional[str] = None
-        self.refCount = 0
-
-    def reserve(self, namespace: str) -> Tuple[bool, bool]:
-        reserved = True
-        assigned = True
-
-        if namespace != self.namespace:
-            if self.refCount:
-                reserved = False
-            else:
-                self.namespace = namespace
-                assigned = False
-
-        if reserved:
-            self.refCount += 1
-
-        return reserved, assigned
-
-    def release(self, namespace: str) -> bool:
-        assert self.namespace == namespace
-        assert self.refCount > 0
-
-        self.refCount -= 1
-        return self.refCount == 0
-
 class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
     MODEL = SecurityModel.USM
 
     def __init__(self) -> None:
-        self.users = UserRegistry()
-        self.engines: Dict[bytes, DiscoveredEngine] = {}
         self.lock = threading.Lock()
         self.timekeeper = TimeKeeper()
+        self.users = UserRegistry()
 
     def addUser(self,
         userName: str,
@@ -166,32 +137,14 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         namespace: str = "",
     ) -> bool:
         with self.lock:
-            try:
-                engine = self.engines[engineID]
-            except KeyError:
-                engine = DiscoveredEngine()
-                self.engines[engineID] = engine
-
-            reserved, assigned = engine.reserve(namespace)
-
-            # Read as "reserved but not assigned"
-            if not assigned and reserved:
-                self.users.assign(engineID, namespace)
-
-            return reserved
+            return self.users.assign(engineID, namespace)
 
     def unregisterRemoteEngine(self,
         engineID: bytes,
         namespace: str = "",
     ) -> None:
         with self.lock:
-            try:
-                engine = self.engines[engineID]
-            except KeyError:
-                assert False, f"Engine {engineID!r} was never registered"
-            else:
-                if engine.release(namespace):
-                    del self.engines[engineID]
+            _ = self.users.release(engineID, namespace)
 
     def prepareOutgoing(self,
         message: SNMPv3Message,

@@ -1,5 +1,5 @@
 __all__ = [
-    "DiscoveredEngineTest", "UsmLocalizeTest", "UsmUserConfigTest",
+    "UsmLocalizeTest", "UsmUserConfigTest",
     "UsmOutgoingTest", "UsmSyncTest", "UsmIncomingTest",
 ]
 
@@ -16,7 +16,6 @@ from snmp.security.usm import *
 from snmp.security.usm.credentials import *
 from snmp.security.usm.timekeeper import *
 from snmp.security.usm.users import *
-from snmp.security.usm import DiscoveredEngine
 
 from snmp.security.usm.auth import *
 from snmp.smi import *
@@ -56,50 +55,6 @@ class DummyPrivProtocol(PrivProtocol):
 
     def encrypt(self, data, engineBoots, engineTime):
         return data, b"salt"
-
-class DiscoveredEngineTest(unittest.TestCase):
-    def setUp(self):
-        self.namespace = "namespace"
-        self.discoveredEngine = DiscoveredEngine()
-        self.discoveredEngine.reserve(self.namespace)
-
-    def test_first_assignment_succeeds_and_reports_uninitialized(self):
-        discoveredEngine = DiscoveredEngine()
-        reserved, assigned = discoveredEngine.reserve(self.namespace)
-        self.assertTrue(reserved)
-        self.assertFalse(assigned)
-
-    def test_conflicting_assignment_is_ignored(self):
-        reserved, _ = self.discoveredEngine.reserve("other")
-        self.assertFalse(reserved)
-
-    def test_reassigning_the_same_name_reports_assigned_and_initialized(self):
-        reserved, assigned = self.discoveredEngine.reserve(self.namespace)
-        self.assertTrue(reserved)
-        self.assertTrue(assigned)
-
-    def test_release_is_False_until_assign_count_has_been_matched(self):
-        _, _ = self.discoveredEngine.reserve(self.namespace)
-        _, _ = self.discoveredEngine.reserve(self.namespace)
-        first   = self.discoveredEngine.release(self.namespace)
-        second  = self.discoveredEngine.release(self.namespace)
-        third   = self.discoveredEngine.release(self.namespace)
-
-        self.assertFalse(first)
-        self.assertFalse(second)
-        self.assertTrue(third)
-
-    def test_reassignment_after_final_release_does_not_reinitialize(self):
-        self.discoveredEngine.release(self.namespace)
-        reserved, assigned = self.discoveredEngine.reserve(self.namespace)
-        self.assertTrue(reserved)
-        self.assertTrue(assigned)
-
-    def test_assign_new_name_when_successful_reports_uninitialized(self):
-        self.discoveredEngine.release(self.namespace)
-        reserved, assigned = self.discoveredEngine.reserve("other")
-        self.assertTrue(reserved)
-        self.assertFalse(assigned)
 
 class UsmLocalizeTest(unittest.TestCase):
     def setUp(self):

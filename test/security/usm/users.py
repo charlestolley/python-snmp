@@ -1,11 +1,16 @@
-__all__ = ["NamespaceConfigTest", "UserConfigTest", "UserRegistryTest"]
+__all__ = [
+    "NamespaceConfigTest", "RemoteEngineTest",
+    "UserConfigTest", "UserRegistryTest",
+]
 
 import unittest
 
 from snmp.security.levels import *
 from snmp.security.usm.credentials import *
 from snmp.security.usm.users import *
-from snmp.security.usm.users import NamespaceConfig, UserConfig
+from snmp.security.usm.users import (
+    RemoteEngine, NamespaceConfig, UserConfig,
+)
 
 from . import DummyAuthProtocol, DummyPrivProtocol
 
@@ -117,9 +122,50 @@ class NamespaceConfigTest(unittest.TestCase):
         self.config.addUser(self.other, self.otherCreds)
         self.assertEqual(list(sorted(iter(self.config))), expected)
 
+class RemoteEngineTest(unittest.TestCase):
+    def setUp(self):
+        self.engineID = b"remote"
+        self.namespace = "namespace"
+
+        self.user = b"user1"
+        self.other = b"user2"
+        self.userCreds = Credentials(DummyAuthProtocol, b"secret")
+        self.otherCreds = Credentials(DummyAuthProtocol, b"other")
+        self.config = NamespaceConfig()
+        self.config.addUser(self.user, self.userCreds)
+        self.config.addUser(self.other, self.otherCreds)
+
+        self.engine = RemoteEngine(self.engineID, self.namespace, self.config)
+
+    def test_conflicting_assignment_is_ignored(self):
+        assigned = self.engine.assign("other")
+        self.assertFalse(assigned)
+
+    def test_reassigning_the_same_name_reports_assigned_and_initialized(self):
+        assigned = self.engine.assign(self.namespace)
+        self.assertTrue(assigned)
+
+    def test_release_is_False_until_assign_count_has_been_matched(self):
+        _ = self.engine.assign(self.namespace)
+        _ = self.engine.assign(self.namespace)
+        first   = self.engine.release(self.namespace)
+        second  = self.engine.release(self.namespace)
+        third   = self.engine.release(self.namespace)
+
+        self.assertFalse(first)
+        self.assertFalse(second)
+        self.assertTrue(third)
+
+    def test_getCredentials_returns_the_users_credentials(self):
+        credentials = self.engine.getCredentials(self.user)
+        expected = self.userCreds.localize(self.engineID)
+        self.assertEqual(credentials, expected)
+
+    def test_getCredentials_raises_InvalidUserName(self):
+        self.assertRaises(InvalidUserName, self.engine.getCredentials, b"u0")
+
 class UserRegistryTest(unittest.TestCase):
     def setUp(self):
-        self.users = UserRegistry()
         self.userName = b"somebody"
         self.otherName = b"you"
         self.authProtocol = DummyAuthProtocol
@@ -129,6 +175,7 @@ class UserRegistryTest(unittest.TestCase):
 
         self.engineID = b"track 18"
         self.namespace = "songs"
+        self.users = UserRegistry()
 
     def test_first_user_added_is_the_default(self):
         self.users.addUser(self.userName)
@@ -203,13 +250,15 @@ class UserRegistryTest(unittest.TestCase):
     def test_its_legal_to_assign_empty_namespace(self):
         self.users.assign(self.engineID, self.namespace)
 
-    def test_what_happens_if_you_reassign_an_engine(self):
+    def test_an_engine_may_be_reassigned_once_its_released(self):
         self.users.addUser(self.userName, self.authProtocol, self.secret)
         self.users.addUser(self.otherName)
         self.users.addUser(self.userName, namespace=self.namespace)
 
-        self.users.assign(self.engineID, "")
-        self.users.assign(self.engineID, self.namespace)
+        self.assertTrue(self.users.assign(self.engineID, ""))
+        self.assertTrue(self.users.release(self.engineID, ""))
+        self.assertTrue(self.users.assign(self.engineID, self.namespace))
+
         user = self.users.getCredentials(self.engineID, self.userName)
         self.assertEqual(user, Credentials().localize(self.engineID))
 
@@ -220,7 +269,7 @@ class UserRegistryTest(unittest.TestCase):
             self.otherName,
         )
 
-    def test_get_unknown_credentials(self):
+    def test_error_indicates_the_reason_credentials_are_not_found(self):
         self.assertRaises(
             InvalidEngineID,
             self.users.getCredentials,

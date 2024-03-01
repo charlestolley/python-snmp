@@ -3,6 +3,7 @@ __all__ = [
     "UserRegistry", "UserNameCollision",
 ]
 
+from snmp.exception import *
 from snmp.security import *
 from snmp.typing import *
 
@@ -78,8 +79,47 @@ class NamespaceConfig:
         except KeyError as err:
             raise InvalidUserName(userName) from err
 
+class RemoteEngine:
+    def __init__(self,
+        engineID: bytes,
+        namespace: str,
+        config: Optional[NamespaceConfig] = None,
+    ) -> None:
+        self.count = 1
+        self.namespace: str = namespace
+
+        if config is None:
+            config = NamespaceConfig()
+
+        self.users: Dict[bytes, LocalizedCredentials] = {
+            userName: userConfig.credentials.localize(engineID)
+            for userName, userConfig in config
+        }
+
+    def getCredentials(self, userName: bytes) -> LocalizedCredentials:
+        try:
+            return self.users[userName]
+        except KeyError as err:
+            raise InvalidUserName(userName) from err
+
+    def assign(self, namespace: str) -> bool:
+        match = False
+        if namespace == self.namespace:
+            match = True
+            self.count += 1
+
+        return match
+
+    def release(self, namespace: str) -> bool:
+        if self.namespace == namespace:
+            assert self.count > 0
+            self.count -= 1
+
+        return self.count == 0
+
 class UserRegistry:
     def __init__(self) -> None:
+        self.engines: Dict[bytes, RemoteEngine] = {}
         self.namespaces: Dict[str, NamespaceConfig] = {}
         self.users: Dict[bytes, Dict[bytes, LocalizedCredentials]] = {}
 
@@ -110,36 +150,46 @@ class UserRegistry:
 
         config.addUser(userName, credentials, defaultSecurityLevel, default)
 
-    def assign(self, engineID: bytes, namespace: str) -> None:
+    def assign(self, engineID: bytes, namespace: str) -> bool:
+        assigned = True
+
         try:
-            config = self.namespaces[namespace]
+            peer = self.engines[engineID]
+        except KeyError:
+            config = self.namespaces.get(namespace)
+            peer = RemoteEngine(engineID, namespace, config)
+            self.engines[engineID] = peer
+        else:
+            assigned = peer.assign(namespace)
+
+        return assigned
+
+    def release(self, engineID: bytes, namespace: str) -> bool:
+        released = False
+
+        try:
+            peer = self.engines[engineID]
         except KeyError as err:
-            config = NamespaceConfig()
+            if __debug__:
+                errmsg = f"Engine {engineID!r} is not assigned to a namespace"
+                raise SNMPLibraryBug(errmsg) from err
+        else:
+            if peer.release(namespace):
+                del self.engines[engineID]
+                released = True
 
-        users = {}
-        for userName, userConfig in config:
-            user = userConfig.credentials.localize(engineID)
-            users[userName] = user
-
-        self.users[engineID] = users
+        return released
 
     def getCredentials(self,
         engineID: bytes,
         userName: bytes,
     ) -> LocalizedCredentials:
         try:
-            users = self.users[engineID]
+            peer = self.engines[engineID]
         except KeyError as err:
             raise InvalidEngineID(f"Unrecognized engine ID: {engineID!r}")
 
-        try:
-            user = users[userName]
-        except KeyError as err:
-            errmsg = f"User \"{userName.decode()}\" is not defined" \
-                f" for engine {engineID!r}"
-            raise InvalidUserName(errmsg) from err
-
-        return user
+        return peer.getCredentials(userName)
 
     def getDefaultSecurityLevel(self,
         userName: bytes,
