@@ -164,6 +164,18 @@ class RemoteEngineTest(unittest.TestCase):
     def test_getCredentials_raises_InvalidUserName(self):
         self.assertRaises(InvalidUserName, self.engine.getCredentials, b"u0")
 
+    def test_addUser_stores_credentials_for_the_given_user(self):
+        engine = RemoteEngine(self.engineID, self.namespace)
+        self.assertRaises(
+            InvalidUserName,
+            engine.getCredentials,
+            self.user,
+        )
+
+        engine.addUser(self.engineID, self.user, self.userCreds)
+        creds = engine.getCredentials(self.user)
+        self.assertEqual(creds, self.userCreds.localize(self.engineID))
+
 class UserRegistryTest(unittest.TestCase):
     def setUp(self):
         self.userName = b"somebody"
@@ -284,6 +296,27 @@ class UserRegistryTest(unittest.TestCase):
             self.engineID,
             self.userName,
         )
+
+    def test_addUser_after_namespace_assignment_works_just_the_same(self):
+        self.users.addUser(self.userName)
+        self.users.assign(self.engineID, self.namespace)
+        self.assertRaises(
+            InvalidUserName,
+            self.users.getCredentials,
+            self.engineID,
+            self.userName,
+        )
+
+        self.users.addUser(
+            self.userName,
+            self.authProtocol,
+            self.secret,
+            namespace=self.namespace,
+        )
+
+        user = self.users.getCredentials(self.engineID, self.userName)
+        credentials = Credentials(self.authProtocol, self.secret)
+        self.assertEqual(user, credentials.localize(self.engineID))
 
 if __name__ == "__main__":
     unittest.main()

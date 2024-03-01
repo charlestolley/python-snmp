@@ -87,14 +87,17 @@ class RemoteEngine:
     ) -> None:
         self.count = 1
         self.namespace: str = namespace
+        self.users: Dict[bytes, LocalizedCredentials] = {}
 
-        if config is None:
-            config = NamespaceConfig()
+        for userName, userConfig in (config if config is not None else []):
+            self.addUser(engineID, userName, userConfig.credentials)
 
-        self.users: Dict[bytes, LocalizedCredentials] = {
-            userName: userConfig.credentials.localize(engineID)
-            for userName, userConfig in config
-        }
+    def addUser(self,
+        engineID: bytes,
+        userName: bytes,
+        credentials: Credentials,
+    ) -> None:
+        self.users[userName] = credentials.localize(engineID)
 
     def getCredentials(self, userName: bytes) -> LocalizedCredentials:
         try:
@@ -149,6 +152,10 @@ class UserRegistry:
         )
 
         config.addUser(userName, credentials, defaultSecurityLevel, default)
+
+        for engineID, engine in self.engines.items():
+            if engine.namespace == namespace:
+                engine.addUser(engineID, userName, credentials)
 
     def assign(self, engineID: bytes, namespace: str) -> bool:
         assigned = True
