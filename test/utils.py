@@ -1,10 +1,58 @@
 __all__ = [
     "ComparableWeakRefTest", "NumberGeneratorTest",
-    "SubbytesTest", "TypenameTest",
+    "ResultWhileAliveTest", "SubbytesTest", "TypenameTest",
 ]
 
 import unittest
+import weakref
+
 from snmp.utils import *
+from snmp.utils import ResultWhileAlive
+
+class ResultWhileAliveTest(unittest.TestCase):
+    class Counter:
+        def __init__(self, value):
+            self.value = value
+
+        def advance(self, step=1):
+            self.value += step
+
+        def intValue(self):
+            return self.value
+
+    def test_capture_the_value_upon_construction(self):
+        counter = self.Counter(19)
+        ref = weakref.ref(counter)
+        result = ResultWhileAlive(self.Counter.intValue, counter)
+        del counter
+
+        if ref() is not None:
+            self.skipTest("Deleted object was not immediately destroyed")
+
+        self.assertEqual(result.value, 19)
+
+    def test_stored_value_is_only_updated_by_a_call_to_value(self):
+        counter = self.Counter(19)
+        ref = weakref.ref(counter)
+        result = ResultWhileAlive(self.Counter.intValue, counter)
+        counter.advance()
+        del counter
+
+        if ref() is not None:
+            self.skipTest("Deleted object was not immediately destroyed")
+
+        self.assertEqual(result.value, 19)
+
+    def test_call_key_while_obj_remains_alive(self):
+        counter = self.Counter(19)
+        result = ResultWhileAlive(self.Counter.intValue, counter)
+        counter.advance(3)
+        self.assertEqual(result.value, 22)
+
+        counter.advance(6)
+        _ = result.value
+        del counter
+        self.assertEqual(result.value, 28)
 
 class ComparableWeakRefTest(unittest.TestCase):
     class Counter:

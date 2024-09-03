@@ -9,20 +9,16 @@ T = TypeVar("T")
 V = TypeVar("V")    # V must support less-than comparison
 
 @final
-class ComparableWeakRef(Generic[T, V]):
-    """A weakref that can be used in sorted data structures.
+class ResultWhileAlive(Generic[T, V]):
+    """The result of key(obj), where obj is weakly held.
 
-    This class extends the behavior of the standard library's weakref type by
-    adding support for the less-than operator. Upon construction, it will call
-    the provided key function, with obj as the only argument, and store the
-    result as the "comparison key". So long as the object remains alive, it
-    will continue to call key() with every comparison, and update the stored
-    value. If the reference becomes invalid (i.e. the object is garbage-
-    collected), then it will use the last stored value for all future
-    comparisons.
+    So long as obj remains alive, the value() method will call key(obj), and
+    return the result. If the object has been destructed, then value() will
+    return the result of the most recent call to key(obj) previous to the
+    destruction of obj. The key function is assumed to be non-throwing.
     """
 
-    def __init__(self, obj: T, key: Callable[[T], V]) -> None:
+    def __init__(self, key: Callable[[T], V], obj: T) -> None:
         # obj could be garbage-collected as soon as this call returns, so it's
         # important to retrieve the value now, rather than initialize to None
         self._value = key(obj)
@@ -39,6 +35,24 @@ class ComparableWeakRef(Generic[T, V]):
 
         return self._value
 
+@final
+class ComparableWeakRef(Generic[T, V]):
+    """A weakref that can be used in sorted data structures.
+
+    This class extends the behavior of the standard library's weakref type by
+    adding support for the less-than operator. Upon construction, it will call
+    the provided key function, with obj as the only argument, and store the
+    result as the "comparison key". So long as the object remains alive, it
+    will continue to call key() with every comparison, and update the stored
+    value. If the reference becomes invalid (i.e. the object is garbage-
+    collected), then it will use the last stored value for all future
+    comparisons.
+    """
+
+    def __init__(self, obj: T, key: Callable[[T], V]) -> None:
+        self.result = ResultWhileAlive(key, obj)
+        self.ref = weakref.ref(obj)
+
     def __call__(self) -> Optional[T]:
         """Retrieve a reference to the wrapped object.
 
@@ -49,7 +63,7 @@ class ComparableWeakRef(Generic[T, V]):
 
     def __lt__(self, other: "ComparableWeakRef[Any, V]") -> bool:
         """Compare this object to another ComparableWeakRef."""
-        return cast(bool, self.value < other.value) # type: ignore[operator]
+        return self.result.value < other.result.value
 
 @final
 class NumberGenerator:
