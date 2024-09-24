@@ -403,28 +403,19 @@ class TypenameTest(unittest.TestCase):
     class Inner:
         pass
 
-    def checkQualifiedName(self, qualname):
-        self.assertTrue(qualname.startswith(__name__))
-        self.assertEqual(qualname[len(__name__)], ".")
-
-        # drop the module path
-        qualname = qualname[len(__name__)+1:]
-        self.assertIs(eval(qualname), self.Inner)
-
-    def checkUnqualifiedName(self, name):
-        self.assertEqual(name, "Inner")
-
     def test_return_the_fully_qualified_class_name(self):
-        self.checkQualifiedName(typename(self.Inner, qualified=True))
+        result = typename(self.Inner, qualified=True)
+        self.assertEqual(result, __name__ + ".TypenameTest.Inner")
 
     def test_return_the_fully_qualified_name_of_the_objects_class(self):
-        self.checkQualifiedName(typename(self.Inner(), qualified=True))
+        result = typename(self.Inner(), qualified=True)
+        self.assertEqual(result, __name__ + ".TypenameTest.Inner")
 
     def test_return_the_unqualified_class_name(self):
-        self.checkUnqualifiedName(typename(self.Inner))
+        self.assertEqual(typename(self.Inner), "Inner")
 
     def test_return_the_unqualified_name_of_the_objects_class(self):
-        self.checkUnqualifiedName(typename(self.Inner()))
+        self.assertEqual(typename(self.Inner()), "Inner")
 
 if __name__ == "__main__":
     unittest.main()
