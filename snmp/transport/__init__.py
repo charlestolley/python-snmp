@@ -63,11 +63,13 @@ class TransportListener(Generic[T]):
         raise NotImplementedError()
 
 class TransportMultiplexor(Generic[T]):
-
-    def register(self, sock: Transport[T]) -> None:
+    def register(self,
+        sock: Transport[T],
+        listener: TransportListener[T],
+    ) -> None:
         raise NotImplementedError()
 
-    def listen(self, listener: TransportListener[T]) -> None:
+    def listen(self) -> None:
         raise NotImplementedError()
 
     def stop(self) -> None:

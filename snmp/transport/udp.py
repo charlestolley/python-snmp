@@ -9,6 +9,8 @@ from snmp.transport import *
 from snmp.transport import Transport, package
 from snmp.typing import *
 
+UdpListener = TransportListener[Tuple[str, int]]
+
 class UdpSocket(Transport[Tuple[str, int]]):
     DOMAIN: ClassVar[TransportDomain]
 

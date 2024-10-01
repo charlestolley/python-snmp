@@ -4,19 +4,22 @@ import os
 import select
 
 from snmp.transport import *
-from snmp.transport.udp import UdpSocket
+from snmp.transport.udp import UdpListener, UdpSocket
 from snmp.typing import *
 
 class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
     def __init__(self, recvSize: int = 1472) -> None:
         self.recvSize = recvSize
         self.r, self.w = os.pipe()
-        self.sockets: Dict[int, UdpSocket] = {}
+        self.sockets: Dict[int, Tuple[UdpSocket, UdpListener]] = {}
 
-    def register(self, sock: UdpSocket) -> None:    # type: ignore[override]
-        self.sockets[sock.fileno] = sock
+    def register(self,
+        sock: UdpSocket,
+        listener: UdpListener,
+    ) -> None:    # type: ignore[override]
+        self.sockets[sock.fileno] = sock, listener
 
-    def listen(self, listener: TransportListener[Tuple[str, int]]) -> None:
+    def listen(self) -> None:
         poller = select.poll()
         poller.register(self.r, select.POLLIN)
 
@@ -28,7 +31,7 @@ class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
             ready = poller.poll()
             for fd, _ in ready:
                 try:
-                    sock = self.sockets[fd]
+                    sock, listener = self.sockets[fd]
                 except KeyError:
                     if fd == self.r:
                         os.read(fd, 1)
@@ -41,7 +44,7 @@ class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
         os.write(self.w, bytes(1))
 
     def close(self) -> None:
-        for sock in self.sockets.values():
+        for sock, _ in self.sockets.values():
             sock.close()
 
         os.close(self.w)

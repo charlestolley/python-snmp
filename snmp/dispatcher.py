@@ -36,10 +36,9 @@ class Dispatcher(TransportListener[T]):
             self.multiplexor.stop()
             self.thread.join()
 
-        self.multiplexor.register(transport)
+        self.multiplexor.register(transport, self)
         self.thread = threading.Thread(
             target=self.multiplexor.listen,
-            args=(self,)
         )
 
         self.thread.start()

@@ -138,7 +138,6 @@ def declareUdpMultiplexorTest(Multiplexor):
         def spawnThread(self):
             thread = Thread(
                 target=self.multiplexor.listen,
-                args=(self.listener,),
                 daemon=True,
             )
 
@@ -149,14 +148,14 @@ def declareUdpMultiplexorTest(Multiplexor):
             self.multiplexor.close()
 
         def testRegisterMultiple(self):
-            self.multiplexor.register(UdpIPv4Socket())
-            self.multiplexor.register(UdpIPv4Socket())
-            self.multiplexor.register(UdpIPv6Socket())
-            self.multiplexor.register(UdpIPv6Socket())
+            self.multiplexor.register(UdpIPv4Socket(), self.listener)
+            self.multiplexor.register(UdpIPv4Socket(), self.listener)
+            self.multiplexor.register(UdpIPv6Socket(), self.listener)
+            self.multiplexor.register(UdpIPv6Socket(), self.listener)
 
         def testStop(self):
-            self.multiplexor.register(UdpIPv4Socket())
-            self.multiplexor.register(UdpIPv6Socket())
+            self.multiplexor.register(UdpIPv4Socket(), self.listener)
+            self.multiplexor.register(UdpIPv6Socket(), self.listener)
 
             thread = self.spawnThread()
             self.multiplexor.stop()
@@ -165,7 +164,7 @@ def declareUdpMultiplexorTest(Multiplexor):
 
         def testHearIPv4(self):
             sock = UdpIPv4Socket()
-            self.multiplexor.register(sock)
+            self.multiplexor.register(sock, self.listener)
 
             thread = self.spawnThread()
             sock.send((sock.DOMAIN.loopback_address, sock.port), b"IPv4 test")
@@ -177,7 +176,7 @@ def declareUdpMultiplexorTest(Multiplexor):
 
         def testHearIPv6(self):
             sock = UdpIPv6Socket()
-            self.multiplexor.register(sock)
+            self.multiplexor.register(sock, self.listener)
 
             thread = self.spawnThread()
             sock.send((sock.DOMAIN.loopback_address, sock.port), b"IPv6 test")
@@ -195,7 +194,7 @@ def declareUdpMultiplexorTest(Multiplexor):
 
         def testInterruption(self):
             ipv4 = UdpIPv4Socket()
-            self.multiplexor.register(ipv4)
+            self.multiplexor.register(ipv4, self.listener)
 
             thread = self.spawnThread()
             self.multiplexor.stop()
@@ -207,7 +206,7 @@ def declareUdpMultiplexorTest(Multiplexor):
             self.assertFalse(self.listener.heard)
 
             ipv6 = UdpIPv6Socket()
-            self.multiplexor.register(ipv6)
+            self.multiplexor.register(ipv6, self.listener)
 
             thread = self.spawnThread()
             self.listener.wait(self.timeout)

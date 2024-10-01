@@ -4,7 +4,7 @@ import select
 from socket import *
 
 from snmp.transport import *
-from snmp.transport.udp import UdpSocket
+from snmp.transport.udp import UdpListener, UdpSocket
 from snmp.typing import *
 
 STOPMSG = bytes(1)
@@ -14,9 +14,12 @@ class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
         self.recvSize = recvSize
         self.r: Optional[socket] = None
         self.w: Optional[socket] = None
-        self.sockets: Dict[int, UdpSocket] = {}
+        self.sockets: Dict[int, Tuple[UdpSocket, UdpListener]] = {}
 
-    def register(self, sock: UdpSocket) -> None:    # type: ignore[override]
+    def register(self,
+        sock: UdpSocket,
+        listener: UdpListener,
+    ) -> None:    # type: ignore[override]
         if self.w is None:
             address_family = sock.DOMAIN.address_family
             loopback_address = sock.DOMAIN.loopback_address
@@ -28,9 +31,9 @@ class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
             self.r.bind((loopback_address, 0))
             self.w.bind((loopback_address, 0))
 
-        self.sockets[sock.fileno] = sock
+        self.sockets[sock.fileno] = sock, listener
 
-    def listen(self, listener: TransportListener[Tuple[str, int]]) -> None:
+    def listen(self) -> None:
         readfds = []
 
         if self.r is not None:
@@ -44,7 +47,7 @@ class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
             ready = select.select(readfds, [], [])[0]
             for fd in ready:
                 try:
-                    sock = self.sockets[fd]
+                    sock, listener = self.sockets[fd]
                 except KeyError:
                     assert self.r is not None
                     assert self.w is not None
@@ -61,7 +64,7 @@ class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
             self.w.sendto(STOPMSG, self.r.getsockname())
 
     def close(self) -> None:
-        for sock in self.sockets.values():
+        for sock, _ in self.sockets.values():
             sock.close()
 
         if self.w is not None:
