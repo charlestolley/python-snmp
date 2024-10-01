@@ -63,11 +63,9 @@ class Tag:
         referencing everything after the tag.
         """
         try:
-            byte = data.dereference()
+            byte, data = data.pop_front()
         except IndexError as err:
             raise ParseError("Missing tag") from err
-        else:
-            data = data.advance()
 
         class_      = (byte & 0xc0) >> 6
         constructed = (byte & 0x20) != 0
@@ -78,11 +76,9 @@ class Tag:
             byte = 0x80
             while byte & 0x80:
                 try:
-                    byte = data.dereference()
+                    byte, data = data.pop_front()
                 except IndexError as err:
                     raise ParseError("Incomplete tag") from err
-                else:
-                    data = data.advance()
 
                 number <<= 7
                 number |= byte & 0x7f
@@ -121,11 +117,9 @@ def decode_length(data: subbytes) -> Tuple[int, subbytes]:
     data argument immediately following the length field.
     """
     try:
-        length = data.dereference()
+        length, data = data.pop_front()
     except IndexError as err:
         raise ParseError("Missing length") from err
-    else:
-        data = data.advance()
 
     if length & 0x80:
         n = length & 0x7f
@@ -133,11 +127,9 @@ def decode_length(data: subbytes) -> Tuple[int, subbytes]:
         length = 0
         for i in range(n):
             try:
-                byte = data.dereference()
+                byte, data = data.pop_front()
             except IndexError as err:
                 raise ParseError("Incomplete length") from err
-            else:
-                data = data.advance()
 
             length <<= 8
             length |= byte

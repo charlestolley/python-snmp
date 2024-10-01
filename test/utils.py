@@ -318,27 +318,6 @@ class SubbytesTest(unittest.TestCase):
         self.assertEqual(data[-len(data)-9:], substring)
         self.assertEqual(data[-2*len(data):2*len(data)], substring)
 
-    # advance() tests
-
-    def test_advance_returns_subbytes_starting_at_the_previous_index_one(self):
-        data = subbytes(self.data, self.start, self.stop)
-        substring = self.data[self.start:self.stop]
-
-        data = data.advance()
-        self.assertEqual(data, substring[1:])
-
-    def test_advance_empty_returns_empty(self):
-        data = subbytes(self.data, self.start, self.start)
-        newData = data.advance()
-        self.assertEqual(len(newData), 0)
-
-    def test_advance_does_not_modify_the_current_object(self):
-        data = subbytes(self.data, self.start, self.stop)
-        substring = self.data[self.start:self.stop]
-
-        newData = data.advance()
-        self.assertEqual(data, substring)
-
     # dereference() tests
 
     def test_dereference_returns_the_first_byte_without_side_effect(self):
@@ -353,6 +332,25 @@ class SubbytesTest(unittest.TestCase):
     def test_dereference_raises_IndexError_when_the_sequence_is_empty(self):
         data = subbytes(self.data, self.start, self.start)
         self.assertRaises(IndexError, data.dereference)
+
+    # pop_front() tests
+
+    def test_pop_front_returns_the_first_byte_and_remainder_if_non_empty(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        byte, data = data.pop_front()
+        self.assertEqual(byte, substring[0])
+        self.assertEqual(data, substring[1:])
+
+    def test_pop_front_raises_IndexError_if_empty(self):
+        data = subbytes(self.data, self.start, self.start)
+        self.assertRaises(IndexError, data.pop_front)
+
+    def test_pop_front_does_not_modify_the_current_object(self):
+        data = subbytes(self.data, self.start, self.stop)
+        substring = self.data[self.start:self.stop]
+        byte, _ = data.pop_front()
+        self.assertEqual(data, substring)
 
     # replace() tests
 

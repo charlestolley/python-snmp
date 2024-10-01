@@ -260,20 +260,24 @@ class subbytes:
             else:
                 return index
 
-    def advance(self) -> "subbytes":
-        """Advance the head pointer by 1.
-
-        Return a new object referencing the subsequence from index 1 to the
-        end of the current sequence.
-        """
-        return subbytes(self, 1)
-
     def dereference(self) -> int:
         """Retrieve the first byte of the sequence.
 
-        If the sequence is empty, an IndexError will be raised
+        If the sequence is empty, an IndexError will be raised.
         """
         return self[0]
+
+    def pop_front(self) -> Tuple[int, "subbytes"]:
+        """Shortcut for split(1) followed by dereference().
+
+        This method returns a tuple containing, first, the int value of the
+        first byte, and second, a new subbytes object referencing the same
+        underlying sequence, starting from index 1.
+
+        If the sequence is empty, this method will raise an IndexError.
+        """
+        a, b = self.split(1)
+        return a.dereference(), b
 
     def replace(self, replacement: bytes) -> bytes:
         """Substitute the given string in place of the current sequence
