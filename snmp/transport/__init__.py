@@ -70,6 +70,11 @@ class TransportMultiplexor(Generic[T]):
         raise NotImplementedError()
 
     def listen(self) -> None:
+        done = False
+        while not done:
+            done = self.poll()
+
+    def poll(self, timeout: Optional[float] = None) -> bool:
         raise NotImplementedError()
 
     def stop(self) -> None:

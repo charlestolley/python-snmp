@@ -1,5 +1,6 @@
 __all__ = ["UdpMultiplexor"]
 
+import math
 import os
 import select
 
@@ -13,32 +14,31 @@ class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
         self.r, self.w = os.pipe()
         self.sockets: Dict[int, Tuple[UdpSocket, UdpListener]] = {}
 
-    def register(self,
-        sock: UdpSocket,
-        listener: UdpListener,
-    ) -> None:    # type: ignore[override]
+        self.poller = select.poll()
+        self.poller.register(self.r, select.POLLIN)
+
+    def register(self, sock: UdpSocket, listener: UdpListener) -> None:
         self.sockets[sock.fileno] = sock, listener
+        self.poller.register(sock.fileno, select.POLLIN)
 
-    def listen(self) -> None:
-        poller = select.poll()
-        poller.register(self.r, select.POLLIN)
+    def poll(self, timeout: Optional[float] = None) -> bool:
+        msecs = math.ceil(timeout * 1000) if timeout is not None else None
 
-        for fileno in self.sockets.keys():
-            poller.register(fileno, select.POLLIN)
+        interrupted = False
+        ready = self.poller.poll(msecs)
 
-        done = False
-        while not done:
-            ready = poller.poll()
-            for fd, _ in ready:
-                try:
-                    sock, listener = self.sockets[fd]
-                except KeyError:
-                    if fd == self.r:
-                        os.read(fd, 1)
-                        done = True
-                else:
-                    addr, data = sock.receive(self.recvSize)
-                    listener.hear(sock, addr, data)
+        for fd, _ in ready:
+            try:
+                sock, listener = self.sockets[fd]
+            except KeyError:
+                if fd == self.r:
+                    os.read(fd, 1)
+                    interrupted = True
+            else:
+                addr, data = sock.receive(self.recvSize)
+                listener.hear(sock, addr, data)
+
+        return interrupted
 
     def stop(self) -> None:
         os.write(self.w, bytes(1))
