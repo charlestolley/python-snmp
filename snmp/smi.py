@@ -35,6 +35,11 @@ class BoundedInteger(INTEGER):
             raise ParseError(*err.args)
 
     @classmethod
+    def deserialize(cls: Type[TInteger], data: Asn1Data) -> TInteger:
+        value = int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED)
+        return cls.construct(value)
+
+    @classmethod
     def inRange(cls, value: int) -> bool:
         if value < 0 and not cls.SIGNED:
             return False

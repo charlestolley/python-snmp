@@ -79,6 +79,14 @@ class IntegerTypesTest(unittest.TestCase):
         _ = cls.decode(c)
         self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decode, d)
 
+    def help_test_unsigned_boundaries_and_tag(self, cls, a, b, c):
+        # Zero
+        _ = cls.decode(a)
+
+        # Upper bound
+        _ = cls.decode(b)
+        self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decode, c)
+
     def test_Integer32_equals_INTEGER_with_the_same_value(self):
         value = 4
         self.assertEqual(Integer32(value), INTEGER(value))
@@ -105,45 +113,40 @@ class IntegerTypesTest(unittest.TestCase):
         )
 
     def test_Unsigned32_has_the_expected_range_and_tag(self):
-        self.help_test_integer_boundaries_and_tag(
+        self.help_test_unsigned_boundaries_and_tag(
             Unsigned32,
-            b"\x42\x01\xff",
             b"\x42\x01\x00",
             b"\x42\x05\x00\xff\xff\xff\xff",
             b"\x42\x05\x01\x00\x00\x00\x00",
         )
 
     def test_Counter32_has_the_expected_range_and_tag(self):
-        self.help_test_integer_boundaries_and_tag(
+        self.help_test_unsigned_boundaries_and_tag(
             Counter32,
-            b"\x41\x01\xff",
             b"\x41\x01\x00",
             b"\x41\x05\x00\xff\xff\xff\xff",
             b"\x41\x05\x01\x00\x00\x00\x00",
         )
 
     def test_Gauge32_has_the_expected_range_and_tag(self):
-        self.help_test_integer_boundaries_and_tag(
+        self.help_test_unsigned_boundaries_and_tag(
             Gauge32,
-            b"\x42\x01\xff",
             b"\x42\x01\x00",
             b"\x42\x05\x00\xff\xff\xff\xff",
             b"\x42\x05\x01\x00\x00\x00\x00",
         )
 
     def test_TimeTicks_has_the_expected_range_and_tag(self):
-        self.help_test_integer_boundaries_and_tag(
+        self.help_test_unsigned_boundaries_and_tag(
             TimeTicks,
-            b"\x43\x01\xff",
             b"\x43\x01\x00",
             b"\x43\x05\x00\xff\xff\xff\xff",
             b"\x43\x05\x01\x00\x00\x00\x00",
         )
 
     def test_Counter64_has_the_expected_range_and_tag(self):
-        self.help_test_integer_boundaries_and_tag(
+        self.help_test_unsigned_boundaries_and_tag(
             Counter64,
-            b"\x46\x01\xff",
             b"\x46\x01\x00",
             b"\x46\x09\x00\xff\xff\xff\xff\xff\xff\xff\xff",
             b"\x46\x09\x01\x00\x00\x00\x00\x00\x00\x00\x00",
