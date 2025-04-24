@@ -42,7 +42,8 @@ class Engine:
         self.autowaitDefault        = autowait
 
         self.msgMaxSize = msgMaxSize
-        self.dispatcher = Dispatcher(UdpMultiplexor(self.msgMaxSize))
+        self.listenThread = ListenThread(UdpMultiplexor(self.msgMaxSize))
+        self.dispatcher = Dispatcher()
         self.transports: Dict[
             TransportDomain,
             Dict[Address, Transport[Address]]
@@ -66,7 +67,7 @@ class Engine:
         self.shutdown()
 
     def shutdown(self) -> None:
-        self.dispatcher.shutdown()
+        self.listenThread.shutdown()
 
     def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
         if transport.DOMAIN in self.transports:
@@ -76,7 +77,7 @@ class Engine:
             errmsg = f"Unsupported transport domain: {transport.DOMAIN}"
             raise ValueError(errmsg)
 
-        self.dispatcher.connectTransport(transport)
+        self.listenThread.connectTransport(transport, self.dispatcher)
         self.transports.setdefault(transport.DOMAIN, {})
 
     def v1Manager(self,
@@ -212,7 +213,7 @@ class Engine:
             transport = transports[localAddress]
         except KeyError:
             transport = transportClass(*localAddress)
-            self.dispatcher.connectTransport(transport)
+            self.listenThread.connectTransport(transport, self.dispatcher)
             transports[localAddress] = transport
 
         channel = TransportChannel(transport, address, localAddress)

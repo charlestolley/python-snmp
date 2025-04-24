@@ -120,7 +120,7 @@ class Request(RequestHandle[Message]):
 T = TypeVar("T")
 class SNMPv1Manager(Generic[T]):
     def __init__(self,
-        dispatcher: Dispatcher[T],
+        dispatcher,
         channel: TransportChannel[T],
         community: bytes,
         autowait: bool = True,

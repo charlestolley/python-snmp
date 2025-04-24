@@ -1,4 +1,4 @@
-__all__ = ["Dispatcher"]
+__all__ = ["Dispatcher", "ListenThread"]
 
 import threading
 
@@ -6,47 +6,52 @@ from snmp.ber import ParseError, decode
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import AnyPDU
-from snmp.security.levels import noAuthNoPriv
 from snmp.transport import *
 from snmp.typing import *
 from snmp.utils import typename
 
-T = TypeVar("T")
-class Dispatcher(TransportListener[T]):
-    def __init__(self,
-        multiplexor: TransportMultiplexor[T],
-    ) -> None:
-        self.lock = threading.Lock()
-        self.msgProcessors: Dict[
-            ProtocolVersion,
-            MessageProcessor[Any, Any],
-        ] = {}
-
+class ListenThread:
+    def __init__(self, multiplexor):
         self.multiplexor = multiplexor
-        self.thread: Optional[threading.Thread] = None
+        self.thread = None
 
-    def addMessageProcessor(self, mp: MessageProcessor[Any, Any]) -> None:
-        with self.lock:
-            self.msgProcessors[mp.VERSION] = mp
-
-    def connectTransport(self, transport: Transport[T]) -> None:
+    def connectTransport(self, transport, listener) -> None:
         domain = transport.DOMAIN
 
         if self.thread is not None:
             self.multiplexor.stop()
             self.thread.join()
 
-        self.multiplexor.register(transport, self)
+        self.multiplexor.register(transport, listener)
         self.thread = threading.Thread(
             target=self.multiplexor.listen,
         )
 
         self.thread.start()
 
-    def hear(self, transport: Transport[T], address: T, data: bytes) -> None:
+    def shutdown(self) -> None:
+        if self.thread is not None:
+            self.multiplexor.stop()
+            self.thread.join()
+
+        self.multiplexor.close()
+        self.thread = None
+
+class Dispatcher(TransportListener):
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.msgProcessors = {}
+
+    def addMessageProcessor(self, mp):
+        with self.lock:
+            self.msgProcessors[mp.VERSION] = mp
+
+    def hear(self, transport, address, data):
         try:
             try:
                 msgVersion = VersionOnlyMessage.decode(data).version
+            except BadVersion:
+                return
             except ParseError:
                 return
 
@@ -67,14 +72,7 @@ class Dispatcher(TransportListener[T]):
         except Exception:
             pass
 
-    def sendPdu(self,
-        channel: TransportChannel[T],
-        msgVersion: ProtocolVersion,
-        pdu: AnyPDU,
-        handle: RequestHandle,  # type: ignore[type-arg]
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
+    def sendPdu(self, channel, msgVersion, pdu, handle, *args, **kwargs):
         with self.lock:
             try:
                 mp = self.msgProcessors[msgVersion]
@@ -84,11 +82,3 @@ class Dispatcher(TransportListener[T]):
 
         msg = mp.prepareOutgoingMessage(pdu, handle, *args, **kwargs)
         channel.send(msg)
-
-    def shutdown(self) -> None:
-        if self.thread is not None:
-            self.multiplexor.stop()
-            self.thread.join()
-
-        self.multiplexor.close()
-        self.thread = None

@@ -448,7 +448,7 @@ class Request:
 T = TypeVar("T")
 class SNMPv3UsmManager(Generic[T]):
     def __init__(self,
-        dispatcher: Dispatcher[T],
+        dispatcher,
         usm: UserBasedSecurityModule,
         channel: TransportChannel[T],
         namespace: str,
