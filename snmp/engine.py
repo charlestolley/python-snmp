@@ -7,11 +7,13 @@ from snmp.message import *
 from snmp.message.v1 import SNMPv1MessageProcessor
 from snmp.message.v2c import SNMPv2cMessageProcessor
 from snmp.message.v3 import SNMPv3MessageProcessor
+from snmp.scheduler import *
 from snmp.security import *
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
 from snmp.typing import *
+from snmp.v1.manager import SNMPv1Manager as SNMPv1Manager2
 
 Address = Tuple[str, int]
 
@@ -228,6 +230,141 @@ class Engine:
         elif version == ProtocolVersion.SNMPv2c:
             return self.v2cManager(channel, autowait, **kwargs)
         elif version == ProtocolVersion.SNMPv1:
+            return self.v1Manager(channel, autowait, **kwargs)
+        else:
+            raise ValueError(f"Unsupported protocol version: {str(version)}")
+
+class SchedulerEngine:
+    TRANSPORTS = {
+        cls.DOMAIN: cls for cls in [
+            UdpIPv4Socket,
+            UdpIPv6Socket,
+        ]
+    }
+
+    def __init__(self,
+        defaultVersion: ProtocolVersion = ProtocolVersion.SNMPv3,
+        defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
+        defaultSecurityModel: SecurityModel = SecurityModel.USM,
+        defaultCommunity: bytes = b"",
+        msgMaxSize: int = 1472,
+        autowait: bool = True,
+    ):
+        # Read-only variables
+        self.defaultVersion         = defaultVersion
+        self.defaultDomain          = defaultDomain
+        self.defaultSecurityModel   = defaultSecurityModel
+        self.defaultCommunity       = defaultCommunity
+        self.autowaitDefault        = autowait
+
+        self.msgMaxSize = msgMaxSize
+        self.multiplexor = UdpMultiplexor(self.msgMaxSize)
+        self.scheduler = Scheduler(self.multiplexor.poll)
+
+        self.dispatcher = Dispatcher()
+        self.transports: Dict[
+            TransportDomain,
+            Dict[Address, Transport[Address]]
+        ] = {}
+
+        self.mpv1: Optional[SNMPv1MessageProcessor] = None
+        self.mpv2c: Optional[SNMPv2cMessageProcessor] = None
+        self.mpv3: Optional[SNMPv3MessageProcessor] = None
+        self._usm: Optional[UserBasedSecurityModule] = None
+
+    @property
+    def usm(self) -> UserBasedSecurityModule:
+        if self._usm is None:
+            self._usm = UserBasedSecurityModule()
+        return self._usm
+
+    def __enter__(self) -> "Engine":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.shutdown()
+
+    def shutdown(self) -> None:
+        pass
+
+    def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
+        self.multiplexor.register(transport, self.dispatcher)
+
+    def v1Manager(self,
+        channel: TransportChannel[Address],
+        autowait: bool,
+        community: Optional[bytes] = None,
+    ) -> SNMPv1Manager:
+        if community is None:
+            community = self.defaultCommunity
+
+        if self.mpv1 is None:
+            self.mpv1 = SNMPv1MessageProcessor()
+            self.dispatcher.addMessageProcessor(self.mpv1)
+
+        return SNMPv1Manager2(
+            self.scheduler,
+            self.dispatcher,
+            channel,
+            community,
+            autowait,
+        )
+
+    def Manager(self,
+        address: Any,
+        version: Optional[ProtocolVersion] = None,
+        domain: Optional[TransportDomain] = None,
+        localAddress: Any = None,
+        autowait: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> Union[
+        SNMPv1Manager,
+        SNMPv2cManager[Address],
+        SNMPv3UsmManager[Address],
+    ]:
+        if domain is None:
+            domain = self.defaultDomain
+
+        if autowait is None:
+            autowait = self.autowaitDefault
+
+        try:
+            transportClass = self.TRANSPORTS[domain]
+        except KeyError as err:
+            errmsg = f"Unsupported transport domain: {transportClass.DOMAIN}"
+            raise ValueError(errmsg) from err
+
+        address = transportClass.normalizeAddress(
+            address,
+            AddressUsage.LISTENER,
+        )
+
+        localAddress = transportClass.normalizeAddress(
+            localAddress,
+            AddressUsage.SENDER,
+        )
+
+        try:
+            transports = self.transports[domain]
+        except KeyError:
+            transports = {}
+            self.transports[domain] = transports
+
+        try:
+            transport = transports[localAddress]
+        except KeyError:
+            transport = transportClass(*localAddress)
+            self.multiplexor.register(transport, self.dispatcher)
+            transports[localAddress] = transport
+
+        channel = TransportChannel(transport, address, localAddress)
+
+        if version is None:
+            version = self.defaultVersion
+        elif not isinstance(version, ProtocolVersion):
+            version = ProtocolVersion(version)
+
+        if version == ProtocolVersion.SNMPv1:
             return self.v1Manager(channel, autowait, **kwargs)
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")
