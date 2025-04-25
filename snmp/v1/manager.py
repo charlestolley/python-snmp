@@ -52,7 +52,7 @@ class Request:
             callback(requestID)
 
     def push(self, message):
-        if self.response is None:
+        if self.active:
             self.response = message.pdu
             self.close()
 

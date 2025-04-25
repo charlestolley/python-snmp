@@ -21,6 +21,7 @@ test_modules = [
     "security.usm.priv.pycryptodome",
     "transport.udp",
     "scheduler",
+    "v1.manager",
 ]
 
 import importlib
