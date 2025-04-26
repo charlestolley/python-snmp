@@ -9,6 +9,7 @@ test_modules = [
     "message.v1",
     "message.v2c",
     "message.v3",
+    "numbers",
     "pipeline",
     "security.levels",
     "security.models",
