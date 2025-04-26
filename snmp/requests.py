@@ -16,8 +16,8 @@ class RequestIDAuthority(NumberAuthority):
         # billion outstanding requests in order to ever see this error. On
         # it's own, having a billion outstanding requests would seem to
         # indicate a bug, and, more importantly, encountering this error by
-        # any other way would also indicate a bug, so that's why it
-        # subclasses SNMPLibraryBug.
+        # any other way would also indicate a bug, so that's why it's a type
+        # of SNMPLibraryBug.
         def __init__(self, attempts=None):
             if attempts is None:
                 errmsg = "No available request ID was found"

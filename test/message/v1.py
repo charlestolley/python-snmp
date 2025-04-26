@@ -53,19 +53,6 @@ class SNMPv1MessageProcessorTest(unittest.TestCase):
         self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
         self.assertEqual(self.pdu.requestID, requestID)
 
-    # NOTE: depends on the private "generator" attribute
-    def test_prepareOutgoingMessage_replaces_generator_when_it_reaches_0(self):
-        generator = NumberGenerator(1)
-        _ = next(generator)
-
-        self.processor.generator = generator
-        self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
-
-        self.assertIsNot(self.processor.generator, generator)
-        self.assertNotEqual     (self.pdu.requestID, 0)
-        self.assertGreaterEqual (self.pdu.requestID, -(1<<31))
-        self.assertLess         (self.pdu.requestID,  (1<<31))
-
     def test_prepareOutgoingMessage_returns_encoded_message(self):
         msg = self.processor.prepareOutgoingMessage(
             self.pdu,
@@ -116,26 +103,6 @@ class SNMPv1MessageProcessorTest(unittest.TestCase):
         refcount = sys.getrefcount(self.handle)
         self.processor.prepareOutgoingMessage(self.pdu, self.handle, b"")
         self.assertEqual(sys.getrefcount(self.handle), refcount)
-
-    # NOTE: depends on the private "generator" attribute
-    def test_pOM_raises_SNMPException_if_no_cache_slot_found(self):
-        n = 1000
-        self.processor.generator = iter(range(n, 0, -1))
-
-        handles = list()
-        for i in range(n):
-            pdu = GetRequestPDU(self.pdu.variableBindings[0].name)
-            handles.append(self.Handle())
-            self.processor.prepareOutgoingMessage(pdu, handles[-1], b"")
-
-        self.processor.generator = iter(range(n, 0, -1))
-        self.assertRaises(
-            SNMPException,
-            self.processor.prepareOutgoingMessage,
-            self.pdu,
-            self.handle,
-            b"",
-        )
 
     def test_prepareDataElements_raises_ParseError_on_invalid_message(self):
         version = Integer(ProtocolVersion.SNMPv1)

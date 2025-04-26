@@ -5,8 +5,8 @@ from snmp.ber import *
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
+from snmp.requests import *
 from snmp.typing import *
-from snmp.utils import *
 
 pduTypes = {
     cls.TAG: cls for cls in cast(Tuple[Type[AnyPDU], ...], (
@@ -20,9 +20,6 @@ pduTypes = {
         ReportPDU,
     ))
 }
-
-class CacheError(SNMPException):
-    pass
 
 class LateResponse(IncomingMessageError):
     pass
@@ -43,27 +40,15 @@ class SNMPv2cMessageProcessor(MessageProcessor[Message, AnyPDU]):
 
     def __init__(self) -> None:
         self.cacheLock = threading.Lock()
-        self.generator = self.newGenerator()
+        self.requestIDAuthority = RequestIDAuthority()
         self.outstanding: Dict[int, CacheEntry] = {}
 
-    @staticmethod
-    def newGenerator() -> NumberGenerator:
-        return NumberGenerator(32)
-
     def cache(self, entry: CacheEntry) -> int:
-        retry = 0
-        while retry < 10:
-            with self.cacheLock:
-                requestID = next(self.generator)
-                if requestID == 0:
-                    self.generator = self.newGenerator()
-                elif requestID not in self.outstanding:
-                    self.outstanding[requestID] = entry
-                    return requestID
-
-            retry += 1
-
-        raise CacheError("Failed to allocate request ID")
+        with self.cacheLock:
+            requestID = self.requestIDAuthority.reserve()
+            assert requestID not in self.outstanding
+            self.outstanding[requestID] = entry
+            return requestID
 
     def retrieve(self, requestID: int) -> CacheEntry:
         with self.cacheLock:
@@ -75,6 +60,8 @@ class SNMPv2cMessageProcessor(MessageProcessor[Message, AnyPDU]):
                 del self.outstanding[requestID]
             except KeyError:
                 pass
+            else:
+                self.requestIDAuthority.release(requestID)
 
     def prepareDataElements(self,
         msg: Asn1Data,

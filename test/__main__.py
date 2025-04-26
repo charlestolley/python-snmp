@@ -11,6 +11,7 @@ test_modules = [
     "message.v3",
     "numbers",
     "pipeline",
+    "requests",
     "security.levels",
     "security.models",
     "security.usm.timekeeper",
