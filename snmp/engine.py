@@ -7,6 +7,7 @@ from snmp.message import *
 from snmp.message.v1 import SNMPv1MessageProcessor
 from snmp.message.v2c import SNMPv2cMessageProcessor
 from snmp.message.v3 import SNMPv3MessageProcessor
+from snmp.pipeline import *
 from snmp.scheduler import *
 from snmp.security import *
 from snmp.security.usm import *
@@ -262,6 +263,9 @@ class SchedulerEngine:
         self.scheduler = Scheduler(self.multiplexor.poll)
 
         self.dispatcher = Dispatcher()
+        self.pipeline = VersionDecoder()
+        self.pipeline.register(ProtocolVersion.SNMPv1, self.dispatcher)
+
         self.transports: Dict[
             TransportDomain,
             Dict[Address, Transport[Address]]
@@ -288,7 +292,7 @@ class SchedulerEngine:
         pass
 
     def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
-        self.multiplexor.register(transport, self.dispatcher)
+        self.multiplexor.register(transport, self.pipeline)
 
     def v1Manager(self,
         channel: TransportChannel[Address],
@@ -354,7 +358,7 @@ class SchedulerEngine:
             transport = transports[localAddress]
         except KeyError:
             transport = transportClass(*localAddress)
-            self.multiplexor.register(transport, self.dispatcher)
+            self.multiplexor.register(transport, self.pipeline)
             transports[localAddress] = transport
 
         channel = TransportChannel(transport, address, localAddress)
