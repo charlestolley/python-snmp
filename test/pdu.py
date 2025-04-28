@@ -320,6 +320,32 @@ class PDUTest(unittest.TestCase):
         pdu = GetRequestPDU(self.oid)
         self.assertEqual(GetRequestPDU.decode(pdu.encode()), pdu)
 
+    def test_withRequestID_returns_new_PDU_of_the_same_type(self):
+        getPDU = GetRequestPDU(self.oid)
+        getNextPDU = GetNextRequestPDU(self.oid)
+        setPDU = SetRequestPDU(VarBind(self.oid, Integer(4)))
+
+        self.assertIsInstance(getPDU.withRequestID(328), GetRequestPDU)
+        self.assertIsInstance(getNextPDU.withRequestID(329), GetNextRequestPDU)
+        self.assertIsInstance(setPDU.withRequestID(330), SetRequestPDU)
+
+    def test_withRequestID_copies_all_fields_except_requestID(self):
+        pdu = GetRequestPDU(
+            self.oid,
+            errorStatus=ErrorStatus.tooBig,
+            errorIndex=1,
+        )
+
+        request = pdu.withRequestID(339)
+        self.assertEqual(pdu.variableBindings, request.variableBindings)
+        self.assertEqual(pdu.errorStatus, request.errorStatus)
+        self.assertEqual(pdu.errorIndex, request.errorIndex)
+
+    def test_withRequestID_does_not_modify_the_original_object(self):
+        pdu = GetRequestPDU(self.oid)
+        request = pdu.withRequestID(346)
+        self.assertEqual(pdu.requestID, 0)
+
 class BulkPDUTest(unittest.TestCase):
     def setUp(self):
         self.oid = OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1)
@@ -369,6 +395,27 @@ class BulkPDUTest(unittest.TestCase):
     def test_the_result_of_decode_encode_equals_the_original_object(self):
         pdu = GetBulkRequestPDU(self.oid, maxRepetitions=4)
         self.assertEqual(GetBulkRequestPDU.decode(pdu.encode()), pdu)
+
+    def test_withRequestID_returns_new_PDU_of_the_same_type(self):
+        pdu = GetBulkRequestPDU(self.oid)
+        self.assertIsInstance(pdu.withRequestID(401), GetBulkRequestPDU)
+
+    def test_withRequestID_copies_all_fields_except_requestID(self):
+        pdu = GetBulkRequestPDU(
+            self.oid,
+            nonRepeaters=6,
+            maxRepetitions=4,
+        )
+
+        request = pdu.withRequestID(410)
+        self.assertEqual(pdu.variableBindings, request.variableBindings)
+        self.assertEqual(pdu.nonRepeaters, request.nonRepeaters)
+        self.assertEqual(pdu.maxRepetitions, request.maxRepetitions)
+
+    def test_withRequestID_does_not_modify_the_original_object(self):
+        pdu = GetBulkRequestPDU(self.oid)
+        request = pdu.withRequestID(417)
+        self.assertEqual(pdu.requestID, 0)
 
     def test_all_tags_match_rfc_3416(self):
         suffix = bytes.fromhex("0b 02 01 00 02 01 00 02 01 00 30 00")

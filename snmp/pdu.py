@@ -235,6 +235,14 @@ class PDU(Constructed):
             subindent, self.variableBindings.toString(subindent + tab)
         )
 
+    def withRequestID(self: TPDU, requestID: int) -> TPDU:
+        return self.__class__(
+            requestID=requestID,
+            errorStatus=self.errorStatus,
+            errorIndex=self.errorIndex,
+            variableBindings=self.variableBindings,
+        )
+
     @classmethod
     def deserialize(cls: Type[TPDU], data: Asn1Data) -> TPDU:
         _requestID, data = cast(
@@ -336,6 +344,14 @@ class BulkPDU(Constructed):
             indent, self.nonRepeaters,
             indent, self.maxRepetitions,
             indent, self.variableBindings.toString(tab * (depth + 2))
+        )
+
+    def withRequestID(self: TPDU, requestID: int) -> TPDU:
+        return self.__class__(
+            requestID=requestID,
+            nonRepeaters=self.nonRepeaters,
+            maxRepetitions=self.maxRepetitions,
+            variableBindings=self.variableBindings,
         )
 
     @classmethod
