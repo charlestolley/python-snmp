@@ -52,6 +52,31 @@ class ASN1:
             encoding = decode(data, cls.TAG, False, copy)
             return cls.deserialize(encoding, **kwargs)
 
+    @classmethod
+    def checkTag(cls, tag: Tag) -> None:
+        if tag != cls.TAG:
+            raise ParseError(f"{tag} does not match expected type: {cls.TAG}")
+
+    @classmethod
+    def decode2(
+        cls: Type[TASN1],
+        data: Union[bytes, subbytes],
+        **kwargs: Any,
+    ) -> Tuple[TASN1, subbytes]:
+        tag, body, tail = decode2(data)
+        cls.checkTag(tag)
+        return cls.deserialize(body, **kwargs), tail
+
+    @classmethod
+    def decodeExact(
+        cls: Type[TASN1],
+        data: Union[bytes, subbytes],
+        **kwargs: Any,
+    ) -> TASN1:
+        tag, body = decodeExact(data)
+        cls.checkTag(tag)
+        return cls.deserialize(body, **kwargs)
+
     def encode(self) -> bytes:
         return encode(self.TAG, self.serialize())
 
@@ -197,14 +222,18 @@ class OCTET_STRING(Primitive):
 
     @classmethod
     def construct(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
-        if isinstance(data, subbytes):
-            data = data[:]
-
-        return cls(data)
+        return cls(data[:])
 
     @classmethod
-    def deserialize(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
-        return cls.construct(data)
+    def deserialize(
+        cls: Type[TOCTET_STRING],
+        data: Asn1Data,
+        copy: bool = True,
+    ) -> TOCTET_STRING:
+        if copy:
+            return cls.construct(data[:])
+        else:
+            return cls.construct(data)
 
     def serialize(self) -> bytes:
         return self.data

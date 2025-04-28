@@ -33,11 +33,11 @@ class INTEGERTest(unittest.TestCase):
         self.assertEqual(eval(repr(i)), i)
 
     def test_decode_returns_INTEGER(self):
-        self.assertIsInstance(INTEGER.decode(b"\x02\x01\x00"), INTEGER)
+        self.assertIsInstance(INTEGER.decodeExact(b"\x02\x01\x00"), INTEGER)
 
     def test_decode_uses_big_endian_byte_order(self):
         self.assertEqual(
-            INTEGER.decode(b"\x02\x04\x12\x34\x56\x78").value,
+            INTEGER.decodeExact(b"\x02\x04\x12\x34\x56\x78").value,
             0x12345678,
         )
 
@@ -48,8 +48,8 @@ class INTEGERTest(unittest.TestCase):
         )
 
     def test_decode_uses_twos_complement(self):
-        self.assertEqual(INTEGER.decode(b"\x02\x01\x80").value, -128)
-        self.assertEqual(INTEGER.decode(b"\x02\x02\x00\x80").value, 128)
+        self.assertEqual(INTEGER.decodeExact(b"\x02\x01\x80").value, -128)
+        self.assertEqual(INTEGER.decodeExact(b"\x02\x02\x00\x80").value, 128)
 
     def test_encode_produces_the_smallest_twos_complement_encoding(self):
         self.assertEqual(INTEGER(-128).encode(), b"\x02\x01\x80")
@@ -85,7 +85,7 @@ class OCTET_STRINGTest(unittest.TestCase):
 
     def test_decoded_object_data_equals_payload(self):
         for copy in (True, False):
-            s = OCTET_STRING.decode(self.encoding, copy=copy)
+            s = OCTET_STRING.decodeExact(self.encoding, copy=copy)
             self.assertEqual(s.data, self.payload)
 
     def test_encode_uses_data_as_the_payload(self):
@@ -111,7 +111,7 @@ class NULLTest(unittest.TestCase):
 
     def test_decode_ignores_payload(self):
         encoding = b"\x05\x02\x12\x34"
-        self.assertEqual(NULL.decode(encoding), NULL())
+        self.assertEqual(NULL.decodeExact(encoding), NULL())
 
     def test_encode_uses_empty_payload(self):
         self.assertEqual(NULL().encode(), b"\x05\x00")
@@ -381,24 +381,25 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
         )
 
     def test_null_OID_decodes_to_zero_dot_zero(self):
-        oid = OBJECT_IDENTIFIER.decode(b"\x06\x01\x00")
+        oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x01\x00")
         self.assertEqual(oid, OBJECT_IDENTIFIER(0, 0))
 
     def test_decode_divides_the_first_byte_by_40(self):
-        oid = OBJECT_IDENTIFIER.decode(b"\x06\x01\x2b")
+        oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x01\x2b")
         self.assertEqual(oid, OBJECT_IDENTIFIER(1, 3))
 
     def test_decode_raises_ParseError_when_the_first_byte_is_invalid(self):
         for i in range(120, 255):
-            encoding = b"\x06\x01" + bytes((i,))
-            self.assertRaises(ParseError, OBJECT_IDENTIFIER.decode, encoding)
+            enc = b"\x06\x01" + bytes((i,))
+            self.assertRaises(ParseError, OBJECT_IDENTIFIER.decode2, enc)
+            self.assertRaises(ParseError, OBJECT_IDENTIFIER.decodeExact, enc)
 
     def test_decode_reads_each_byte_with_msb_unset_as_a_subidentifier(self):
-        oid = OBJECT_IDENTIFIER.decode(b"\x06\x03\x2b\x06\x01")
+        oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x03\x2b\x06\x01")
         self.assertEqual(oid, self.internet)
 
     def test_decode_concatenates_the_lowest_seven_bits_while_msb_is_set(self):
-        oid = OBJECT_IDENTIFIER.decode(b"\x06\x04\x2b\xa9\xb4\x5a")
+        oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x04\x2b\xa9\xb4\x5a")
         self.assertEqual(oid, OBJECT_IDENTIFIER(1, 3, 0xa5a5a))
 
     def test_encode_always_produces_at_least_one_byte(self):
