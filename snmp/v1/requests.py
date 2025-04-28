@@ -2,6 +2,7 @@ __all__ = ["SNMPv1RequestAdmin"]
 
 import weakref
 
+from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import *
 from snmp.requests import *
@@ -139,9 +140,22 @@ class SNMPv1RequestAdmin:
     def hear(self, transport, address, data):
         message = Message.decode(data, types=pduTypes)
 
-        requestID = message.pdu.requestID
-        reference, community = self.outstanding[requestID]
+        try:
+            reference, community = self.outstanding[message.pdu.requestID]
+        except KeyError as err:
+            errmsg = f"Unknown requestID: {message.pdu.requestID}"
+            raise IncomingMessageError(errmsg)
 
         handle = reference()
-        if handle is not None:
-            handle.push(message)
+
+        if handle is None:
+            errmsg = f"Request {message.pdu.requestID} was not properly closed"
+            raise SNMPLibraryBug(errmsg)
+
+        if message.community != community:
+            errmsg = "Wrong community name in response to" \
+                f" request {message.pdu.requestID}:" \
+                f" {message.community!r} != {community!r}"
+            raise IncomingMessageError(errmsg)
+
+        handle.push(message)

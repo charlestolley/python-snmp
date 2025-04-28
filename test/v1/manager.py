@@ -10,15 +10,7 @@ from snmp.scheduler import *
 from snmp.smi import *
 from snmp.v1.manager import *
 from snmp.v1.requests import *
-
-pduTypes = {
-    cls.TAG: cls for cls in (
-        GetRequestPDU,
-        GetNextRequestPDU,
-        ResponsePDU,
-        SetRequestPDU,
-    )
-}
+from snmp.v1.requests import pduTypes
 
 class SNMPv1ManagerTest(unittest.TestCase):
     class DelayTask(SchedulerTask):

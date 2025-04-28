@@ -1,46 +1,37 @@
-__all__ = ["SNMPv1RequestHandleTest"]
+__all__ = ["SNMPv1RequestAdminTest", "SNMPv1RequestHandleTest"]
 
 import unittest
 import weakref
 
+from snmp.exception import *
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.message import *
 from snmp.scheduler import *
-from snmp.v1.requests import SNMPv1RequestHandle
+from snmp.v1.requests import *
+from snmp.v1.requests import SNMPv1RequestHandle, pduTypes
+
+class SleepFunction:
+    def __init__(self, timeFunction):
+        self.timeFunction = timeFunction
+
+    def __call__(self, delay):
+        self.timeFunction.advance(delay)
+
+class TimeFunction:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, delay):
+        self.now += delay
 
 class SNMPv1RequestHandleTest(unittest.TestCase):
     class DelayTask(SchedulerTask):
         def run(self):
             return self
-
-    class SleepFunction:
-        def __init__(self, timeFunction):
-            self.timeFunction = timeFunction
-            self.response = None
-            self.handle = None
-
-        def __call__(self, delay):
-            self.timeFunction.advance(delay)
-
-            if self.handle is not None:
-                self.handle.push(self.response)
-                self.response = None
-                self.handle = None
-
-        def respondWhenCalled(self, handle, response):
-            self.handle = handle
-            self.response = response
-
-    class TimeFunction:
-        def __init__(self):
-            self.now = 0.0
-
-        def __call__(self):
-            return self.now
-
-        def advance(self, delay):
-            self.now += delay
 
     class Callback:
         def __init__(self):
@@ -50,8 +41,8 @@ class SNMPv1RequestHandleTest(unittest.TestCase):
             self.requestID = requestID
 
     def setUp(self):
-        self.time = self.TimeFunction()
-        self.sleep = self.SleepFunction(self.time)
+        self.time = TimeFunction()
+        self.sleep = SleepFunction(self.time)
         self.scheduler = Scheduler(self.sleep, self.time)
 
         self.oid = OID(1, 3, 6, 1, 2, 1, 1, 1, 0)
@@ -124,6 +115,66 @@ class SNMPv1RequestHandleTest(unittest.TestCase):
         self.assertIsNone(callback.requestID)
         self.handle.addCallback(callback, 125)
         self.assertEqual(callback.requestID, 125)
+
+class SNMPv1RequestAdminTest(unittest.TestCase):
+    class Channel:
+        def __init__(self):
+            self.requestID = None
+
+        def send(self, data):
+            self.requestID = Message.decode(data, types=pduTypes).pdu.requestID
+
+    def setUp(self):
+        self.time = TimeFunction()
+        self.sleep = SleepFunction(self.time)
+        self.scheduler = Scheduler(self.sleep, self.time)
+        self.admin = SNMPv1RequestAdmin(self.scheduler)
+
+        self.oid = "1.3.6.1.2.1.1.1.0"
+        self.request = GetRequestPDU(self.oid)
+
+        value = OctetString(b"description of the system")
+        self.response = ResponsePDU(VarBind(self.oid, value))
+
+    def test_hear_unknown_request_ID_raises_IncomingMessageError(self):
+        response = self.response.withRequestID(133)
+        message = Message(ProtocolVersion.SNMPv1, b"public", response)
+
+        self.assertRaisesRegex(
+            IncomingMessageError,
+            "[Rr]equest\s*ID",
+            self.admin.hear,
+            None,
+            None,
+            message.encode(),
+        )
+
+    def test_hear_wrong_community_name_raises_IncomingMessageError(self):
+        channel = self.Channel()
+        handle = self.admin.openRequest(
+            self.request,
+            b"the right community name",
+            channel,
+            10.0,
+            1.0,
+        )
+
+        self.assertIsNotNone(channel.requestID)
+
+        message = Message(
+            ProtocolVersion.SNMPv1,
+            b"the wrong community name",
+            self.response.withRequestID(channel.requestID),
+        )
+
+        self.assertRaisesRegex(
+            IncomingMessageError,
+            "[Cc]ommunity",
+            self.admin.hear,
+            None,
+            None,
+            message.encode(),
+        )
 
 if __name__ == "__main__":
     unittest.main()
