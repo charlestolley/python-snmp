@@ -16,6 +16,8 @@ from snmp.transport.udp import *
 from snmp.typing import *
 from snmp.v1.manager import SNMPv1Manager as SNMPv1Manager2
 from snmp.v1.requests import *
+from snmp.v2c.manager import SNMPv2cManager as SNMPv2cManager2
+from snmp.v2c.requests import *
 
 Address = Tuple[str, int]
 
@@ -264,10 +266,12 @@ class SchedulerEngine:
         self.scheduler = Scheduler(self.multiplexor.poll)
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
+        self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
 
         self.dispatcher = Dispatcher()
         self.pipeline = VersionDecoder()
         self.pipeline.register(ProtocolVersion.SNMPv1, self.v1_admin)
+        self.pipeline.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
 
         self.transports: Dict[
             TransportDomain,
@@ -307,6 +311,21 @@ class SchedulerEngine:
 
         return SNMPv1Manager2(
             self.v1_admin,
+            channel,
+            community,
+            autowait,
+        )
+
+    def v2cManager(self,
+        channel: TransportChannel[Address],
+        autowait: bool,
+        community: Optional[bytes] = None,
+    ) -> SNMPv2cManager:
+        if community is None:
+            community = self.defaultCommunity
+
+        return SNMPv2cManager2(
+            self.v2c_admin,
             channel,
             community,
             autowait,
@@ -366,7 +385,9 @@ class SchedulerEngine:
         elif not isinstance(version, ProtocolVersion):
             version = ProtocolVersion(version)
 
-        if version == ProtocolVersion.SNMPv1:
+        if version == ProtocolVersion.SNMPv2c:
+            return self.v1Manager(channel, autowait, **kwargs)
+        elif version == ProtocolVersion.SNMPv1:
             return self.v1Manager(channel, autowait, **kwargs)
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")
