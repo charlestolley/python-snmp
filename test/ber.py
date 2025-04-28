@@ -178,69 +178,30 @@ class DecodeTest(unittest.TestCase):
         self.tag = Tag(4, False, Tag.Class.UNIVERSAL)
         self.payload = self.data[2:]
 
-    def test_returns_tag_when_expected_is_None(self):
-        result = decode(self.data)
-        self.assertIsInstance(result, tuple)
-        self.assertEqual(result[0], self.tag)
-
-    def test_does_not_return_tag_when_type_matches_expected(self):
-        result = decode(self.data, expected=self.tag)
-        self.assertNotIsInstance(result, tuple)
-        self.assertNotIsInstance(result, Tag)
-
-    def test_raises_ParseError_when_type_does_not_match_expected(self):
-        expected = Tag(
-            self.tag.number + 1,
-            self.tag.constructed,
-            self.tag.cls,
-        )
-
-        self.assertRaises(ParseError, decode, self.data, expected)
-
     def test_raises_ParseError_when_payload_is_too_short(self):
-        self.assertRaises(ParseError, decode, self.data[:-1])
+        self.assertRaises(ParseError, decode2, self.data[:-1])
 
-    def test_raises_ParseError_when_there_are_unexpected_leftovers(self):
-        self.assertRaises(ParseError, decode, self.data + self.extra)
+    def test_returns_tail_as_subbytes(self):
+        tag, body, tail = decode2(self.data + self.extra)
+        self.assertIsInstance(tail, subbytes)
 
-    def test_returns_trailing_bytes_when_leftovers_is_True(self):
-        _, leftovers = decode(
-            self.data + self.extra,
-            self.tag,
-            leftovers=True,
-        )
+    def test_returns_empty_tail_if_data_was_fully_consumed(self):
+        tag, body, tail = decode2(self.data)
+        self.assertEqual(tail, bytes())
 
-        self.assertEqual(leftovers, self.extra)
+    def test_returns_subbytes_referencing_data(self):
+        tag, body, tail = decode2(self.data)
+        self.assertIsInstance(body, subbytes)
+        self.assertIs(body.data, self.data)
 
-    def test_returns_leftovers_as_subbytes(self):
-        _, leftovers = decode(
-            self.data + self.extra,
-            self.tag,
-            leftovers=True,
-        )
+    def test_body_data_points_to_data_data_if_data_is_subbytes(self):
+        raw = b"\x04\x06\x02\x01\x03\x02\x01\x09"
+        data = subbytes(raw, 2)
+        tag, body, tail = decode2(data)
+        self.assertIs(body.data, raw)
 
-        self.assertIsInstance(leftovers, subbytes)
-
-    def test_returns_empty_leftovers_if_data_was_fully_consumed(self):
-        _, leftovers = decode(self.data, self.tag, leftovers=True)
-        self.assertEqual(leftovers, bytes())
-
-    def test_returns_raw_data_when_copy_is_True(self):
-        payload = decode(self.data, self.tag, copy=True)
-        self.assertNotIsInstance(payload, subbytes)
-
-    def test_returns_subbytes_referencing_data_when_copy_is_False(self):
-        payload = decode(self.data, self.tag, copy=False)
-        self.assertIsInstance(payload, subbytes)
-        self.assertIs(payload.data, self.data)
-
-    def test_return_type_not_affected_by_the_type_of_the_data_argument(self):
-        for data in (self.data, subbytes(self.data)):
-            payload = decode(data, self.tag, copy=True)
-            self.assertNotIsInstance(payload, subbytes)
-
-            payload = decode(data, self.tag, copy=False)
-            self.assertIsInstance(payload, subbytes)
+    def test_decodeExact_raises_ParseError_when_there_are_leftovers(self):
+        self.assertRaises(ParseError, decodeExact, self.data + self.extra)
 
 class EncodeTest(unittest.TestCase):
     def test_concatenates_tag_and_length_encoding_with_payload(self):

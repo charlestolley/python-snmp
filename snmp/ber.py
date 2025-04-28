@@ -1,4 +1,8 @@
-__all__ = ["EncodeError", "ParseError", "Asn1Data", "Tag", "decode", "encode"]
+__all__ = [
+    "EncodeError", "ParseError",
+    "Asn1Data", "Tag",
+    "decode", "decode2", "decodeExact", "encode",
+]
 
 from enum import IntEnum
 
@@ -207,6 +211,25 @@ def decode( # type: ignore[no-untyped-def]
             return body, tail
         else:
             return body
+
+def decode2(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
+    data = subbytes(data)
+    tag, data = Tag.decode(data)
+    length, data = decode_length(data)
+
+    if len(data) < length:
+        raise ParseError("Incomplete value")
+
+    body, tail = data.split(length)
+    return tag, body, tail
+
+def decodeExact(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes]:
+    tag, body, tail = decode2(data)
+
+    if tail:
+        raise ParseError(f"Trailing bytes: {tail}")
+
+    return tag, body
 
 def encode(tag: Tag, data: bytes) -> bytes:
     """Encode a message under ASN.1 Basic Encoding Rules."""
