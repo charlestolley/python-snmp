@@ -25,6 +25,7 @@ test_modules = [
     "transport.udp",
     "scheduler",
     "v1.manager",
+    "v1.requests",
 ]
 
 import importlib

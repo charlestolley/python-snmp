@@ -1,0 +1,147 @@
+__all__ = ["SNMPv1RequestAdmin"]
+
+import weakref
+
+from snmp.message import *
+from snmp.pdu import *
+from snmp.requests import *
+from snmp.scheduler import *
+from snmp.typing import *
+
+pduTypes = {
+    cls.TAG: cls for cls in cast(Tuple[Type[PDU], ...], (
+        GetRequestPDU,
+        GetNextRequestPDU,
+        ResponsePDU,
+        SetRequestPDU,
+    ))
+}
+
+class SNMPv1RequestHandle:
+    def __init__(self, scheduler, request):
+        self.scheduler = scheduler
+        self.callbacks = []
+
+        self.request = request
+        self.response = None
+
+        self._expired = False
+
+    def __del__(self):
+        if self.active:
+            self.close()
+
+    @property
+    def active(self):
+        return self.response is None and not self.expired
+
+    @property
+    def expired(self):
+        return self._expired
+
+    @expired.setter
+    def expired(self, expired):
+        if expired and not self._expired:
+            self._expired = True
+            self.close()
+
+    def close(self):
+        while self.callbacks:
+            callback, requestID = self.callbacks.pop()
+            callback(requestID)
+
+    def addCallback(self, callback, requestID):
+        if self.active:
+            self.callbacks.append((callback, requestID))
+        else:
+            callback(requestID)
+
+    def push(self, message):
+        if self.active:
+            self.response = message.pdu
+            self.close()
+
+    def wait(self):
+        while self.active:
+            self.scheduler.wait()
+
+        if self.response is not None:
+            if self.response.errorStatus:
+                raise ErrorResponse(
+                    self.response.errorStatus,
+                    self.response.errorIndex,
+                    self.request,
+                )
+            else:
+                return self.response.variableBindings
+        else:
+            raise Timeout()
+
+class SNMPv1RequestAdmin:
+    class ExpireTask(SchedulerTask):
+        def __init__(self, handle_ref):
+            self.handle_ref = handle_ref
+
+        def run(self):
+            handle = self.handle_ref()
+            if handle is not None:
+                handle.expired = True
+
+    class SendTask(SchedulerTask):
+        def __init__(self, handle_ref, channel, community):
+            self.handle_ref = handle_ref
+            self.channel = channel
+
+            handle = self.handle_ref()
+            if handle is not None:
+                self.msg = Message(
+                    ProtocolVersion.SNMPv1,
+                    community,
+                    handle.request,
+                ).encode()
+
+        def run(self):
+            handle = self.handle_ref()
+            if handle is not None and handle.active:
+                self.channel.send(self.msg)
+                return self
+
+    def __init__(self, scheduler):
+        self.requestIDAuthority = RequestIDAuthority()
+        self.scheduler = scheduler
+        self.outstanding = {}
+
+    def closeRequest(self, requestID):
+        try:
+            del self.outstanding[requestID]
+        except KeyError:
+            pass
+
+        self.requestIDAuthority.release(requestID)
+
+    def openRequest(self, pdu, community, channel, timeout, refreshPeriod):
+        requestID = self.requestIDAuthority.reserve()
+        request = pdu.withRequestID(requestID)
+
+        handle = SNMPv1RequestHandle(self.scheduler, request)
+        reference = weakref.ref(handle)
+        self.outstanding[requestID] = reference, community
+        handle.addCallback(self.closeRequest, requestID)
+
+        expireTask = self.ExpireTask(reference)
+        self.scheduler.schedule(expireTask, timeout)
+
+        sendTask = self.SendTask(reference, channel, community)
+        self.scheduler.schedule(sendTask, period=refreshPeriod)
+
+        return handle
+
+    def hear(self, transport, address, data):
+        message = Message.decode(data, types=pduTypes)
+
+        requestID = message.pdu.requestID
+        reference, community = self.outstanding[requestID]
+
+        handle = reference()
+        if handle is not None:
+            handle.push(message)

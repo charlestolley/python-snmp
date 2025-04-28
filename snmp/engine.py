@@ -15,6 +15,7 @@ from snmp.transport import *
 from snmp.transport.udp import *
 from snmp.typing import *
 from snmp.v1.manager import SNMPv1Manager as SNMPv1Manager2
+from snmp.v1.requests import *
 
 Address = Tuple[str, int]
 
@@ -262,9 +263,11 @@ class SchedulerEngine:
         self.multiplexor = UdpMultiplexor(self.msgMaxSize)
         self.scheduler = Scheduler(self.multiplexor.poll)
 
+        self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
+
         self.dispatcher = Dispatcher()
         self.pipeline = VersionDecoder()
-        self.pipeline.register(ProtocolVersion.SNMPv1, self.dispatcher)
+        self.pipeline.register(ProtocolVersion.SNMPv1, self.v1_admin)
 
         self.transports: Dict[
             TransportDomain,
@@ -302,13 +305,8 @@ class SchedulerEngine:
         if community is None:
             community = self.defaultCommunity
 
-        if self.mpv1 is None:
-            self.mpv1 = SNMPv1MessageProcessor()
-            self.dispatcher.addMessageProcessor(self.mpv1)
-
         return SNMPv1Manager2(
-            self.scheduler,
-            self.dispatcher,
+            self.v1_admin,
             channel,
             community,
             autowait,
