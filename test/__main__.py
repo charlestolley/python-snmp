@@ -26,6 +26,8 @@ test_modules = [
     "scheduler",
     "v1.manager",
     "v1.requests",
+    "v2c.manager",
+    "v2c.requests",
 ]
 
 import importlib
