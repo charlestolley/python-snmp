@@ -16,6 +16,7 @@ from snmp.security.usm.credentials import *
 from snmp.security.usm.implementation import *
 from snmp.security.usm.timekeeper import *
 from snmp.smi import *
+from snmp.v3.message import *
 
 from . import DummyAuthProtocol, DummyPrivProtocol
 
@@ -306,7 +307,7 @@ class UsmOutgoingTest(unittest.TestCase):
         self.assertEqual(wholeMsg, self.noAuthNoPrivEncoding)
 
     def testOutgoingAuthNoPriv(self):
-        self.message.header.flags.authFlag = True
+        self.message.header.flags = MessageFlags(authNoPriv, reportable=True)
         wholeMsg = self.usm.prepareOutgoing(
             self.message,
             self.engineID,
@@ -316,8 +317,7 @@ class UsmOutgoingTest(unittest.TestCase):
         self.assertEqual(wholeMsg, self.authNoPrivEncoding)
 
     def testOutgoingAuthPriv(self):
-        self.message.header.flags.authFlag = True
-        self.message.header.flags.privFlag = True
+        self.message.header.flags = MessageFlags(authPriv, reportable=True)
         wholeMsg = self.usm.prepareOutgoing(
             self.message,
             self.engineID,
@@ -327,7 +327,7 @@ class UsmOutgoingTest(unittest.TestCase):
         self.assertEqual(wholeMsg, self.authPrivEncoding)
 
     def testNoAuthUser(self):
-        self.message.header.flags.authFlag = True
+        self.message.header.flags = MessageFlags(authNoPriv, reportable=True)
         self.assertRaises(
             InvalidSecurityLevel,
             self.usm.prepareOutgoing,
@@ -337,8 +337,7 @@ class UsmOutgoingTest(unittest.TestCase):
         )
 
     def testNoPrivUser(self):
-        self.message.header.flags.authFlag = True
-        self.message.header.flags.privFlag = True
+        self.message.header.flags = MessageFlags(authPriv, reportable=True)
         self.assertRaises(
             InvalidSecurityLevel,
             self.usm.prepareOutgoing,

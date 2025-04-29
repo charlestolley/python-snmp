@@ -18,6 +18,7 @@ from snmp.security import *
 from snmp.security.levels import *
 from snmp.smi import *
 from snmp.utils import *
+from snmp.v3.message import *
 
 class HeaderDataTest(unittest.TestCase):
     def setUp(self):
@@ -602,7 +603,10 @@ class SNMPv3MessageProcessorTest(unittest.TestCase):
             authNoPriv,
         )
 
-        self.security.response.header.flags.authFlag = False
+        reportable = self.security.response.header.flags.reportableFlag
+        flags = MessageFlags(noAuthNoPriv, reportable=reportable)
+        self.security.response.header.flags = flags
+
         self.assertRaisesRegex(
             IncomingMessageError,
             "[Ss]ecurity.*[Ll]evel",
@@ -619,7 +623,10 @@ class SNMPv3MessageProcessorTest(unittest.TestCase):
             authNoPriv,
         )
 
-        self.security.report.header.flags.authFlag = False
+        reportable = self.security.report.header.flags.reportableFlag
+        flags = MessageFlags(noAuthNoPriv, reportable=reportable)
+        self.security.response.header.flags = flags
+
         self.processor.prepareDataElements(self.security.report.encode())
 
     def test_pDE_IncomingMessageError_on_securityEngineID_mismatch(self):
