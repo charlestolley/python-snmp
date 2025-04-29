@@ -28,6 +28,7 @@ test_modules = [
     "v1.requests",
     "v2c.manager",
     "v2c.requests",
+    "v3.message",
 ]
 
 import importlib
