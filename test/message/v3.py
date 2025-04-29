@@ -1,7 +1,4 @@
-__all__ = [
-    "HeaderDataTest", "ScopedPDUTest",
-    "SNMPv3MessageTest", "SNMPv3MessageProcessorTest",
-]
+__all__ = ["ScopedPDUTest", "SNMPv3MessageTest", "SNMPv3MessageProcessorTest"]
 
 import re
 import sys
@@ -19,60 +16,6 @@ from snmp.security.levels import *
 from snmp.smi import *
 from snmp.utils import *
 from snmp.v3.message import *
-
-class HeaderDataTest(unittest.TestCase):
-    def setUp(self):
-        self.encoding = bytes.fromhex(re.sub(r"\n", "", """
-            30 10
-               02 04 17 39 27 45
-               02 02 05 dc
-               04 01 07
-               02 01 03
-        """))
-
-        self.header = HeaderData(
-            0x17392745,
-            1500,
-            MessageFlags(authPriv, True),
-            SecurityModel.USM,
-        )
-
-    def test_decode_raises_ParseError_if_msgID_is_negative(self):
-        valid   = bytes.fromhex("3010020400000000020205dc040107020103")
-        invalid = bytes.fromhex("30100204ffffffff020205dc040107020103")
-
-        _ = HeaderData.decodeExact(valid)
-        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
-
-    def test_decode_raises_ParseError_if_msgID_is_too_large(self):
-        valid   = bytes.fromhex("30110205007fffffff020205dc040107020103")
-        invalid = bytes.fromhex("301102050080000000020205dc040107020103")
-
-        _ = HeaderData.decodeExact(valid)
-        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
-
-    def test_decode_raises_ParseError_if_msgMaxSize_is_below_484(self):
-        valid   = bytes.fromhex("300d020100020201e4040107020103")
-        invalid = bytes.fromhex("300d020100020201e3040107020103")
-
-        _ = HeaderData.decodeExact(valid)
-        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
-
-    def test_decode_raises_ParseError_if_msgMaxSize_is_too_large(self):
-        valid   = bytes.fromhex("30100201000205007fffffff040107020103")
-        invalid = bytes.fromhex("301002010002050080000000040107020103")
-
-        _ = HeaderData.decodeExact(valid)
-        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
-
-    def test_decode_example_matches_the_hand_computed_result(self):
-        self.assertEqual(HeaderData.decodeExact(self.encoding), self.header)
-
-    def test_encode_example_matches_the_hand_computed_result(self):
-        self.assertEqual(self.header.encode(), self.encoding)
-
-    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
-        self.assertEqual(eval(repr(self.header)), self.header)
 
 class ScopedPDUTest(unittest.TestCase):
     def setUp(self):
@@ -278,13 +221,13 @@ class SNMPv3MessageTest(unittest.TestCase):
             self.skipTest("__debug__ is set to False")
 
         plain = SNMPv3Message(
-            HeaderData(0, 0, MessageFlags(authNoPriv), SecurityModel.USM),
+            HeaderData(0, 484, MessageFlags(authNoPriv), SecurityModel.USM),
         )
 
         self.assertRaisesRegex(SNMPLibraryBug, "scopedPDU", plain.encode)
 
         encrypted = SNMPv3Message(
-            HeaderData(0, 0, MessageFlags(authPriv), SecurityModel.USM),
+            HeaderData(0, 484, MessageFlags(authPriv), SecurityModel.USM),
         )
 
         self.assertRaisesRegex(
@@ -296,7 +239,7 @@ class SNMPv3MessageTest(unittest.TestCase):
     def test_set_scopedPDU_by_assigning_encoding_to_plaintext_attribute(self):
         scopedPDU = ScopedPDU(ResponsePDU(), b"")
         message = SNMPv3Message(
-            HeaderData(0, 0, MessageFlags(authPriv), SecurityModel.USM),
+            HeaderData(0, 484, MessageFlags(authPriv), SecurityModel.USM),
             encryptedPDU = OctetString(),
         )
 

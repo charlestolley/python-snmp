@@ -1,10 +1,10 @@
-__all__ = ["SecurityLevel", "SecurityModel", "SecurityModule"]
+__all__ = ["SecurityLevel", "SecurityModel", "SecurityModule", "UnknownSecurityModel"]
 
 from snmp.smi import Sequence
 from snmp.typing import *
 
 from .levels import SecurityLevel
-from .models import SecurityModel
+from .models import *
 
 TMessage = TypeVar("TMessage", bound="Sequence")
 

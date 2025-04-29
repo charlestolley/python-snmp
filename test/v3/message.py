@@ -1,9 +1,10 @@
-__all__ = ["MessageFlagsTest"]
+__all__ = ["HeaderDataTest", "MessageFlagsTest"]
 
 import unittest
 
 from snmp.ber import ParseError
 from snmp.exception import *
+from snmp.security import *
 from snmp.security.levels import *
 from snmp.v3.message import *
 
@@ -125,6 +126,226 @@ class MessageFlagsTest(unittest.TestCase):
             MessageFlags(authPriv, reportable=True).encode(),
             b"\x04\x01\x07",
         )
+
+class HeaderDataTest(unittest.TestCase):
+    def setUp(self):
+        self.encoding = bytes.fromhex(
+            "30 10                  "   # SEQUENCE
+            "   02 04 17 39 27 45   "   #   0x17392745
+            "   02 02 05 dc         "   #   1500
+            "   04 01 07            "   #   AUTH | PRIV | REPORTABLE
+            "   02 01 03            "   #   USM
+        )
+
+        self.header = HeaderData(
+            0x17392745,
+            1500,
+            MessageFlags(authPriv, True),
+            SecurityModel.USM,
+        )
+
+    def test_constructor_raises_ValueError_if_msgID_is_negative(self):
+        self.assertRaises(
+            ValueError,
+            HeaderData,
+            -1,
+            1500,
+            MessageFlags(authPriv, True),
+            SecurityModel.USM,
+        )
+
+    def test_constructor_raises_ValueError_if_msgID_is_over_int32_max(self):
+        self.assertRaises(
+            ValueError,
+            HeaderData,
+            1 << 31,
+            1500,
+            MessageFlags(authPriv, True),
+            SecurityModel.USM,
+        )
+
+    def test_constructor_raises_ValueError_if_maxSize_is_less_than_484(self):
+        self.assertRaises(
+            ValueError,
+            HeaderData,
+            0x17392745,
+            483,
+            MessageFlags(authPriv, True),
+            SecurityModel.USM,
+        )
+
+    def test_constructor_raises_ValueError_if_maxSize_is_over_int32_max(self):
+        self.assertRaises(
+            ValueError,
+            HeaderData,
+            0x17392745,
+            1 << 31,
+            MessageFlags(authPriv, True),
+            SecurityModel.USM,
+        )
+
+    def test_constructor_accepts_msdID_of_0_and_int32_max(self):
+        flags = MessageFlags(authPriv, True)
+        HeaderData(0, 1500, flags, SecurityModel.USM)
+        HeaderData((1 << 31) - 1, 1500, flags, SecurityModel.USM)
+
+    def test_constructor_accepts_maxSize_of_484_and_int32_max(self):
+        flags = MessageFlags(authPriv, True)
+        HeaderData(0x17392745, 484, flags, SecurityModel.USM)
+        HeaderData(0x17392745, (1 << 31) - 1, flags, SecurityModel.USM)
+
+    def test_decode_raises_ParseError_if_msgID_is_negative(self):
+        invalid = bytes.fromhex(
+            "30 10"
+            "   02 04 ff ff ff ff"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 01 03"
+        )
+
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_ParseError_if_msgID_is_over_int32_max(self):
+        invalid = bytes.fromhex(
+            "30 11"
+            "   02 05 00 80 00 00 00"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 01 03"
+        )
+
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_ParseError_if_maxSize_is_less_than_484(self):
+        invalid = bytes.fromhex(
+            "30 10"
+            "   02 04 17 39 27 45"
+            "   02 02 01 e3"
+            "   04 01 07"
+            "   02 01 03"
+        )
+
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_ParseError_if_maxSize_is_over_int32_max(self):
+        invalid = bytes.fromhex(
+            "30 13"
+            "   02 04 17 39 27 45"
+            "   02 05 00 80 00 00 00"
+            "   04 01 07"
+            "   02 01 03"
+        )
+
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_accepts_msdID_of_0_and_int32_max(self):
+        HeaderData.decode(bytes.fromhex(
+            "30 0d"
+            "   02 01 00"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 01 03"
+        ))
+
+        HeaderData.decode(bytes.fromhex(
+            "30 11"
+            "   02 05 00 7f ff ff ff"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 01 03"
+        ))
+
+    def test_decode_raises_ParseError_if_securityModel_is_less_than_1(self):
+        invalid = bytes.fromhex(
+            "30 10"
+            "   02 04 17 39 27 45"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 01 00"
+        )
+
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+        invalid = bytes.fromhex(
+            "30 10"
+            "   02 04 17 39 27 45"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 01 ff"
+        )
+
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_ParseError_if_securityModel_is_over_int32_max(self):
+        invalid = bytes.fromhex(
+            "30 14"
+            "   02 04 17 39 27 45"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 05 00 80 00 00 00"
+        )
+
+        self.assertRaises(ParseError, HeaderData.decode, invalid)
+
+    def test_decode_raises_UnknownSecurityModel_if_model_is_not_3(self):
+        invalid = bytes.fromhex(
+            "30 10"
+            "   02 04 17 39 27 45"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 01 01"
+        )
+
+        self.assertRaises(UnknownSecurityModel, HeaderData.decode, invalid)
+
+        invalid = bytes.fromhex(
+            "30 13"
+            "   02 04 17 39 27 45"
+            "   02 02 05 dc"
+            "   04 01 07"
+            "   02 04 7f ff ff ff"
+        )
+
+        self.assertRaises(UnknownSecurityModel, HeaderData.decode, invalid)
+
+    def test_decode_accepts_maxSize_of_484_and_int32_max(self):
+        HeaderData.decode(bytes.fromhex(
+            "30 10"
+            "   02 04 17 39 27 45"
+            "   02 02 01 e4"
+            "   04 01 07"
+            "   02 01 03"
+        ))
+
+        HeaderData.decode(bytes.fromhex(
+            "30 12"
+            "   02 04 17 39 27 45"
+            "   02 04 7f ff ff ff"
+            "   04 01 07"
+            "   02 01 03"
+        ))
+
+    def test_fields_have_the_expected_names(self):
+        header = HeaderData(
+            0x17392745,
+            1500,
+            MessageFlags(authPriv, True),
+            SecurityModel.USM,
+        )
+
+        self.assertEqual(header.id, 0x17392745)
+        self.assertEqual(header.maxSize, 1500)
+        self.assertTrue(header.flags.authFlag)
+        self.assertEqual(header.securityModel, SecurityModel.USM)
+
+    def test_decode_example_matches_the_hand_computed_result(self):
+        self.assertEqual(HeaderData.decodeExact(self.encoding), self.header)
+
+    def test_encode_example_matches_the_hand_computed_result(self):
+        self.assertEqual(self.header.encode(), self.encoding)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        self.assertEqual(eval(repr(self.header)), self.header)
 
 if __name__ == "__main__":
     unittest.main()

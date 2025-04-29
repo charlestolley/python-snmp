@@ -1,7 +1,4 @@
-__all__ = [
-    "HeaderData", "ScopedPDU",
-    "SNMPv3Message", "SNMPv3MessageProcessor",
-]
+__all__ = ["ScopedPDU", "SNMPv3Message", "SNMPv3MessageProcessor"]
 
 import threading
 import weakref
@@ -44,83 +41,6 @@ class ResponseMismatch(IncomingMessageError):
     @classmethod
     def byField(cls, field: str) -> "ResponseMismatch":
         return cls(f"{field} does not match request")
-
-class UnknownSecurityModel(IncomingMessageError):
-    pass
-
-@final
-class HeaderData(Sequence):
-    def __init__(self,
-        msgID: int,
-        maxSize: int,
-        flags: MessageFlags,
-        securityModel: SecurityModel,
-    ) -> None:
-        self.id = msgID
-        self.maxSize = maxSize
-        self.flags = flags
-        self.securityModel = securityModel
-
-    def __iter__(self) -> Iterator[ASN1]:
-        yield Integer(self.id)
-        yield Integer(self.maxSize)
-        yield self.flags
-        yield Integer(self.securityModel)
-
-    def __len__(self) -> int:
-        return 4
-
-    def __repr__(self) -> str:
-        args = (
-            str(self.id),
-            str(self.maxSize),
-            repr(self.flags),
-            str(SecurityModel(self.securityModel)),
-        )
-
-        return f"{typename(self)}({', '.join(args)})"
-
-    def __str__(self) -> str:
-        return self.toString()
-
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
-        indent = tab * depth
-        subindent = indent + tab
-        securityModel = SecurityModel(self.securityModel)
-
-        return "\n".join((
-            f"{indent}{typename(self)}:",
-            f"{subindent}Message ID: {self.id}",
-            f"{subindent}Sender Message Size Limit: {self.maxSize}",
-            f"{self.flags.toString(depth+1, tab)}",
-            f"{subindent}Security Model: {securityModel.name}"
-        ))
-
-    @classmethod
-    def deserialize(cls, data: Asn1Data) -> "HeaderData":
-        msgID, data = Integer.decode(data)
-        msgMaxSize, data = Integer.decode(data)
-        msgFlags, data = MessageFlags.decode(data)
-        msgSecurityModel = Integer.decodeExact(data)
-
-        if msgID.value < 0:
-            raise ParseError("msgID may not be less than 0")
-        elif msgMaxSize.value < 484:
-            raise ParseError("msgMaxSize may not be less than 484")
-        elif msgSecurityModel.value < 1:
-            raise ParseError("msgSecurityModel may not be less than 1")
-
-        try:
-            securityModel = SecurityModel(msgSecurityModel.value)
-        except ValueError as err:
-            raise UnknownSecurityModel(msgSecurityModel.value) from err
-
-        return cls(
-            msgID.value,
-            msgMaxSize.value,
-            msgFlags,
-            securityModel,
-        )
 
 @final
 class ScopedPDU(Sequence):
