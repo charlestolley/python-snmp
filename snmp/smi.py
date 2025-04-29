@@ -83,10 +83,7 @@ class OctetString(OCTET_STRING):
         self.check(data)
 
         self._original = data
-        if isinstance(data, subbytes):
-            data = data[:]
-
-        super().__init__(data)
+        super().__init__(data[:])
 
     def __repr__(self) -> str:
         return f"{typename(self)}({self.original!r})"
@@ -128,13 +125,12 @@ class IpAddress(OCTET_STRING):
 
     @classmethod
     def construct(cls, data: Asn1Data) -> "IpAddress":
-        if isinstance(data, subbytes):
-            data = data[:]
+        _data = data[:]
 
         try:
-            addr = inet_ntoa(data)
+            addr = inet_ntoa(_data)
         except OSError as err:
-            raise ParseError(f"Invalid IPv4 address: {data!r}") from err
+            raise ParseError(f"Invalid IPv4 address: {_data!r}") from err
 
         return cls(addr)
 
