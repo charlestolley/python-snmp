@@ -397,7 +397,7 @@ class UsmSyncTest(unittest.TestCase):
                            02 01 01
         """))
 
-        self.reportMessage = SNMPv3Message.decode(self.reportEncoding)
+        self.reportMessage = SNMPv3Message.decodeExact(self.reportEncoding)
 
         self.requestMessage = SNMPv3Message(
             HeaderData(
@@ -457,7 +457,7 @@ class UsmSyncTest(unittest.TestCase):
                                     6d 79 20 73 79 73 74 65 6d
         """))
 
-        self.responseMessage = SNMPv3Message.decode(self.responseEncoding)
+        self.responseMessage = SNMPv3Message.decodeExact(self.responseEncoding)
 
         self.responseScopedPDU = ScopedPDU(
             ResponsePDU(

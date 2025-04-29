@@ -53,7 +53,7 @@ def makeAesCfb128Test(AesCfb128):
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
+            tag, contents, _ = decode(plaintext)
             self.assertEqual(contents, self.data)
 
         def test_encrypt_successfully_encrypts_an_example(self):
@@ -74,7 +74,7 @@ def makeAesCfb128Test(AesCfb128):
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
+            tag, contents, _ = decode(plaintext)
             self.assertEqual(contents, self.data)
 
     return AesCfb128Test
@@ -125,7 +125,7 @@ def makeDesCbcTest(DesCbc):
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
+            tag, contents, _ = decode(plaintext)
             self.assertEqual(contents, self.data)
 
         def test_encrypt_successfully_encrypts_an_example(self):
@@ -146,7 +146,7 @@ def makeDesCbcTest(DesCbc):
                 msgPrivParameters,
             )
 
-            contents, _ = decode(plaintext, Sequence.TAG, leftovers=True)
+            tag, contents, _ = decode(plaintext)
             self.assertEqual(contents, self.data)
 
     return DesCbcTest

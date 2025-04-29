@@ -1,7 +1,7 @@
 __all__ = [
     "EncodeError", "ParseError",
     "Asn1Data", "Tag",
-    "decode", "decode2", "decodeExact", "encode",
+    "decode", "decodeExact", "encode",
 ]
 
 from enum import IntEnum
@@ -156,63 +156,7 @@ def encode_length(length: int) -> bytes:
     arr.append(0x80 | len(arr))
     return bytes(reversed(arr))
 
-def decode( # type: ignore[no-untyped-def]
-    data: Asn1Data,
-    expected: Optional[Tag] = None,
-    leftovers: bool = False,
-    copy: bool = True,
-):
-    """Extract the contents of an ASN.1 BER string.
-
-    This function has several options for what it can return depending on the
-    values of its arguments. In the default case, given only the data argument,
-    it will return a tuple, where the first element is the Tag, and the second
-    contains the body of the message as a bytes object. In this case, the
-    function expects to consume the entire message, and will raise a ParseError
-    if it contains more bytes than what the length field indicates. A value of
-    True for the leftovers argument will change this behavior, so that it will
-    return the leftover data in a snmp.utils.subbytes object as an additional
-    element of the returned tuple.
-
-    The expected argument allows the caller to provide a Tag, telling the
-    function what data type is expected. In this case, the body will be
-    returned without the tag, and the return value will not use a tuple (unless
-    leftovers was given as True). If the decoded object does not match the
-    expected type, the function will raise a ParseError.
-
-    The copy argument allows the caller to specify whether the body of the
-    message should be copied into its own bytes object (the default), or use a
-    snmp.utils.subbytes object, in order to preserve a reference to the complete
-    message.
-    """
-    data = subbytes(data)
-    tag, data = Tag.decode(data)
-
-    if expected is not None and tag != expected:
-        raise ParseError("Tag does not match expected type")
-
-    length, data = decode_length(data)
-    data, tail = data.split(length)
-
-    if len(data) < length:
-        raise ParseError("Incomplete value")
-    elif not leftovers and tail:
-        raise ParseError("Trailing bytes")
-
-    body = data[:] if copy else data
-
-    if expected is None:
-        if leftovers:
-            return tag, body, tail
-        else:
-            return tag, body
-    else:
-        if leftovers:
-            return body, tail
-        else:
-            return body
-
-def decode2(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
+def decode(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
     data = subbytes(data)
     tag, data = Tag.decode(data)
     length, data = decode_length(data)
@@ -224,7 +168,7 @@ def decode2(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
     return tag, body, tail
 
 def decodeExact(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes]:
-    tag, body, tail = decode2(data)
+    tag, body, tail = decode(data)
 
     if tail:
         raise ParseError(f"Trailing bytes: {tail}")

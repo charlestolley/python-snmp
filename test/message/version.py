@@ -19,17 +19,17 @@ class VersionOnlyMessageTest(unittest.TestCase):
 
     def test_determines_the_version_of_any_message(self):
         for version, message in self.messages.items():
-            prefix = VersionOnlyMessage.decode(message)
+            prefix = VersionOnlyMessage.decodeExact(message)
             self.assertEqual(version, prefix.version)
 
     def test_decode_raises_BadVersion_for_unknown_version(self):
         message = bytes.fromhex("30 03 02 01 02")
-        self.assertRaises(BadVersion, VersionOnlyMessage.decode, message)
+        self.assertRaises(BadVersion, VersionOnlyMessage.decodeExact, message)
 
     def test_decode_ignores_everything_after_version_field(self):
         encoding = bytes.fromhex("30 10 02 01 00")
         garbage = bytes([random.randint(0,255) for _ in range(13)])
-        VersionOnlyMessage.decode(encoding + garbage)
+        VersionOnlyMessage.decodeExact(encoding + garbage)
 
 if __name__ == "__main__":
     unittest.main()

@@ -62,7 +62,7 @@ class SNMPv2cManagerTest(unittest.TestCase):
             self.msgCount = msgCount
 
         def send(self, data):
-            msg = Message.decode(data, types=pduTypes)
+            msg = Message.decodeExact(data, types=pduTypes)
             self.messages.append(msg)
 
             if self.response is not None:

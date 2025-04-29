@@ -39,10 +39,7 @@ class VersionOnlyMessage(Sequence):
     def deserialize(cls,
         data: Asn1Data,
     ) -> "VersionOnlyMessage":
-        msgVersion, _ = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
-        )
+        msgVersion, _ = Integer.decode(data)
 
         try:
             version = ProtocolVersion(msgVersion.value)

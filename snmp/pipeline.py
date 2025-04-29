@@ -8,7 +8,7 @@ class VersionDecoder:
         self.listeners = weakref.WeakValueDictionary()
 
     def hear(self, transport, address, data):
-        msgVersion = VersionOnlyMessage.decode(data).version
+        msgVersion = VersionOnlyMessage.decodeExact(data).version
 
         try:
             listener = self.listeners[msgVersion]

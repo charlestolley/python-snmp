@@ -60,7 +60,7 @@ class UsmSecurityParametersTest(unittest.TestCase):
 
 
     def test_decode_all_six_fields_defined_in_RFC3414(self):
-        params = UsmSecurityParameters.decode(self.encoding)
+        params = UsmSecurityParameters.decodeExact(self.encoding)
         self.assertEqual(params.engineID, self.engineID)
         self.assertEqual(params.engineBoots, self.engineBoots)
         self.assertEqual(params.engineTime, self.engineTime)
@@ -71,12 +71,6 @@ class UsmSecurityParametersTest(unittest.TestCase):
     def test_encode_all_six_fields_defined_in_RFC3414(self):
         self.assertEqual(self.securityParameters.encode(), self.encoding)
 
-    def test_two_objects_with_the_six_equal_fields_are_equal(self):
-        self.assertEqual(
-            UsmSecurityParameters.decode(self.encoding, copy=False),
-            UsmSecurityParameters.decode(self.encoding, copy=True),
-        )
-
     def test_the_result_of_eval_repr_equals_the_original_object(self):
         self.assertEqual(
             eval(repr(self.securityParameters)),
@@ -84,7 +78,7 @@ class UsmSecurityParametersTest(unittest.TestCase):
         )
 
     def test_eval_repr_preserves_wholeMsg_and_signatureIndex(self):
-        params = UsmSecurityParameters.decode(self.encoding)
+        params = UsmSecurityParameters.decodeExact(self.encoding)
         copy = eval(repr(params))
 
         self.assertIsNotNone(params.wholeMsg)
@@ -92,17 +86,12 @@ class UsmSecurityParametersTest(unittest.TestCase):
         self.assertEqual(copy.signatureIndex, params.signatureIndex)
 
     def test_decode_preserves_reference_to_wholeMsg(self):
-        params = UsmSecurityParameters.decode(self.encoding)
+        params = UsmSecurityParameters.decodeExact(self.encoding)
         self.assertIs(params.wholeMsg, self.message)
 
     def test_decode_stores_signatureIndex(self):
-        params = UsmSecurityParameters.decode(self.encoding)
+        params = UsmSecurityParameters.decodeExact(self.encoding)
         self.assertEqual(params.signatureIndex, 64)
-
-    def test_decode_with_copy_leaves_wholeMsg_and_signatureIndex_as_None(self):
-        params = UsmSecurityParameters.decode(self.encoding, copy=True)
-        self.assertIsNone(params.signatureIndex)
-        self.assertIsNone(params.wholeMsg)
 
     def test_findSignature_returns_signature_as_subbytes(self):
         signature = UsmSecurityParameters.findSignature(self.encoding)

@@ -179,25 +179,25 @@ class DecodeTest(unittest.TestCase):
         self.payload = self.data[2:]
 
     def test_raises_ParseError_when_payload_is_too_short(self):
-        self.assertRaises(ParseError, decode2, self.data[:-1])
+        self.assertRaises(ParseError, decode, self.data[:-1])
 
     def test_returns_tail_as_subbytes(self):
-        tag, body, tail = decode2(self.data + self.extra)
+        tag, body, tail = decode(self.data + self.extra)
         self.assertIsInstance(tail, subbytes)
 
     def test_returns_empty_tail_if_data_was_fully_consumed(self):
-        tag, body, tail = decode2(self.data)
+        tag, body, tail = decode(self.data)
         self.assertEqual(tail, bytes())
 
     def test_returns_subbytes_referencing_data(self):
-        tag, body, tail = decode2(self.data)
+        tag, body, tail = decode(self.data)
         self.assertIsInstance(body, subbytes)
         self.assertIs(body.data, self.data)
 
     def test_body_data_points_to_data_data_if_data_is_subbytes(self):
         raw = b"\x04\x06\x02\x01\x03\x02\x01\x09"
         data = subbytes(raw, 2)
-        tag, body, tail = decode2(data)
+        tag, body, tail = decode(data)
         self.assertIs(body.data, raw)
 
     def test_decodeExact_raises_ParseError_when_there_are_leftovers(self):

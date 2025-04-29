@@ -58,7 +58,7 @@ class Message(Sequence):
     ) -> TMessage:
         msgVersion, ptr = cast(
             Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
+            Integer.decode(data),
         )
 
         try:
@@ -69,23 +69,19 @@ class Message(Sequence):
         if version not in cls.VERSIONS:
             raise BadVersion(f"{typename} does not support {version.name}")
 
-        community, ptr = cast(
-            Tuple[OctetString, subbytes],
-            OctetString.decode(ptr, leftovers=True),
-        )
-
-        identifier, _ = Tag.decode(subbytes(ptr))
+        community, ptr = OctetString.decode(ptr)
+        tag, _ = Tag.decode(subbytes(ptr))
 
         if types is None:
             types = dict()
 
         try:
-            pduType = types[identifier]
+            pduType = types[tag]
         except KeyError as err:
-            raise ParseError(f"Invalid PDU type: {identifier}") from err
+            raise ParseError(f"Invalid PDU type: {tag}") from err
 
         return cls(
             version,
             community.data,
-            pduType.decode(ptr),
+            pduType.decodeExact(ptr),
         )

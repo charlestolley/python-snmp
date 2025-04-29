@@ -46,19 +46,19 @@ class MessageTest(unittest.TestCase):
     def test_decode_raises_ParseError_if_the_PDU_tag_is_not_in_types(self):
         for version in self.versions:
             encoding = self.encodings[version]
-            self.assertRaises(ParseError, Message.decode, encoding)
+            self.assertRaises(ParseError, Message.decodeExact, encoding)
 
     def test_Message_can_decode_SNMPv1_and_SNMPv2c_message(self):
         for version in self.versions:
             encoding = self.encodings[version]
-            message = Message.decode(encoding, types=self.types)
+            message = Message.decodeExact(encoding, types=self.types)
             self.assertEqual(message, self.messages[version])
 
     def test_decode_raises_BadVersion_on_SNMPv3_message(self):
         encoding = self.encodings[ProtocolVersion.SNMPv3]
         self.assertRaises(
             BadVersion,
-            Message.decode,
+            Message.decodeExact,
             encoding,
             types=self.types,
         )
@@ -72,7 +72,7 @@ class MessageTest(unittest.TestCase):
         for version in self.versions:
             message = self.messages[version]
             self.assertEqual(
-                Message.decode(message.encode(), types=self.types),
+                Message.decodeExact(message.encode(), types=self.types),
                 message,
             )
 

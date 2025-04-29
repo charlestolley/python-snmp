@@ -175,7 +175,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         if timestamp is None:
             timestamp = time()
 
-        securityParameters = UsmSecurityParameters.decode(
+        securityParameters = UsmSecurityParameters.decodeExact(
             message.securityParameters.original,
         )
 

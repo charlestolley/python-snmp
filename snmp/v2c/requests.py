@@ -142,7 +142,7 @@ class SNMPv2cRequestAdmin:
         return handle
 
     def hear(self, transport, address, data):
-        message = Message.decode(data, types=pduTypes)
+        message = Message.decodeExact(data, types=pduTypes)
 
         try:
             reference, community = self.outstanding[message.pdu.requestID]

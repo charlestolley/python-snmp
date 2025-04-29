@@ -60,7 +60,7 @@ class SNMPv1MessageProcessorTest(unittest.TestCase):
             self.community,
         )
 
-        message = Message.decode(msg, types=pduTypes)
+        message = Message.decodeExact(msg, types=pduTypes)
         self.assertEqual(message.version, ProtocolVersion.SNMPv1)
         self.assertEqual(message.community, self.community)
 

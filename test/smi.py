@@ -44,12 +44,12 @@ class BoundedIntegerTest(unittest.TestCase):
         n = self.UnsignedNybble(0)
 
     def test_decode_raises_ParseError_if_signed_value_is_out_of_range(self):
-        self.assertRaises(ParseError, self.Nybble.decode, b"\xc2\x01\x08")
-        self.assertRaises(ParseError, self.Nybble.decode, b"\xc2\x01\xf7")
+        self.assertRaises(ParseError, self.Nybble.decodeExact, b"\xc2\x01\x08")
+        self.assertRaises(ParseError, self.Nybble.decodeExact, b"\xc2\x01\xf7")
 
     def test_decode_succeeds_if_signed_value_is_in_range(self):
-        n = self.Nybble.decode(b"\xc2\x01\x07")
-        n = self.Nybble.decode(b"\xc2\x01\xf8")
+        n = self.Nybble.decodeExact(b"\xc2\x01\x07")
+        n = self.Nybble.decodeExact(b"\xc2\x01\xf8")
 
     def test_decode_raises_ParseError_if_unsigned_is_value_out_of_range(self):
         encodings = [
@@ -58,7 +58,7 @@ class BoundedIntegerTest(unittest.TestCase):
         ]
 
         for e in encodings:
-            self.assertRaises(ParseError, self.UnsignedNybble.decode, e)
+            self.assertRaises(ParseError, self.UnsignedNybble.decodeExact, e)
 
     def test_decode_succeeds_if_unsigned_value_is_in_range(self):
         encodings = [
@@ -67,25 +67,25 @@ class BoundedIntegerTest(unittest.TestCase):
         ]
 
         for encoding in encodings:
-            u = self.UnsignedNybble.decode(encoding)
+            u = self.UnsignedNybble.decodeExact(encoding)
 
 class IntegerTypesTest(unittest.TestCase):
     def help_test_integer_boundaries_and_tag(self, cls, a, b, c, d):
         # Lower bound
-        self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decode, a)
-        _ = cls.decode(b)
+        self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decodeExact, a)
+        _ = cls.decodeExact(b)
 
         # Upper bound
-        _ = cls.decode(c)
-        self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decode, d)
+        _ = cls.decodeExact(c)
+        self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decodeExact, d)
 
     def help_test_unsigned_boundaries_and_tag(self, cls, a, b, c):
         # Zero
-        _ = cls.decode(a)
+        _ = cls.decodeExact(a)
 
         # Upper bound
-        _ = cls.decode(b)
-        self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decode, c)
+        _ = cls.decodeExact(b)
+        self.assertRaisesRegex(ParseError, "[Rr]ange", cls.decodeExact, c)
 
     def test_Integer32_equals_INTEGER_with_the_same_value(self):
         value = 4
@@ -179,7 +179,7 @@ class OctetStringTest(unittest.TestCase):
 
     def test_decode_raises_ParseError_if_over_65535_bytes_long(self):
         encoding = encode(OctetString.TAG, bytes(65536))
-        self.assertRaises(ParseError, OctetString.decode, encoding)
+        self.assertRaises(ParseError, OctetString.decodeExact, encoding)
 
     def test_OctetString_does_not_equal_IpAddress(self):
         data = b"\xc0\x22\x38\x4e"
@@ -187,7 +187,7 @@ class OctetStringTest(unittest.TestCase):
 
     def test_original_gives_subbytes_of_the_full_encoding_if_copy_False(self):
         encoding = b"\x04\x00"
-        s = OctetString.decode(encoding, copy=False)
+        s = OctetString.decodeExact(encoding, copy=False)
         self.assertIsInstance(s.original, subbytes)
         self.assertEqual(s.original.data, encoding)
 
@@ -235,11 +235,11 @@ class IpAddressTest(unittest.TestCase):
         ]
 
         for encoding in encodings:
-            self.assertRaises(ParseError, IpAddress.decode, encoding)
+            self.assertRaises(ParseError, IpAddress.decodeExact, encoding)
 
     def test_data_returns_network_bytes(self):
         self.assertEqual(IpAddress(self.addr).data, self.data)
-        self.assertEqual(IpAddress.decode(self.encoding).data, self.data)
+        self.assertEqual(IpAddress.decodeExact(self.encoding).data, self.data)
 
     def test_encode_uses_data_for_the_payload(self):
         self.assertEqual(IpAddress(self.addr).encode(), self.encoding)
@@ -262,11 +262,11 @@ class OIDTest(unittest.TestCase):
 
     def test_decode_accepts_up_to_128_subidentifiers(self):
         encoding = b"\x06\x7f\x2b" + bytes(range(126))
-        _ = OID.decode(encoding)
+        _ = OID.decodeExact(encoding)
 
     def test_decode_raises_ParseError_with_over_128_subidentifiers(self):
         encoding = b"\x06\x81\x80\x2b" + bytes(range(127))
-        self.assertRaises(ParseError, OID.decode, encoding)
+        self.assertRaises(ParseError, OID.decodeExact, encoding)
 
     def test_constructor_accepts_32_bit_unsigned_subidentifiers(self):
         oid = OID(1, 3, (1 << 32) - 1)
@@ -276,12 +276,12 @@ class OIDTest(unittest.TestCase):
 
     def test_decode_accepts_32_bit_unsigned_subidentifiers(self):
         encoding = b"\x06\x06\x2b\x8f\xff\xff\xff\x7f"
-        oid = OID.decode(encoding)
+        oid = OID.decodeExact(encoding)
         self.assertEqual(oid[2], (1 << 32) - 1)
 
     def test_decode_raises_ParseError_for_33_bit_subidentifiers(self):
         encoding = b"\x06\x06\x2b\x90\x80\x80\x80\x00"
-        self.assertRaises(ParseError, OID.decode, encoding)
+        self.assertRaises(ParseError, OID.decodeExact, encoding)
 
     def test_getIndex_uses_Integer_by_default(self):
         oid = self.internet.extend(4)

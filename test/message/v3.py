@@ -57,12 +57,12 @@ class MessageFlagsTest(unittest.TestCase):
             self.assertEqual(eval(repr(flags)), flags)
 
     def test_decode_raises_ParseError_on_empty_string(self):
-        self.assertRaises(ParseError, MessageFlags.decode, b"\x04\x00")
+        self.assertRaises(ParseError, MessageFlags.decodeExact, b"\x04\x00")
 
     def test_decode_raises_IncomingMessageError_on_invalid_securityLevel(self):
         self.assertRaises(
             IncomingMessageError,
-            MessageFlags.decode,
+            MessageFlags.decodeExact,
             b"\x04\x01\x02",
         )
 
@@ -75,17 +75,17 @@ class MessageFlagsTest(unittest.TestCase):
         )
 
         for encoding, flags in test_cases:
-            self.assertEqual(MessageFlags.decode(encoding), flags)
+            self.assertEqual(MessageFlags.decodeExact(encoding), flags)
 
     def test_decode_ignores_extra_bytes(self):
         self.assertEqual(
-            MessageFlags.decode(b"\x04\x02\x07\x00"),
+            MessageFlags.decodeExact(b"\x04\x02\x07\x00"),
             MessageFlags(authPriv, True),
         )
 
     def test_decode_ignores_extra_bits(self):
         self.assertEqual(
-            MessageFlags.decode(b"\x04\x01\x09"),
+            MessageFlags.decodeExact(b"\x04\x01\x09"),
             MessageFlags(authNoPriv),
         )
 
@@ -145,32 +145,32 @@ class HeaderDataTest(unittest.TestCase):
         valid   = bytes.fromhex("3010020400000000020205dc040107020103")
         invalid = bytes.fromhex("30100204ffffffff020205dc040107020103")
 
-        _ = HeaderData.decode(valid)
-        self.assertRaises(ParseError, HeaderData.decode, invalid)
+        _ = HeaderData.decodeExact(valid)
+        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
 
     def test_decode_raises_ParseError_if_msgID_is_too_large(self):
         valid   = bytes.fromhex("30110205007fffffff020205dc040107020103")
         invalid = bytes.fromhex("301102050080000000020205dc040107020103")
 
-        _ = HeaderData.decode(valid)
-        self.assertRaises(ParseError, HeaderData.decode, invalid)
+        _ = HeaderData.decodeExact(valid)
+        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
 
     def test_decode_raises_ParseError_if_msgMaxSize_is_below_484(self):
         valid   = bytes.fromhex("300d020100020201e4040107020103")
         invalid = bytes.fromhex("300d020100020201e3040107020103")
 
-        _ = HeaderData.decode(valid)
-        self.assertRaises(ParseError, HeaderData.decode, invalid)
+        _ = HeaderData.decodeExact(valid)
+        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
 
     def test_decode_raises_ParseError_if_msgMaxSize_is_too_large(self):
         valid   = bytes.fromhex("30100201000205007fffffff040107020103")
         invalid = bytes.fromhex("301002010002050080000000040107020103")
 
-        _ = HeaderData.decode(valid)
-        self.assertRaises(ParseError, HeaderData.decode, invalid)
+        _ = HeaderData.decodeExact(valid)
+        self.assertRaises(ParseError, HeaderData.decodeExact, invalid)
 
     def test_decode_example_matches_the_hand_computed_result(self):
-        self.assertEqual(HeaderData.decode(self.encoding), self.header)
+        self.assertEqual(HeaderData.decodeExact(self.encoding), self.header)
 
     def test_encode_example_matches_the_hand_computed_result(self):
         self.assertEqual(self.header.encode(), self.encoding)
@@ -212,13 +212,13 @@ class ScopedPDUTest(unittest.TestCase):
     def test_decode_raises_ParseError_if_PDU_tag_is_not_in_types(self):
         self.assertRaises(
             ParseError,
-            ScopedPDU.decode,
+            ScopedPDU.decodeExact,
             self.encoding,
             types={},
         )
 
     def test_decode_example_matches_the_hand_computed_result(self):
-        scopedPDU = ScopedPDU.decode(self.encoding, types=pduTypes)
+        scopedPDU = ScopedPDU.decodeExact(self.encoding, types=pduTypes)
         self.assertEqual(scopedPDU, self.scopedPDU)
 
     def test_encode_example_matches_the_hand_computed_result(self):
@@ -371,7 +371,11 @@ class SNMPv3MessageTest(unittest.TestCase):
             "3016020102300d020100020201e404010302010304000400",
         )
 
-        self.assertRaises(IncomingMessageError, SNMPv3Message.decode, encoding)
+        self.assertRaises(
+            IncomingMessageError,
+            SNMPv3Message.decodeExact,
+            encoding,
+        )
 
     def test_encode_raises_SNMPLibraryBug_for_missing_PDU_by_privFlag(self):
         if not __debug__:
@@ -411,16 +415,17 @@ class SNMPv3MessageTest(unittest.TestCase):
         self.assertEqual(sp, self.plainMessage.securityParameters.data)
 
     def test_decode_does_not_set_securityEngineID_or_securityName(self):
-        message = SNMPv3Message.decode(self.plain)
+        message = SNMPv3Message.decodeExact(self.plain)
         self.assertIsNone(message.securityEngineID)
         self.assertIsNone(message.securityName)
 
     def test_example_plain_decodes_to_example_plainMessage(self):
-        self.assertEqual(SNMPv3Message.decode(self.plain), self.plainMessage)
+        message = SNMPv3Message.decodeExact(self.plain)
+        self.assertEqual(message, self.plainMessage)
 
     def test_example_encrypted_decodes_to_example_encryptedMessage(self):
         self.assertEqual(
-            SNMPv3Message.decode(self.encrypted),
+            SNMPv3Message.decodeExact(self.encrypted),
             self.encryptedMessage,
         )
 

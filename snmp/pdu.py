@@ -83,18 +83,14 @@ class VarBind(Sequence):
 
     @classmethod
     def deserialize(cls, data: Asn1Data) -> "VarBind":
-        name, data = cast(
-            Tuple[OID, subbytes],
-            OID.decode(data, leftovers=True),
-        )
-
-        identifier, data = decode(data)
+        name, data = OID.decode(data)
+        tag, data = decodeExact(data)
 
         try:
-            valueType = cls.TYPES[identifier]
+            valueType = cls.TYPES[tag]
         except KeyError as err:
             msg = "Invalid variable value type: {}"
-            raise ParseError(msg.format(identifier)) from err
+            raise ParseError(msg.format(tag)) from err
 
         return cls(name, valueType.deserialize(data))
 
@@ -142,11 +138,7 @@ class VarBindList(Sequence):
         objects = []
 
         while data:
-            var, data = cast(
-                Tuple[VarBind, subbytes],
-                VarBind.decode(data, leftovers=True),
-            )
-
+            var, data = VarBind.decode(data)
             objects.append(var)
 
         return cls(*objects)
@@ -245,22 +237,10 @@ class PDU(Constructed):
 
     @classmethod
     def deserialize(cls: Type[TPDU], data: Asn1Data) -> TPDU:
-        _requestID, data = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
-        )
-
-        _errorStatus, data = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
-        )
-
-        _errorIndex, data = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
-        )
-
-        variableBindings = VarBindList.decode(data)
+        _requestID, data = Integer.decode(data)
+        _errorStatus, data = Integer.decode(data)
+        _errorIndex, data = Integer.decode(data)
+        variableBindings = VarBindList.decodeExact(data)
 
         requestID = _requestID.value
         errorStatus = _errorStatus.value
@@ -356,22 +336,10 @@ class BulkPDU(Constructed):
 
     @classmethod
     def deserialize(cls: Type[TBulkPDU], data: Asn1Data) -> TBulkPDU:
-        requestID, data = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
-        )
-
-        nonRepeaters, data = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
-        )
-
-        maxRepetitions, data = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data, leftovers=True),
-        )
-
-        variableBindings = VarBindList.decode(data)
+        requestID, data = Integer.decode(data)
+        nonRepeaters, data = Integer.decode(data)
+        maxRepetitions, data = Integer.decode(data)
+        variableBindings = VarBindList.decodeExact(data)
 
         if nonRepeaters.value < 0:
             raise ParseError("nonRepeaters may not be less than 0")

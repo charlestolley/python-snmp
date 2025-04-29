@@ -122,7 +122,8 @@ class SNMPv2cRequestAdminTest(unittest.TestCase):
             self.requestID = None
 
         def send(self, data):
-            self.requestID = Message.decode(data, types=pduTypes).pdu.requestID
+            message = Message.decodeExact(data, types=pduTypes)
+            self.requestID = message.pdu.requestID
 
     def setUp(self):
         self.time = TimeFunction()

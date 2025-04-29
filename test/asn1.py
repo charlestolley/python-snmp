@@ -391,7 +391,7 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
     def test_decode_raises_ParseError_when_the_first_byte_is_invalid(self):
         for i in range(120, 255):
             enc = b"\x06\x01" + bytes((i,))
-            self.assertRaises(ParseError, OBJECT_IDENTIFIER.decode2, enc)
+            self.assertRaises(ParseError, OBJECT_IDENTIFIER.decode, enc)
             self.assertRaises(ParseError, OBJECT_IDENTIFIER.decodeExact, enc)
 
     def test_decode_reads_each_byte_with_msb_unset_as_a_subidentifier(self):

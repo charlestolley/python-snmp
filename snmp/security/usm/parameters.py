@@ -122,32 +122,12 @@ class UsmSecurityParameters(Sequence):
     def deserialize(cls, data: Asn1Data) -> "UsmSecurityParameters":
         copy = not isinstance(data, subbytes)
 
-        engineID, ptr = cast(
-            Tuple[OctetString, subbytes],
-            OctetString.decode(data, leftovers=True),
-        )
-
-        engineBoots, ptr = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(ptr, leftovers=True),
-        )
-
-        engineTime, ptr = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(ptr, leftovers=True),
-        )
-
-        userName, ptr = cast(
-            Tuple[OctetString, subbytes],
-            OctetString.decode(ptr, leftovers=True),
-        )
-
-        signature, ptr = cast(
-            Tuple[OctetString, subbytes],
-            OctetString.decode(ptr, leftovers=True, copy=copy),
-        )
-
-        salt = OctetString.decode(ptr)
+        engineID, ptr = OctetString.decode(data)
+        engineBoots, ptr = Integer.decode(ptr)
+        engineTime, ptr = Integer.decode(ptr)
+        userName, ptr = OctetString.decode(ptr)
+        signature, ptr = OctetString.decode(ptr, copy=copy)
+        salt = OctetString.decodeExact(ptr)
 
         return cls(
             engineID.data,
@@ -159,15 +139,11 @@ class UsmSecurityParameters(Sequence):
         )
 
     @classmethod
-    def findSignature(self, msgSecurityParameters: subbytes) -> subbytes:
-        ptr = cast(
-            subbytes,
-            decode(msgSecurityParameters, Sequence.TAG, copy=False)
-        )
-
-        _, ptr = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
-        _, ptr = decode(ptr, Integer.TAG,       leftovers=True, copy=False)
-        _, ptr = decode(ptr, Integer.TAG,       leftovers=True, copy=False)
-        _, ptr = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
-        ptr, _ = decode(ptr, OctetString.TAG,   leftovers=True, copy=False)
+    def findSignature(cls, msgSecurityParameters: subbytes) -> subbytes:
+        tag, ptr = decodeExact(msgSecurityParameters)
+        tag, _, ptr = decode(ptr)
+        tag, _, ptr = decode(ptr)
+        tag, _, ptr = decode(ptr)
+        tag, _, ptr = decode(ptr)
+        tag, ptr, _ = decode(ptr)
         return ptr

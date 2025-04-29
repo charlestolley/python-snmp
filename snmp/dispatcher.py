@@ -2,7 +2,7 @@ __all__ = ["Dispatcher", "ListenThread"]
 
 import threading
 
-from snmp.ber import ParseError, decode
+from snmp.ber import ParseError
 from snmp.exception import *
 from snmp.message import *
 from snmp.pdu import AnyPDU
@@ -49,7 +49,7 @@ class Dispatcher(TransportListener):
     def hear(self, transport, address, data):
         try:
             try:
-                msgVersion = VersionOnlyMessage.decode(data).version
+                msgVersion = VersionOnlyMessage.decodeExact(data).version
             except BadVersion:
                 return
             except ParseError:

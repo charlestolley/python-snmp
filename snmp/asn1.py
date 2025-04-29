@@ -18,52 +18,18 @@ TOID            = TypeVar("TOID",           bound="OBJECT_IDENTIFIER")
 class ASN1:
     TAG: ClassVar[Tag]
 
-    @overload
-    @classmethod
-    def decode(
-        cls: Type[TASN1],
-        data: Asn1Data,
-    ) -> TASN1:
-        ...
-
-    @overload
-    @classmethod
-    def decode(
-        cls: Type[TASN1],
-        data: Asn1Data,
-        leftovers: bool = False,
-        copy: bool = True,
-        **kwargs: Any,
-    ) -> Union[TASN1, Tuple[TASN1, subbytes]]:
-        ...
-
-    @classmethod
-    def decode(
-        cls: Type[TASN1],
-        data: Asn1Data,
-        leftovers: bool = False,
-        copy: bool = True,
-        **kwargs: Any,
-    ) -> Union[TASN1, Tuple[TASN1, subbytes]]:
-        if leftovers:
-            encoding, tail = decode(data, cls.TAG, True, copy)
-            return cls.deserialize(encoding, **kwargs), tail
-        else:
-            encoding = decode(data, cls.TAG, False, copy)
-            return cls.deserialize(encoding, **kwargs)
-
     @classmethod
     def checkTag(cls, tag: Tag) -> None:
         if tag != cls.TAG:
             raise ParseError(f"{tag} does not match expected type: {cls.TAG}")
 
     @classmethod
-    def decode2(
+    def decode(
         cls: Type[TASN1],
         data: Union[bytes, subbytes],
         **kwargs: Any,
     ) -> Tuple[TASN1, subbytes]:
-        tag, body, tail = decode2(data)
+        tag, body, tail = decode(data)
         cls.checkTag(tag)
         return cls.deserialize(body, **kwargs), tail
 

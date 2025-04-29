@@ -18,7 +18,7 @@ class NoSuchObjectTest(unittest.TestCase):
         self.assertEqual(NoSuchObject.TAG.number, 0)
 
     def test_decodes_empty_payload(self):
-        _ = NoSuchObject.decode(b"\x80\x00")
+        _ = NoSuchObject.decodeExact(b"\x80\x00")
 
     def test_NoSuchObject_does_not_equal_NULL(self):
         self.assertNotEqual(NoSuchObject(), NULL())
@@ -30,7 +30,7 @@ class NoSuchInstanceTest(unittest.TestCase):
         self.assertEqual(NoSuchInstance.TAG.number, 1)
 
     def test_decodes_empty_payload(self):
-        _ = NoSuchInstance.decode(b"\x81\x00")
+        _ = NoSuchInstance.decodeExact(b"\x81\x00")
 
     def test_does_not_equal_NULL(self):
         self.assertNotEqual(NoSuchInstance(), NULL())
@@ -42,7 +42,7 @@ class EndOfMibViewTest(unittest.TestCase):
         self.assertEqual(EndOfMibView.TAG.number, 2)
 
     def test_decodes_empty_payload(self):
-        _ = EndOfMibView.decode(b"\x82\x00")
+        _ = EndOfMibView.decodeExact(b"\x82\x00")
 
     def test_does_not_equal_NULL(self):
         self.assertNotEqual(EndOfMibView(), NULL())
@@ -109,7 +109,7 @@ class VarBindTest(unittest.TestCase):
     def helpAssertParseErrors(self, *hex_strings):
         for h in hex_strings:
             encoding = bytes.fromhex(h)
-            self.assertRaises(ParseError, VarBind.decode, encoding)
+            self.assertRaises(ParseError, VarBind.decodeExact, encoding)
 
     def test_decode_raises_ParseError_on_missing_fields(self):
         self.helpAssertParseErrors(
@@ -145,7 +145,7 @@ class VarBindTest(unittest.TestCase):
 
         for hexstr, value in encodings:
             encoding = bytes.fromhex(hexstr)
-            varbind = VarBind.decode(encoding)
+            varbind = VarBind.decodeExact(encoding)
             self.assertEqual(varbind.value, value)
 
     def test_generated_encoding_is_decodable(self):
@@ -158,7 +158,7 @@ class VarBindTest(unittest.TestCase):
 
         for varbind in varbinds:
             encoding = varbind.encode()
-            self.assertEqual(VarBind.decode(encoding), varbind)
+            self.assertEqual(VarBind.decodeExact(encoding), varbind)
 
 class VarBindListTest(unittest.TestCase):
     def setUp(self):
@@ -252,7 +252,7 @@ class VarBindListTest(unittest.TestCase):
 
     def test_the_result_of_decode_encode_equals_the_original_object(self):
         vblist = VarBindList(*self.varbinds)
-        self.assertEqual(VarBindList.decode(vblist.encode()), vblist)
+        self.assertEqual(VarBindList.decodeExact(vblist.encode()), vblist)
 
 class PDUTest(unittest.TestCase):
     def setUp(self):
@@ -306,19 +306,19 @@ class PDUTest(unittest.TestCase):
 
     def test_decode_raises_ParseError_when_errorStatus_is_invalid(self):
         encoding = bytes.fromhex("a0 0b 02 01 00 02 01 13 02 01 00 30 00")
-        self.assertRaises(ParseError, GetRequestPDU.decode, encoding)
+        self.assertRaises(ParseError, GetRequestPDU.decodeExact, encoding)
 
     def test_decode_raises_ParseError_on_negative_errorIndex(self):
         encoding = bytes.fromhex("a0 0b 02 01 00 02 01 01 02 01 ff 30 00")
-        self.assertRaises(ParseError, GetRequestPDU.decode, encoding)
+        self.assertRaises(ParseError, GetRequestPDU.decodeExact, encoding)
 
     def test_decode_raises_ParseError_if_errorIndex_is_out_of_range(self):
         encoding = bytes.fromhex("a0 0b 02 01 00 02 01 01 02 01 01 30 00")
-        self.assertRaises(ParseError, GetRequestPDU.decode, encoding)
+        self.assertRaises(ParseError, GetRequestPDU.decodeExact, encoding)
 
     def test_the_result_of_decode_encode_equals_the_original_object(self):
         pdu = GetRequestPDU(self.oid)
-        self.assertEqual(GetRequestPDU.decode(pdu.encode()), pdu)
+        self.assertEqual(GetRequestPDU.decodeExact(pdu.encode()), pdu)
 
     def test_withRequestID_returns_new_PDU_of_the_same_type(self):
         getPDU = GetRequestPDU(self.oid)
@@ -386,15 +386,15 @@ class BulkPDUTest(unittest.TestCase):
 
     def test_decode_raises_ParseError_if_nonRepeaters_is_negative(self):
         encoding = bytes.fromhex("a5 0b 02 01 00 02 01 ff 02 01 00 30 00")
-        self.assertRaises(ParseError, GetBulkRequestPDU.decode, encoding)
+        self.assertRaises(ParseError, GetBulkRequestPDU.decodeExact, encoding)
 
     def test_decode_raises_ParseError_if_maxRepetitions_is_negative(self):
         encoding = bytes.fromhex("a5 0b 02 01 00 02 01 00 02 01 ff 30 00")
-        self.assertRaises(ParseError, GetBulkRequestPDU.decode, encoding)
+        self.assertRaises(ParseError, GetBulkRequestPDU.decodeExact, encoding)
 
     def test_the_result_of_decode_encode_equals_the_original_object(self):
         pdu = GetBulkRequestPDU(self.oid, maxRepetitions=4)
-        self.assertEqual(GetBulkRequestPDU.decode(pdu.encode()), pdu)
+        self.assertEqual(GetBulkRequestPDU.decodeExact(pdu.encode()), pdu)
 
     def test_withRequestID_returns_new_PDU_of_the_same_type(self):
         pdu = GetBulkRequestPDU(self.oid)
@@ -419,14 +419,14 @@ class BulkPDUTest(unittest.TestCase):
 
     def test_all_tags_match_rfc_3416(self):
         suffix = bytes.fromhex("0b 02 01 00 02 01 00 02 01 00 30 00")
-        GetRequestPDU       .decode(b"\xa0" + suffix)
-        GetNextRequestPDU   .decode(b"\xa1" + suffix)
-        ResponsePDU         .decode(b"\xa2" + suffix)
-        SetRequestPDU       .decode(b"\xa3" + suffix)
-        GetBulkRequestPDU   .decode(b"\xa5" + suffix)
-        InformRequestPDU    .decode(b"\xa6" + suffix)
-        SNMPv2TrapPDU       .decode(b"\xa7" + suffix)
-        ReportPDU           .decode(b"\xa8" + suffix)
+        GetRequestPDU       .decodeExact(b"\xa0" + suffix)
+        GetNextRequestPDU   .decodeExact(b"\xa1" + suffix)
+        ResponsePDU         .decodeExact(b"\xa2" + suffix)
+        SetRequestPDU       .decodeExact(b"\xa3" + suffix)
+        GetBulkRequestPDU   .decodeExact(b"\xa5" + suffix)
+        InformRequestPDU    .decodeExact(b"\xa6" + suffix)
+        SNMPv2TrapPDU       .decodeExact(b"\xa7" + suffix)
+        ReportPDU           .decodeExact(b"\xa8" + suffix)
 
 # see RFC 3411 section 2.8 (pp. 13-14)
 class PDUClassesTest(unittest.TestCase):
