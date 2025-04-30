@@ -326,3 +326,11 @@ class SNMPv3WireMessage(Sequence):
             scopedPduData = ScopedPDU.decodeExact(ptr)
 
         return cls(msgGlobalData, scopedPduData, msgSecurityData)
+
+    @classmethod
+    def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
+        tag, ptr, tail      = decode(wholeMsg)
+        tag, version, ptr   = decode(ptr)
+        tag, header, ptr    = decode(ptr)
+        tag, ptr, tail      = decode(ptr)
+        return ptr

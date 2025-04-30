@@ -11,6 +11,7 @@ from snmp.smi import *
 from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
+from snmp.utils import subbytes
 from snmp.v3.message import *
 
 class MessageFlagsTest(unittest.TestCase):
@@ -464,6 +465,8 @@ class SNMPv3WireMessageTest(unittest.TestCase):
             "                  63 72 69 62 65 73 20 6d 79 20 73 79 73 74 65 6d"
         )
 
+        self.plainSecurityParameters = subbytes(self.plain, start=26, stop=64)
+
         self.encrypted = bytes.fromhex(
             "30 55"
             "   02 01 03"
@@ -483,6 +486,8 @@ class SNMPv3WireMessageTest(unittest.TestCase):
             "   04 16 54 68 69 73 20 64 61 74 61 20 69"
             "         73 20 65 6e 63 72 79 70 74 65 64"
         )
+
+        self.encryptedSecurityParameters = subbytes(self.encrypted, 25, 63)
 
         self.plainMessage = SNMPv3WireMessage(
             HeaderData(
@@ -673,6 +678,13 @@ class SNMPv3WireMessageTest(unittest.TestCase):
     def test_securityParameters_original_references_the_whole_message(self):
         message = SNMPv3WireMessage.decodeExact(self.plain)
         self.assertIs(message.securityParameters.original.data, self.plain)
+
+    def test_findSecurityParameters_finds_OctetString_value(self):
+        securityParams = SNMPv3WireMessage.findSecurityParameters(self.plain)
+        self.assertEqual(securityParams, self.plainSecurityParameters)
+
+        secParams = SNMPv3WireMessage.findSecurityParameters(self.encrypted)
+        self.assertEqual(secParams, self.encryptedSecurityParameters)
 
     def test_decode_unencrypted_example(self):
         message = SNMPv3WireMessage.decodeExact(self.plain)
