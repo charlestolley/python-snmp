@@ -51,22 +51,22 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         authSecret: Optional[bytes] = None,
         privProtocol: Optional[Type[PrivProtocol]] = None,
         privSecret: Optional[bytes] = None,
-        secret: bytes = b"",
-        default: bool = False,
+        secret: Optional[bytes] = None,
+        default: Optional[bool] = None,
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         namespace: str = "",
     ) -> None:
         with self.userLock:
             self.users.addUser(
                 userName.encode(),
-                authProtocol,
-                authSecret,
-                privProtocol,
-                privSecret,
-                secret,
-                default,
-                defaultSecurityLevel,
                 namespace,
+                default=default,
+                authProtocol=authProtocol,
+                privProtocol=privProtocol,
+                authSecret=authSecret,
+                privSecret=privSecret,
+                secret=secret,
+                defaultSecurityLevel=defaultSecurityLevel,
             )
 
     def getDefaultSecurityLevel(self,

@@ -16,7 +16,7 @@ from . import DummyAuthProtocol, DummyPrivProtocol
 
 class UserConfigTest(unittest.TestCase):
     def setUp(self):
-        self.credentials = Credentials(
+        self.credentials = AuthPrivCredentials(
             authProtocol=DummyAuthProtocol,
             privProtocol=DummyPrivProtocol,
             secret=b"keep it quiet",
@@ -24,7 +24,7 @@ class UserConfigTest(unittest.TestCase):
 
     def test_raise_ValueError_if_defaultSecurityLevel_is_too_high(self):
         noauth = Credentials()
-        nopriv = Credentials(DummyAuthProtocol, b"shh, it's a secret")
+        nopriv = AuthCredentials(DummyAuthProtocol, b"shh, it's a secret")
         self.assertRaises(ValueError, UserConfig, noauth, authNoPriv)
         self.assertRaises(ValueError, UserConfig, nopriv, authPriv)
 
@@ -49,8 +49,8 @@ class NamespaceConfigTest(unittest.TestCase):
     def setUp(self):
         self.user = b"user1"
         self.other = b"user2"
-        self.userCreds = Credentials(DummyAuthProtocol, b"secret")
-        self.otherCreds = Credentials(DummyAuthProtocol, b"other")
+        self.userCreds = AuthCredentials(DummyAuthProtocol, b"secret")
+        self.otherCreds = AuthCredentials(DummyAuthProtocol, b"other")
         self.config = NamespaceConfig()
 
     def test_first_added_user_is_the_default(self):
@@ -129,8 +129,8 @@ class RemoteEngineTest(unittest.TestCase):
 
         self.user = b"user1"
         self.other = b"user2"
-        self.userCreds = Credentials(DummyAuthProtocol, b"secret")
-        self.otherCreds = Credentials(DummyAuthProtocol, b"other")
+        self.userCreds = AuthCredentials(DummyAuthProtocol, b"secret")
+        self.otherCreds = AuthCredentials(DummyAuthProtocol, b"other")
         self.config = NamespaceConfig()
         self.config.addUser(self.user, self.userCreds)
         self.config.addUser(self.other, self.otherCreds)
@@ -190,13 +190,14 @@ class UserRegistryTest(unittest.TestCase):
         self.users = UserRegistry()
 
     def test_first_user_added_is_the_default(self):
-        self.users.addUser(self.userName)
-        self.users.addUser(self.otherName)
+        self.users.addUser(self.userName, "")
+        self.users.addUser(self.otherName, "")
         self.assertEqual(self.users.getDefaultUser(), self.userName)
 
     def test_provided_protocols_dictate_defaultSecurityLevel(self):
         self.users.addUser(
             self.userName,
+            "",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
             secret=self.secret,
@@ -205,13 +206,14 @@ class UserRegistryTest(unittest.TestCase):
         level = self.users.getDefaultSecurityLevel(self.userName)
         self.assertEqual(level, authPriv)
 
-        self.users.addUser(self.otherName)
+        self.users.addUser(self.otherName, "")
         level = self.users.getDefaultSecurityLevel(self.otherName)
         self.assertEqual(level, noAuthNoPriv)
 
     def test_defaultSecurityLevel_overrides_inferred_default(self):
         self.users.addUser(
             self.userName,
+            "",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
             secret=self.secret,
@@ -222,40 +224,40 @@ class UserRegistryTest(unittest.TestCase):
         self.assertEqual(level, authNoPriv)
 
     def test_default_overrides_automatic_default_user_selection(self):
-        self.users.addUser(self.userName)
-        self.users.addUser(self.otherName, default=True)
+        self.users.addUser(self.userName, "")
+        self.users.addUser(self.otherName, "", default=True)
         self.assertEqual(self.users.getDefaultUser(), self.otherName)
 
     def test_each_namespace_has_its_own_default_user(self):
         self.users.addUser(self.userName, namespace=self.namespace)
-        self.users.addUser(self.otherName)
+        self.users.addUser(self.otherName, "")
 
         userName = self.users.getDefaultUser(self.namespace)
         self.assertEqual(userName, self.userName)
         self.assertEqual(self.users.getDefaultUser(), self.otherName)
 
     def test_no_error_to_add_the_same_userName_in_two_namespaces(self):
-        self.users.addUser(self.userName)
+        self.users.addUser(self.userName, "")
         self.users.addUser(
             self.userName,
-            self.authProtocol,
-            self.secret,
-            namespace=self.namespace,
+            self.namespace,
+            authProtocol=self.authProtocol,
+            secret=self.secret,
         )
 
     def test_getCredentials_finds_the_user_for_the_assigned_namespace(self):
-        self.users.addUser(self.userName)
+        self.users.addUser(self.userName, "")
         self.users.addUser(
             self.userName,
-            self.authProtocol,
-            self.secret,
-            namespace=self.namespace,
+            self.namespace,
+            authProtocol=self.authProtocol,
+            secret=self.secret,
         )
 
         self.users.assign(self.engineID, self.namespace)
         user = self.users.getCredentials(self.engineID, self.userName)
 
-        credentials = Credentials(self.authProtocol, self.secret)
+        credentials = AuthCredentials(self.authProtocol, self.secret)
         self.assertEqual(user, credentials.localize(self.engineID))
         self.assertNotEqual(user, Credentials().localize(self.engineID))
 
@@ -264,7 +266,7 @@ class UserRegistryTest(unittest.TestCase):
 
     def test_an_engine_may_be_reassigned_once_its_released(self):
         self.users.addUser(self.userName, self.authProtocol, self.secret)
-        self.users.addUser(self.otherName)
+        self.users.addUser(self.otherName, "")
         self.users.addUser(self.userName, namespace=self.namespace)
 
         self.assertTrue(self.users.assign(self.engineID, ""))
@@ -298,7 +300,7 @@ class UserRegistryTest(unittest.TestCase):
         )
 
     def test_addUser_after_namespace_assignment_works_just_the_same(self):
-        self.users.addUser(self.userName)
+        self.users.addUser(self.userName, "")
         self.users.assign(self.engineID, self.namespace)
         self.assertRaises(
             InvalidUserName,
@@ -309,13 +311,13 @@ class UserRegistryTest(unittest.TestCase):
 
         self.users.addUser(
             self.userName,
-            self.authProtocol,
-            self.secret,
-            namespace=self.namespace,
+            self.namespace,
+            authProtocol=self.authProtocol,
+            secret=self.secret,
         )
 
         user = self.users.getCredentials(self.engineID, self.userName)
-        credentials = Credentials(self.authProtocol, self.secret)
+        credentials = AuthCredentials(self.authProtocol, self.secret)
         self.assertEqual(user, credentials.localize(self.engineID))
 
 if __name__ == "__main__":

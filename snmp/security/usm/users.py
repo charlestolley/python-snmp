@@ -128,30 +128,56 @@ class UserRegistry:
 
     def addUser(self,
         userName: bytes,
+        namespace: str,
+        default: Optional[bool] = None,
         authProtocol: Optional[Type[AuthProtocol]] = None,
-        authSecret: Optional[bytes] = None,
         privProtocol: Optional[Type[PrivProtocol]] = None,
+        authSecret: Optional[bytes] = None,
         privSecret: Optional[bytes] = None,
-        secret: bytes = b"",
-        default: bool = False,
+        secret: bytes = None,
         defaultSecurityLevel: Optional[SecurityLevel] = None,
-        namespace: str = "",
     ) -> None:
-        try:
-            config = self.namespaces[namespace]
-        except KeyError:
-            config = NamespaceConfig()
-            self.namespaces[namespace] = config
+        if not userName:
+            raise ValueError(f"Empty userName")
+        elif len(userName) > 32:
+            raise ValueError(f"userName is too long: {userName}")
 
-        credentials = Credentials(
+        newNamespace = namespace not in self.namespaces
+
+        if default is None:
+            default = newNamespace
+        elif newNamespace and not default:
+            msg = "default may not be False for the first user in a namespace"
+            raise ValueError(msg)
+
+        credentials = self.makeCredentials(
             authProtocol,
-            authSecret,
             privProtocol,
+            authSecret,
             privSecret,
             secret,
         )
 
+        if defaultSecurityLevel is None:
+            defaultSecurityLevel = credentials.maxSecurityLevel
+        elif defaultSecurityLevel > credentials.maxSecurityLevel:
+            errmsg = f"Unable to support {defaultSecurityLevel}"
+            if credentials.maxSecurityLevel.auth:
+                errmsg += " without a privProtocol"
+            else:
+                errmsg += " without an authProtocol"
+
+            raise ValueError(errmsg)
+
+        if newNamespace:
+            config = NamespaceConfig()
+        else:
+            config = self.namespaces[namespace]
+
         config.addUser(userName, credentials, defaultSecurityLevel, default)
+
+        if newNamespace:
+            self.namespaces[namespace] = config
 
         for engineID, engine in self.engines.items():
             if engine.namespace == namespace:
@@ -218,3 +244,39 @@ class UserRegistry:
                 errmsg += f" in namespace \"{namespace}\""
 
             raise ValueError(errmsg) from err
+
+    @staticmethod
+    def makeCredentials(
+        authProtocol: Optional[Type[AuthProtocol]],
+        privProtocol: Optional[Type[PrivProtocol]],
+        authSecret: Optional[bytes],
+        privSecret: Optional[bytes],
+        secret:     Optional[bytes],
+    ):
+        if authProtocol is None:
+            if (privProtocol is not None
+            or authSecret is not None
+            or secret is not None):
+                raise TypeError("missing required argument: 'authProtocol'")
+        elif authSecret is None and secret is None:
+            raise TypeError("missing required argument: 'authSecret'")
+        elif authSecret is not None and secret is not None:
+            raise TypeError("'authSecret' and 'secret' are mutually exclusive")
+
+        if privProtocol is None and privSecret is not None:
+            raise TypeError("missing required argument: 'privProtocol'")
+
+        if authProtocol is None:
+            credentials = Credentials()
+        elif privProtocol is None:
+            credentials = AuthCredentials(authProtocol, authSecret or secret)
+        else:
+            credentials = AuthPrivCredentials(
+                authProtocol,
+                privProtocol,
+                authSecret,
+                privSecret,
+                secret,
+            )
+
+        return credentials

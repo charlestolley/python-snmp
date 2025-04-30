@@ -31,7 +31,7 @@ class UsmLocalizeTest(unittest.TestCase):
         authProtocol = HmacMd5
         key = bytes.fromhex("526f5eed9fcce26f8964c2930787d82b")
 
-        credentials = Credentials(authProtocol, self.secret)
+        credentials = AuthCredentials(authProtocol, self.secret)
         localizedCredentials = credentials.localize(self.engineID)
 
         self.assertIsInstance(localizedCredentials.auth, authProtocol)
@@ -40,21 +40,10 @@ class UsmLocalizeTest(unittest.TestCase):
         self.assertEqual(localizedCredentials.auth.key, authProtocol(key).key)
         self.assertIsNone(localizedCredentials.priv)
 
-    def testPrivLocalization(self):
-        c = Credentials(
-            privProtocol=self.privProtocol,
-            privSecret=b"doesn't matter",
-        )
-
-        credentials = c.localize(self.engineID)
-
-        self.assertIsNone(credentials.auth)
-        self.assertIsNone(credentials.priv)
-
     def testFullLocalization(self):
         key = bytes.fromhex("6695febc9288e36282235fc7151f128497b38f3f")
 
-        c = Credentials(
+        c = AuthPrivCredentials(
             authProtocol=HmacSha,
             privProtocol=self.privProtocol,
             secret=self.secret,
@@ -182,11 +171,16 @@ class UsmOutgoingTest(unittest.TestCase):
 
         self.usm = UserBasedSecurityModule()
         self.usm.addUser(self.noAuthUser)
-        self.usm.addUser(self.noPrivUser, authProtocol=self.authProtocol)
+        self.usm.addUser(
+            self.noPrivUser,
+            authProtocol=self.authProtocol,
+            secret=b"",
+        )
         self.usm.addUser(
             self.user,
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
+            secret=b"",
             default=True,
         )
 
@@ -358,6 +352,7 @@ class UsmSyncTest(unittest.TestCase):
             self.user,
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
+            secret=b"",
         )
 
         self.discoveryTimestamp = 29516.0
@@ -559,6 +554,7 @@ class UsmIncomingTest(unittest.TestCase):
             self.user,
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
+            secret=b"",
         )
 
         _ = self.usm.registerRemoteEngine(self.engineID)

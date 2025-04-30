@@ -14,35 +14,19 @@ class CredentialsTest(unittest.TestCase):
         self.privSecret = b"Is it secret?"
         self.secret = self.privSecret + b" " + self.authSecret
 
-    def test_two_identical_sets_of_credentials_are_equal(self):
-        ap = DummyAuthProtocol
-        pp = DummyPrivProtocol
-
-        c1 = Credentials(ap, self.secret, pp, self.secret)
-        c2 = Credentials(ap, privProtocol=pp, secret=self.secret)
-        self.assertEqual(c1, c2)
-
-    def test_two_different_sets_of_credentials_are_not_equal(self):
-        ap = DummyAuthProtocol
-        pp = DummyPrivProtocol
-
-        c1 = Credentials(ap, self.authSecret, pp, self.privSecret)
-        c2 = Credentials(ap, privProtocol=pp, secret=self.secret)
-        self.assertNotEqual(c1, c2)
-
     def test_maxSecurityLevel_with_no_authProtocol_is_noAuthNoPriv(self):
         credentials = Credentials()
         self.assertEqual(credentials.maxSecurityLevel, noAuthNoPriv)
 
     def test_maxSecurityLevel_with_authProtocol_only_is_authNoPriv(self):
-        credentials = Credentials(DummyAuthProtocol, self.authSecret)
+        credentials = AuthCredentials(DummyAuthProtocol, self.authSecret)
         self.assertEqual(credentials.maxSecurityLevel, authNoPriv)
 
     def test_maxSecurityLevel_with_privProtocol_is_authPriv(self):
-        credentials = Credentials(
+        credentials = AuthPrivCredentials(
             DummyAuthProtocol,
-            self.authSecret,
             DummyPrivProtocol,
+            self.authSecret,
             self.privSecret,
         )
 
@@ -54,10 +38,10 @@ class CredentialsTest(unittest.TestCase):
         self.assertIsNone(localizedCredentials.priv)
 
     def test_localize_produces_the_expected_keys(self):
-        credentials = Credentials(
+        credentials = AuthPrivCredentials(
             DummyAuthProtocol,
-            self.authSecret,
             DummyPrivProtocol,
+            self.authSecret,
             self.privSecret,
         )
 
@@ -73,21 +57,8 @@ class CredentialsTest(unittest.TestCase):
             DummyAuthProtocol.localize(self.privSecret, self.engineID),
         )
 
-    def test_secret_is_used_when_authSecret_is_not_given(self):
-        credentials = Credentials(
-            authProtocol=DummyAuthProtocol,
-            secret=self.secret,
-        )
-
-        localizedCredentials = credentials.localize(self.engineID)
-
-        self.assertEqual(
-            localizedCredentials.auth.key,
-            DummyAuthProtocol.localize(self.secret, self.engineID),
-        )
-
     def test_secret_is_used_when_privSecret_is_not_given(self):
-        credentials = Credentials(
+        credentials = AuthPrivCredentials(
             authProtocol=DummyAuthProtocol,
             privProtocol=DummyPrivProtocol,
             secret=self.secret,
