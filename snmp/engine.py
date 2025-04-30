@@ -1,7 +1,5 @@
 from snmp.dispatcher import *
 from snmp.exception import *
-from snmp.manager.v1 import *
-from snmp.manager.v2c import *
 from snmp.manager.v3 import *
 from snmp.message import *
 from snmp.message.v1 import SNMPv1MessageProcessor
@@ -14,9 +12,9 @@ from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
 from snmp.typing import *
-from snmp.v1.manager import SNMPv1Manager as SNMPv1Manager2
+from snmp.v1.manager import *
 from snmp.v1.requests import *
-from snmp.v2c.manager import SNMPv2cManager as SNMPv2cManager2
+from snmp.v2c.manager import *
 from snmp.v2c.requests import *
 
 Address = Tuple[str, int]
@@ -96,7 +94,7 @@ class Engine:
         if community is None:
             community = self.defaultCommunity
 
-        return SNMPv1Manager2(
+        return SNMPv1Manager(
             self.v1_admin,
             channel,
             community,
@@ -111,7 +109,7 @@ class Engine:
         if community is None:
             community = self.defaultCommunity
 
-        return SNMPv2cManager2(
+        return SNMPv2cManager(
             self.v2c_admin,
             channel,
             community,
@@ -169,7 +167,7 @@ class Engine:
         **kwargs: Any,
     ) -> Union[
         SNMPv1Manager,
-        SNMPv2cManager[Address],
+        SNMPv2cManager,
         SNMPv3UsmManager[Address],
     ]:
         if domain is None:

@@ -1,6 +1,5 @@
 __all__ = ["InvalidSecurityLevel", "UserBasedSecurityModule"]
 
-import threading
 from time import time
 
 from snmp.exception import *
@@ -36,9 +35,6 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
     MODEL = SecurityModel.USM
 
     def __init__(self) -> None:
-        self.timeLock = threading.Lock()
-        self.userLock = threading.Lock()
-
         self.timekeeper = TimeKeeper()
         self.users = UserRegistry()
 
@@ -53,48 +49,42 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         namespace: str = "",
     ) -> None:
-        with self.userLock:
-            self.users.addUser(
-                userName.encode(),
-                namespace,
-                default=default,
-                authProtocol=authProtocol,
-                privProtocol=privProtocol,
-                authSecret=authSecret,
-                privSecret=privSecret,
-                secret=secret,
-                defaultSecurityLevel=defaultSecurityLevel,
-            )
+        self.users.addUser(
+            userName.encode(),
+            namespace,
+            default=default,
+            authProtocol=authProtocol,
+            privProtocol=privProtocol,
+            authSecret=authSecret,
+            privSecret=privSecret,
+            secret=secret,
+            defaultSecurityLevel=defaultSecurityLevel,
+        )
 
     def getDefaultSecurityLevel(self,
         userName: str,
         namespace: str = "",
     ) -> SecurityLevel:
-        with self.userLock:
-            return self.users.getDefaultSecurityLevel(
-                userName.encode(),
-                namespace,
-            )
+        return self.users.getDefaultSecurityLevel(
+            userName.encode(),
+            namespace,
+        )
 
     def getDefaultUser(self, namespace: str = "") -> Optional[str]:
-        with self.userLock:
-            user = self.users.getDefaultUser(namespace)
-
+        user = self.users.getDefaultUser(namespace)
         return user.decode() if user is not None else None
 
     def registerRemoteEngine(self,
         engineID: bytes,
         namespace: str = "",
     ) -> bool:
-        with self.userLock:
-            return self.users.assign(engineID, namespace)
+        return self.users.assign(engineID, namespace)
 
     def unregisterRemoteEngine(self,
         engineID: bytes,
         namespace: str = "",
     ) -> None:
-        with self.userLock:
-            _ = self.users.release(engineID, namespace)
+        _ = self.users.release(engineID, namespace)
 
     def prepareOutgoing(self,
         message: SNMPv3Message,
@@ -106,17 +96,14 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             timestamp = time()
 
         if message.header.flags.authFlag:
-            with self.userLock:
-                user = self.users.getCredentials(engineID, securityName)
+            user = self.users.getCredentials(engineID, securityName)
 
             if user.auth is None:
                 userName = securityName.decode()
                 errmsg = f"Authentication is disabled for user \"{userName}\""
                 raise InvalidSecurityLevel(errmsg)
 
-            with self.timeLock:
-                engineTime = self.timekeeper.getEngineTime(engineID, timestamp)
-
+            engineTime = self.timekeeper.getEngineTime(engineID, timestamp)
             snmpEngineBoots, snmpEngineTime = engineTime
             msgAuthenticationParameters = user.auth.msgAuthenticationParameters
             msgPrivacyParameters = b''
@@ -182,22 +169,20 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
 
         if not message.header.flags.authFlag:
             if remoteIsAuthoritative:
-                with self.timeLock:
-                    self.timekeeper.hint(
-                        securityParameters.engineID,
-                        timestamp,
-                        securityParameters.engineBoots,
-                        securityParameters.engineTime,
-                    )
+                self.timekeeper.hint(
+                    securityParameters.engineID,
+                    timestamp,
+                    securityParameters.engineBoots,
+                    securityParameters.engineTime,
+                )
 
             return
 
         try:
-            with self.userLock:
-                user = self.users.getCredentials(
-                    securityParameters.engineID,
-                    securityParameters.userName,
-                )
+            user = self.users.getCredentials(
+                securityParameters.engineID,
+                securityParameters.userName,
+            )
         except InvalidEngineID as err:
             raise UnknownEngineID(securityParameters.engineID) from err
         except InvalidUserName as err:
@@ -228,13 +213,12 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             raise WrongDigest("Invalid signature")
 
         try:
-            with self.timeLock:
-                self.timekeeper.updateAndVerify(
-                    securityParameters.engineID,
-                    timestamp,
-                    securityParameters.engineBoots,
-                    securityParameters.engineTime,
-                )
+            self.timekeeper.updateAndVerify(
+                securityParameters.engineID,
+                timestamp,
+                securityParameters.engineBoots,
+                securityParameters.engineTime,
+            )
         except InvalidEngineID as err:
             raise UnknownEngineID(securityParameters.engineID) from err
 

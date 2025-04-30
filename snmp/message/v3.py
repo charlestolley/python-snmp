@@ -1,6 +1,5 @@
 __all__ = ["SNMPv3Message", "SNMPv3MessageProcessor"]
 
-import threading
 import weakref
 
 from snmp.asn1 import *
@@ -219,11 +218,9 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
     def __init__(self, msgMaxSize: int) -> None:
         self.msgMaxSize = msgMaxSize
 
-        self.cacheLock = threading.Lock()
         self.generator = self.newGenerator()
         self.outstanding: Dict[int, CacheEntry] = {}
 
-        self.securityLock = threading.Lock()
         self.defaultSecurityModel: Optional[SecurityModel] = None
         self.securityModules: Dict[SecurityModel, SecurityModule[Any]] = {}
 
@@ -234,53 +231,48 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
     def cache(self, entry: CacheEntry) -> int:
         retry = 0
         while retry < 10:
-            with self.cacheLock:
-                msgID = next(self.generator)
-                if msgID == 0:
-                    self.generator = self.newGenerator()
-                elif msgID not in self.outstanding:
-                    self.outstanding[msgID] = entry
-                    return msgID
+            msgID = next(self.generator)
+            if msgID == 0:
+                self.generator = self.newGenerator()
+            elif msgID not in self.outstanding:
+                self.outstanding[msgID] = entry
+                return msgID
 
             retry += 1
 
         raise CacheError("Failed to allocate message ID")
 
     def retrieve(self, msgID: int) -> CacheEntry:
-        with self.cacheLock:
-            return self.outstanding[msgID]
+        return self.outstanding[msgID]
 
     def uncache(self, msgID: int) -> None:
-        with self.cacheLock:
-            try:
-                del self.outstanding[msgID]
-            except KeyError:
-                pass
+        try:
+            del self.outstanding[msgID]
+        except KeyError:
+            pass
 
     def addSecurityModuleIfNeeded(self,
         module: SecurityModule[Any],
         default: bool = False,
     ) -> None:
-        with self.securityLock:
-            if module.MODEL not in self.securityModules:
-                self.securityModules[module.MODEL] = module
+        if module.MODEL not in self.securityModules:
+            self.securityModules[module.MODEL] = module
 
-                if default or self.defaultSecurityModel is None:
-                    self.defaultSecurityModel = module.MODEL
+            if default or self.defaultSecurityModel is None:
+                self.defaultSecurityModel = module.MODEL
 
     def prepareDataElements(self,
         msg: Asn1Data,
     ) -> Tuple[SNMPv3Message, RequestHandle[SNMPv3Message]]:
         message = SNMPv3Message.decodeExact(msg)
 
-        with self.securityLock:
-            try:
-                securityModule = self.securityModules[
-                    message.header.securityModel
-                ]
-            except KeyError as e:
-                securityModel = message.header.securityModel
-                raise UnknownSecurityModel(securityModel) from e
+        try:
+            securityModule = self.securityModules[
+                message.header.securityModel
+            ]
+        except KeyError as e:
+            securityModel = message.header.securityModel
+            raise UnknownSecurityModel(securityModel) from e
 
         securityModule.processIncoming(message)
 
@@ -334,16 +326,15 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
         contextName: bytes = b"",
     ) -> bytes:
 
-        with self.securityLock:
-            if securityModel is None:
-                assert self.defaultSecurityModel is not None
-                securityModel = self.defaultSecurityModel
+        if securityModel is None:
+            assert self.defaultSecurityModel is not None
+            securityModel = self.defaultSecurityModel
 
-            try:
-                securityModule = self.securityModules[securityModel]
-            except KeyError as err:
-                errmsg = f"Security Model {securityModel} has not been enabled"
-                raise ValueError(errmsg) from err
+        try:
+            securityModule = self.securityModules[securityModel]
+        except KeyError as err:
+            errmsg = f"Security Model {securityModel} has not been enabled"
+            raise ValueError(errmsg) from err
 
         reportable = isinstance(pdu, Confirmed)
 
