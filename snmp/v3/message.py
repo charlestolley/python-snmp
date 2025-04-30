@@ -1,13 +1,27 @@
-__all__ = ["HeaderData", "MessageFlags"]
+__all__ = ["HeaderData", "MessageFlags", "ScopedPDU"]
 
 from snmp.asn1 import ASN1
 from snmp.ber import *
+from snmp.pdu import *
 from snmp.smi import *
 from snmp.typing import *
 from snmp.utils import *
 
 from snmp.security import *
 from snmp.security.levels import *
+
+pduTypes = {
+    cls.TAG: cls for cls in (
+        GetRequestPDU,
+        GetNextRequestPDU,
+        ResponsePDU,
+        SetRequestPDU,
+        GetBulkRequestPDU,
+        InformRequestPDU,
+        SNMPv2TrapPDU,
+        ReportPDU,
+    )
+}
 
 class MessageFlags(OctetString):
     AUTH_FLAG: ClassVar[int]        = (1 << 0)
@@ -159,3 +173,69 @@ class HeaderData(Sequence):
             return cls(msgID.value, msgMaxSize.value, msgFlags, securityModel)
         except ValueError as err:
             raise ParseError(*err.args) from err
+
+class ScopedPDU(Sequence):
+    def __init__(self,
+        pdu: AnyPDU,
+        contextEngineID: bytes,
+        contextName: bytes = b"",
+    ) -> None:
+        self._contextEngineID = OctetString(contextEngineID)
+        self._contextName = OctetString(contextName)
+        self.pdu = pdu
+
+    @property
+    def contextEngineID(self) -> bytes:
+        return self._contextEngineID.data
+
+    @property
+    def contextName(self) -> bytes:
+        return self._contextName.data
+
+    def __iter__(self) -> Iterator[ASN1]:
+        yield self._contextEngineID
+        yield self._contextName
+        yield self.pdu
+
+    def __len__(self) -> int:
+        return 3
+
+    def __repr__(self) -> str:
+        args = (
+            repr(self.pdu),
+            repr(self.contextEngineID),
+            f"contextName={repr(self.contextName)}"
+        )
+
+        return f"{typename(self)}({', '.join(args)})"
+
+    def __str__(self) -> str:
+        return self.toString()
+
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+        indent = tab * depth
+        subindent = indent + tab
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            f"{subindent}Context Engine ID: {self.contextEngineID!r}",
+            f"{subindent}Context Name: {self.contextName!r}",
+            f"{self.pdu.toString(depth=depth+1, tab=tab)}"
+        ))
+
+    @classmethod
+    def deserialize(cls, data: Union[bytes, subbytes]) -> "ScopedPDU":
+        contextEngineID, data   = OctetString.decode(data)
+        contextName, data       = OctetString.decode(data)
+        tag, _                  = Tag.decode(data)
+
+        try:
+            pduType = pduTypes[tag]
+        except KeyError as err:
+            errmsg = f"{typename(cls)} does not support PDUs of type {tag}"
+            raise ParseError(errmsg) from err
+
+        return cls(
+            pduType.decodeExact(data),
+            contextEngineID = contextEngineID.data,
+            contextName     = contextName.data,
+        )

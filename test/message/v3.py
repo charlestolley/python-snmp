@@ -1,4 +1,4 @@
-__all__ = ["ScopedPDUTest", "SNMPv3MessageTest", "SNMPv3MessageProcessorTest"]
+__all__ = ["SNMPv3MessageTest", "SNMPv3MessageProcessorTest"]
 
 import re
 import sys
@@ -16,55 +16,6 @@ from snmp.security.levels import *
 from snmp.smi import *
 from snmp.utils import *
 from snmp.v3.message import *
-
-class ScopedPDUTest(unittest.TestCase):
-    def setUp(self):
-        self.encoding = bytes.fromhex(re.sub(r"\n", "", """
-            30 57
-               04 0c 73 6f 6d 65 45 6e 67 69 6e 65 49 44
-               04 0b 73 6f 6d 65 43 6f 6e 74 65 78 74
-               a2 3a
-                  02 04 f9 6b fa c3
-                  02 01 00
-                  02 01 00
-                  30 2c
-                     30 2a
-                        06 07 2b 06 01 02 01 01 00
-                        04 1f 54 68 69 73 20 73 74 72 69 6e 67 20 64 65 73
-                           63 72 69 62 65 73 20 6d 79 20 73 79 73 74 65 6d
-        """))
-
-        self.scopedPDU = ScopedPDU(
-            ResponsePDU(
-                requestID=-110363965,
-                variableBindings=VarBindList(
-                    VarBind(
-                        "1.3.6.1.2.1.1.0",
-                        OctetString(b"This string describes my system"),
-                    )
-                )
-            ),
-            b"someEngineID",
-            b"someContext",
-        )
-
-    def test_decode_raises_ParseError_if_PDU_tag_is_not_in_types(self):
-        self.assertRaises(
-            ParseError,
-            ScopedPDU.decodeExact,
-            self.encoding,
-            types={},
-        )
-
-    def test_decode_example_matches_the_hand_computed_result(self):
-        scopedPDU = ScopedPDU.decodeExact(self.encoding, types=pduTypes)
-        self.assertEqual(scopedPDU, self.scopedPDU)
-
-    def test_encode_example_matches_the_hand_computed_result(self):
-        self.assertEqual(self.scopedPDU.encode(), self.encoding)
-
-    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
-        self.assertEqual(eval(repr(self.scopedPDU)), self.scopedPDU)
 
 class SNMPv3MessageTest(unittest.TestCase):
     def setUp(self):
@@ -607,7 +558,12 @@ class SNMPv3MessageProcessorTest(unittest.TestCase):
             self.securityName,
         )
 
-        self.security.response.scopedPDU.contextEngineID = b""
+        self.security.response.scopedPDU = ScopedPDU(
+            self.security.response.scopedPDU.pdu,
+            contextEngineID=b"",
+            contextName=self.security.response.scopedPDU.contextName,
+        )
+
         self.assertRaisesRegex(
             IncomingMessageError,
             "[Cc]ontext.*[Ee]ngine.*[Ii][Dd]",
@@ -651,7 +607,12 @@ class SNMPv3MessageProcessorTest(unittest.TestCase):
             contextName=self.contextName,
         )
 
-        self.security.response.scopedPDU.contextName = b""
+        self.security.response.scopedPDU = ScopedPDU(
+            self.security.response.scopedPDU.pdu,
+            contextEngineID=self.security.response.scopedPDU.contextEngineID,
+            contextName=b"",
+        )
+
         self.assertRaisesRegex(
             IncomingMessageError,
             "[Cc]ontext.*[Nn]ame",

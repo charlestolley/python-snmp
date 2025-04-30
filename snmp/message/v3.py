@@ -1,4 +1,4 @@
-__all__ = ["ScopedPDU", "SNMPv3Message", "SNMPv3MessageProcessor"]
+__all__ = ["SNMPv3Message", "SNMPv3MessageProcessor"]
 
 import threading
 import weakref
@@ -41,70 +41,6 @@ class ResponseMismatch(IncomingMessageError):
     @classmethod
     def byField(cls, field: str) -> "ResponseMismatch":
         return cls(f"{field} does not match request")
-
-@final
-class ScopedPDU(Sequence):
-    def __init__(self,
-        pdu: AnyPDU,
-        contextEngineID: bytes,
-        contextName: bytes = b"",
-    ) -> None:
-        self.contextEngineID = contextEngineID
-        self.contextName = contextName
-        self.pdu = pdu
-
-    def __iter__(self) -> Iterator[ASN1]:
-        yield OctetString(self.contextEngineID)
-        yield OctetString(self.contextName)
-        yield self.pdu
-
-    def __len__(self) -> int:
-        return 3
-
-    def __repr__(self) -> str:
-        args = (
-            repr(self.pdu),
-            repr(self.contextEngineID),
-            f"contextName={repr(self.contextName)}"
-        )
-
-        return f"{typename(self)}({', '.join(args)})"
-
-    def __str__(self) -> str:
-        return self.toString()
-
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
-        indent = tab * depth
-        subindent = indent + tab
-        return "\n".join((
-            f"{indent}{typename(self)}:",
-            f"{subindent}Context Engine ID: {self.contextEngineID!r}",
-            f"{subindent}Context Name: {self.contextName!r}",
-            f"{self.pdu.toString(depth=depth+1, tab=tab)}"
-        ))
-
-    @classmethod
-    def deserialize(cls,
-        data: Asn1Data,
-        types: Optional[Mapping[Tag, Type[AnyPDU]]] = None,
-    ) -> "ScopedPDU":
-        if types is None:
-            types = dict()
-
-        contextEngineID, data = OctetString.decode(data)
-        contextName, data = OctetString.decode(data)
-        tag, _ = Tag.decode(subbytes(data))
-
-        try:
-            pduType = types[tag]
-        except KeyError as err:
-            raise ParseError(f"Invalid PDU type: {tag}") from err
-
-        return cls(
-            pduType.decodeExact(data),
-            contextEngineID = contextEngineID.data,
-            contextName     = contextName.data,
-        )
 
 TMessage = TypeVar("TMessage", bound="SNMPv3Message")
 class SNMPv3Message(Sequence):
@@ -235,7 +171,7 @@ class SNMPv3Message(Sequence):
         if msgGlobalData.flags.privFlag:
             encryptedPDU = OctetString.decodeExact(ptr)
         else:
-            scopedPDU = ScopedPDU.decodeExact(ptr, types=pduTypes)
+            scopedPDU = ScopedPDU.decodeExact(ptr)
 
         return cls(
             msgGlobalData,
@@ -259,7 +195,7 @@ class SNMPv3Message(Sequence):
 
     @plaintext.setter
     def plaintext(self, data: bytes) -> None:
-        self.scopedPDU, _ = ScopedPDU.decode(data, types=pduTypes)
+        self.scopedPDU, _ = ScopedPDU.decode(data)
 
 class CacheEntry:
     def __init__(self,

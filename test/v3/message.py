@@ -1,9 +1,11 @@
-__all__ = ["HeaderDataTest", "MessageFlagsTest"]
+__all__ = ["HeaderDataTest", "MessageFlagsTest", "ScopedPDUTest"]
 
 import unittest
 
-from snmp.ber import ParseError
 from snmp.exception import *
+from snmp.ber import ParseError
+from snmp.smi import *
+from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.v3.message import *
@@ -346,6 +348,86 @@ class HeaderDataTest(unittest.TestCase):
 
     def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         self.assertEqual(eval(repr(self.header)), self.header)
+
+class ScopedPDUTest(unittest.TestCase):
+    def setUp(self):
+        self.encoding = bytes.fromhex(
+            "30 58"                                         # SEQUENCE
+            "   04 0c 73 6f 6d 65 45 6e 67 69 6e 65 49 44"  # contextEngineID
+            "   04 0b 73 6f 6d 65 43 6f 6e 74 65 78 74"     # contextName
+            "   a2 3b"                                      # ResponsePDU
+            "      02 04 f9 6b fa c3"                       # 0xf96bfac3
+            "      02 01 00"                                # noError
+            "      02 01 00"                                # errorIndex=0
+            "      30 2d"                                   # SEQUENCE
+            "         30 2b"                                # SEQUENCE
+            "            06 08 2b 06 01 02 01 01 01 00"     # 1.3.6.1.2.1.1.1.0
+            "            04 1f 54 68 69 73 20 73 74 72 69 6e 67 20 64 65 73"
+            "               63 72 69 62 65 73 20 6d 79 20 73 79 73 74 65 6d"
+        )
+
+        self.scopedPDU = ScopedPDU(
+            ResponsePDU(
+                requestID=-110363965,
+                variableBindings=VarBindList(
+                    VarBind(
+                        "1.3.6.1.2.1.1.1.0",
+                        OctetString(b"This string describes my system"),
+                    )
+                )
+            ),
+            b"someEngineID",
+            b"someContext",
+        )
+
+    def test_constructor_raises_ValueError_if_contextEngineID_too_long(self):
+        self.assertRaises(
+            ValueError,
+            ScopedPDU,
+            GetRequestPDU(),
+            bytes(1 << 16),
+        )
+
+    def test_constructor_raises_ValueError_if_contextName_too_long(self):
+        self.assertRaises(
+            ValueError,
+            ScopedPDU,
+            GetRequestPDU(),
+            b"engineID",
+            bytes(1 << 16),
+        )
+
+    def test_fields_have_the_expected_names(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", "1.2.3.4.5.6")
+        scopedPDU = ScopedPDU(request, b"engineID", b"context")
+
+        self.assertEqual(scopedPDU.pdu, request)
+        self.assertEqual(scopedPDU.contextEngineID, b"engineID")
+        self.assertEqual(scopedPDU.contextName, b"context")
+
+    def test_decode_raises_ParseError_if_PDU_tag_is_not_in_types(self):
+        encoding = bytes.fromhex(
+            "30 11"             # SEQUENCE
+            "   04 00"          # contextEngineID
+            "   04 00"          # contextName
+            "   aa 0b"          # This tag doesn't correspond to a PDU type
+            "      02 01 00"    # 0
+            "      02 01 00"    # noError
+            "      02 01 00"    # errorIndex=0
+            "      30 00"       # SEQUENCE (empty VarBindList)
+        )
+
+        self.assertRaises(ParseError, ScopedPDU.decode, encoding)
+
+    def test_decode_example_matches_the_hand_computed_result(self):
+        scopedPDU = ScopedPDU.decodeExact(self.encoding)
+        self.assertEqual(scopedPDU, self.scopedPDU)
+
+    def test_encode_example_matches_the_hand_computed_result(self):
+        self.assertEqual(self.scopedPDU.encode(), self.encoding)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        self.assertEqual(eval(repr(self.scopedPDU)), self.scopedPDU)
 
 if __name__ == "__main__":
     unittest.main()
