@@ -2,10 +2,6 @@ __all__ = ["SNMPv3UsmManager"]
 
 from collections import deque
 
-import heapq
-import math
-import threading
-import time
 import weakref
 
 from snmp.asn1 import *
@@ -14,6 +10,7 @@ from snmp.exception import *
 from snmp.message import *
 from snmp.message.v3 import *
 from snmp.pdu import *
+from snmp.scheduler import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm import *
@@ -277,11 +274,8 @@ class Request:
         manager: "SNMPv3UsmManager[Any]",
         userName: bytes,
         securityLevel: SecurityLevel,
-        timeout: float = 10.0,
         refreshPeriod: float = 1.0,
     ) -> None:
-        now = time.time()
-
         self._engineID: Optional[bytes] = None
         self.synchronized = SharedBool(False)
 
@@ -291,13 +285,10 @@ class Request:
         self.userName = userName
 
         self.messages: Set[RequestMessage] = set()
-
-        self.event = threading.Event()
         self.exception: Optional[UnhandledReport] = None
         self.response: Optional[SNMPv3Message] = None
 
-        self.expiration = now + timeout
-        self._nextRefresh = self.expiration
+        self._expired = False
         self.period = refreshPeriod
 
     def __del__(self) -> None:
@@ -321,16 +312,22 @@ class Request:
         self._engineID = engineID
 
     @property
-    def expired(self) -> bool:
-        return self.expiration <= time.time()
+    def active(self) -> bool:
+        return self.response is None and not self.expired
 
     @property
-    def nextRefresh(self) -> float:
-        return self._nextRefresh
+    def expired(self) -> bool:
+        return self._expired
 
-    @nextRefresh.setter
-    def nextRefresh(self, value: float) -> None:
-        self._nextRefresh = min(self.expiration, value)
+    @expired.setter
+    def expired(self, value: bool) -> None:
+        if self.active:
+            self._expired = value
+
+            if not self.active:
+                self.close()
+
+            self.manager.deactivate(self)
 
     def close(self) -> None:
         while self.messages:
@@ -349,9 +346,9 @@ class Request:
 
     def processException(self, exception: UnhandledReport, auth: bool) -> None:
         if auth:
-            if not self.event.is_set():
+            if self.active:
                 self.exception = exception
-                self.event.set()
+                self.expired = True
         elif self.exception is None:
             self.exception = exception
 
@@ -360,12 +357,10 @@ class Request:
         #    return
 
         if self.manager.processResponse(self, response):
-            if not self.event.is_set():
+            if self.active:
                 self.response = response
-                self.event.set()
 
-    # Always update self.nextRefresh right before calling this method
-    def reallySend(self, engineID: Optional[bytes] = None) -> None:
+    def send(self, engineID: Optional[bytes] = None) -> None:
         pdu = self.pdu
         user = self.userName
         securityLevel = self.securityLevel
@@ -385,48 +380,24 @@ class Request:
         self.messages.add(message)
         self.manager.sendPdu(pdu, message, engineID, user, securityLevel)
 
-    def refresh(self) -> Optional[float]:
-        if self.event.is_set():
-            return None
-
-        now = time.time()
-        timeToNextRefresh = self.nextRefresh - now
-
-        if timeToNextRefresh <= 0.0:
-            if self.expiration <= now:
-                return None
-
-            # Calculating it like this mitigates over-delay
-            periodsElapsed = math.ceil(-timeToNextRefresh / self.period)
-            self.nextRefresh += periodsElapsed * self.period
-            self.reallySend()
-            return 0.0
-        else:
-            return timeToNextRefresh
-
-    def send(self, engineID: Optional[bytes] = None) -> None:
-        now = time.time()
-        self.nextRefresh = now + self.period
-        self.reallySend(engineID)
-
     def wait(self) -> VarBindList:
         try:
             pdu = None
-            while not self.expired:
-                timeout = self.manager.refresh()
-
+            while self.active:
                 try:
-                    ready = self.event.wait(timeout=timeout)
+                    self.manager.scheduler.wait()
                 except KeyboardInterrupt as interrupt:
                     if self.exception is not None:
                         raise self.exception from interrupt
                     else:
                         raise
 
-                if ready:
-                    break
-
-            if self.event.is_set() and self.response is not None:
+            if self.response is None:
+                if self.exception is not None:
+                    raise self.exception
+                else:
+                    raise Timeout()
+            else:
                 assert self.response.scopedPDU is not None
                 pdu = cast(ResponsePDU, self.response.scopedPDU.pdu)
                 if pdu.errorStatus:
@@ -437,18 +408,14 @@ class Request:
                     )
                 else:
                     return pdu.variableBindings
-            else:
-                if self.exception is not None:
-                    raise self.exception
-                else:
-                    raise Timeout()
         finally:
             self.close()
 
 T = TypeVar("T")
 class SNMPv3UsmManager(Generic[T]):
     def __init__(self,
-        dispatcher,
+        scheduler: Scheduler,
+        dispatcher: Dispatcher,
         usm: UserBasedSecurityModule,
         channel: TransportChannel[T],
         namespace: str,
@@ -469,17 +436,13 @@ class SNMPv3UsmManager(Generic[T]):
         self.autowait = autowait
 
         self.dispatcher = dispatcher
+        self.scheduler = scheduler
         self.usm = usm
 
         self.generator = self.newGenerator()
 
-        # protects self.active
-        self.activeLock = threading.Lock()
-        self.active: List[ComparableWeakRef[Request, float]] = []
-
-        # protects self.unsent, self.state, and self.engineID
-        self.lock = threading.Lock()
-        self.unsent: Deque[ComparableWeakRef[Request, float]] = deque()
+        self.active = {}
+        self.unsent = deque()
 
         self.state: State
         self.nextState = None
@@ -488,6 +451,27 @@ class SNMPv3UsmManager(Generic[T]):
         else:
             self.engineID = engineID
             self.state = Unsynchronized(self)
+
+    class ExpireTask(SchedulerTask):
+        def __init__(self, request):
+            self.request = request
+
+        def run(self):
+            self.request.expired = True
+
+    class SendTask(SchedulerTask):
+        def __init__(self, request, engineID):
+            self.cancelled = False
+            self.request = request
+            self.engineID = engineID
+
+        def cancel(self):
+            self.cancelled = True
+
+        def run(self):
+            if self.request.active and not self.cancelled:
+                self.request.send(self.engineID)
+                return self
 
     def __del__(self) -> None:
         self.engineID = None
@@ -521,58 +505,30 @@ class SNMPv3UsmManager(Generic[T]):
     def newGenerator(self) -> NumberGenerator:
         return NumberGenerator(32)
 
+    def deactivate(self, request):
+        del self.active[request.pdu.requestID]
+
+        if not self.active:
+            self.poke()
+
     def poke(self) -> bool:
-        active = False
-        with self.lock:
-            self.state.onInactive()
-            self.updateState()
+        self.state.onInactive()
+        self.updateState()
 
-            unsent = self.unsent
-            self.unsent = deque()
-            while unsent:
-                reference = unsent.pop()
-                request = reference()
+        unsent = self.unsent
+        self.unsent = deque()
+        while unsent:
+            reference = unsent.pop()
+            request = reference()
 
-                if request is not None:
-                    if self.state.onRequest(request.securityLevel.auth):
-                        with self.activeLock:
-                            request.send(self.engineID)
-                            heapq.heappush(self.active, reference)
-                            active = True
-
-                        self.updateState()
-                    else:
-                        self.unsent.appendleft(reference)
-
-        return active
-
-    def refresh(self) -> float:
-        active = True
-        while active:
-            with self.activeLock:
-                if self.active:
-                    reference = self.active[0]
-                    request = reference()
-
-                    if request is None:
-                        wait = None
-                    else:
-                        wait = request.refresh()
-
-                    if wait is None:
-                        heapq.heappop(self.active)
-                        continue
-                    elif wait > 0.0:
-                        return wait
-                    else:
-                        heapq.heapreplace(self.active, reference)
+            if request is not None:
+                if self.state.onRequest(request.securityLevel.auth):
+                    task = self.SendTask(request, self.engineID)
+                    self.active[request.pdu.requestID] = task
+                    self.scheduler.schedule(task, period=request.period)
+                    self.updateState()
                 else:
-                    active = False
-
-            if not active:
-                active = self.poke()
-
-        return 0.0
+                    self.unsent.appendleft(reference)
 
     def registerRemoteEngine(self, engineID: bytes) -> None:
         if not self.usm.registerRemoteEngine(engineID, self.namespace):
@@ -587,37 +543,36 @@ class SNMPv3UsmManager(Generic[T]):
         self.usm.unregisterRemoteEngine(engineID, self.namespace)
 
     def onReport(self, request: Request, engineID: bytes) -> None:
-        with self.lock:
-            sendAll = self.state.onReport(engineID)
+        sendAll = self.state.onReport(engineID)
 
-            with self.activeLock:
-                request.send(engineID)
-                heapq.heapify(self.active)
+        self.active[request.pdu.requestID].cancel()
+        task = self.SendTask(request, engineID)
+        self.active[request.pdu.requestID] = task
+        self.scheduler.schedule(task, period=request.period)
 
-            if sendAll:
-                self.updateState()
-                while self.unsent:
-                    reference = self.unsent.pop()
-                    req = reference()
+        if sendAll:
+            self.updateState()
+            while self.unsent:
+                reference = self.unsent.pop()
+                req = reference()
 
-                    if req is not None:
-                        with self.activeLock:
-                            req.send(engineID)
-                            heapq.heappush(self.active, reference)
+                if req is not None:
+                    task = self.SendTask(req, engineID)
+                    self.active[req.pdu.requestID] = task
+                    self.scheduler.schedule(task, period=req.period)
 
     def processResponse(self,
         request: Request,
         response: SNMPv3Message,
     ) -> bool:
-        with self.lock:
-            auth = response.header.flags.authFlag
-            engineID = response.securityEngineID
-            assert engineID is not None
-            if self.state.onResponse(engineID, auth):
-                self.engineID = engineID
-                self.updateState()
+        auth = response.header.flags.authFlag
+        engineID = response.securityEngineID
+        assert engineID is not None
+        if self.state.onResponse(engineID, auth):
+            self.engineID = engineID
+            self.updateState()
 
-            return True
+        return True
 
     def sendPdu(self,
         pdu: AnyPDU,
@@ -642,6 +597,7 @@ class SNMPv3UsmManager(Generic[T]):
         securityLevel: Optional[SecurityLevel] = None,
         user: Optional[bytes] = None,
         wait: Optional[bool] = None,
+        timeout: float = 10.0,
         **kwargs: Any,
     ) -> Union[Request, VarBindList]:
         if securityLevel is None:
@@ -655,17 +611,16 @@ class SNMPv3UsmManager(Generic[T]):
 
         pdu.requestID = self.generateRequestID()
         request = Request(pdu, self, user, securityLevel, **kwargs)
-        reference = ComparableWeakRef(request, key=lambda r: r.nextRefresh)
+        self.scheduler.schedule(self.ExpireTask(request), timeout)
+        reference = weakref.ref(request)
 
-        with self.lock:
-            if self.state.onRequest(securityLevel.auth):
-                with self.activeLock:
-                    request.send(self.engineID)
-                    heapq.heappush(self.active, reference)
-
-                self.updateState()
-            else:
-                self.unsent.appendleft(reference)
+        if self.state.onRequest(securityLevel.auth):
+            task = self.SendTask(request, self.engineID)
+            self.active[request.pdu.requestID] = task
+            self.scheduler.schedule(task, period=request.period)
+            self.updateState()
+        else:
+            self.unsent.appendleft(reference)
 
         if wait:
             return request.wait()
