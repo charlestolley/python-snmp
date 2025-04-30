@@ -20,9 +20,6 @@ from .users import *
 class UnsupportedSecLevel(IncomingMessageError):
     pass
 
-class NotInTimeWindow(IncomingMessageError):
-    pass
-
 class UnknownUserName(IncomingMessageError):
     pass
 
@@ -188,9 +185,9 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
                 with self.timeLock:
                     self.timekeeper.hint(
                         securityParameters.engineID,
+                        timestamp,
                         securityParameters.engineBoots,
                         securityParameters.engineTime,
-                        timestamp,
                     )
 
             return
@@ -232,19 +229,12 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
 
         try:
             with self.timeLock:
-                withinTimeWindow = self.timekeeper.updateAndVerify(
+                self.timekeeper.updateAndVerify(
                     securityParameters.engineID,
-                    securityParameters.engineBoots,
-                    securityParameters.engineTime,
                     timestamp,
-                )
-
-            if not withinTimeWindow:
-                raise NotInTimeWindow((
-                    securityParameters.engineID,
                     securityParameters.engineBoots,
                     securityParameters.engineTime,
-                ))
+                )
         except InvalidEngineID as err:
             raise UnknownEngineID(securityParameters.engineID) from err
 

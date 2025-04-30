@@ -1,133 +1,182 @@
-__all__ = ["EngineTimeTest", "TimeKeeperTest"]
+__all__ = ["LocalEngineTimeTest", "RemoteEngineTimeTest", "TimeKeeperTest"]
 
-import time
 import unittest
 
+from snmp.exception import OutsideTimeWindow
 from snmp.security.usm.timekeeper import EngineTime, TimeKeeper
 
-class EngineTimeTest(unittest.TestCase):
+class LocalEngineTimeTest(unittest.TestCase):
     def setUp(self):
-        self.engineBoots = 4887
-        self.engineTime = 1942
-        self.timestamp = 8264.0
+        self.engineBoots = 10
+        self.timestamp = 11.0
 
-        self.et = EngineTime(
-            self.engineBoots,
-            self.engineTime,
-            self.timestamp,
-            True,
-        )
+        self.et = EngineTime(self.timestamp, self.engineBoots, True)
+
+    def test_constructor_constrains_snmpEngineBoots_to_32_bit_signed(self):
+        et = EngineTime(self.timestamp, 1<<31, True)
+        self.assertEqual(et.snmpEngineBoots, ((1<<31)-1))
+
+    def test_constructor_raises_ValueError_for_negative_snmpEngineBoots(self):
+        self.assertRaises(ValueError, EngineTime, self.timestamp, -1, True)
 
     def test_snmpEngineTime_computes_seconds_since_the_last_boot(self):
-        delta = 5
-        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
-        self.assertEqual(engineTime, self.engineTime + delta)
+        timestamp = self.timestamp + 16.0
+        engineTime = self.et.snmpEngineTime(timestamp)
+        self.assertEqual(engineTime, 16)
 
-    def test_snmpEngineTime_rounds_down(self):
-        delta = 23.9
-        deltaInt = 23
-        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
-        self.assertEqual(engineTime, self.engineTime + deltaInt)
+    def test_snmpEngineTime_does_not_round_but_truncates(self):
+        timestamp = self.timestamp + 21.99
+        engineTime = self.et.snmpEngineTime(timestamp)
+        self.assertEqual(engineTime, 21)
 
-    def test_update_with_larger_engineTime_updates_local_notion(self):
-        delta = 5
-        offset = 1.9
-
-        self.et.update(
-            self.engineBoots,
-            self.engineTime + delta,
-            self.timestamp + delta - offset,
+    def test_wrong_snmpEngineBoots_is_OutsideTimeWindow(self):
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.et.verifyTimeliness,
+            self.timestamp,
+            self.engineBoots - 1,
+            0,
         )
 
-        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
-        self.assertEqual(engineTime, self.engineTime + delta + int(offset))
+    def test_a_message_is_valid_if_it_is_less_than_151_seconds_old(self):
+        timestamp = self.timestamp + 150.9
+        self.et.verifyTimeliness(timestamp, self.engineBoots, 0)
 
-    def test_update_local_notion_even_for_fractional_changes(self):
+    def test_a_message_is_OutsideTimeWindow_after_151_seconds(self):
+        timestamp = self.timestamp + 151
+
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.et.verifyTimeliness,
+            timestamp,
+            self.engineBoots,
+            0,
+        )
+
+    def test_remote_engine_error_tolerated_under_151_seconds(self):
+        self.et.verifyTimeliness(self.timestamp, self.engineBoots, 1)
+        self.et.verifyTimeliness(self.timestamp, self.engineBoots, 58)
+        self.et.verifyTimeliness(self.timestamp, self.engineBoots, 150)
+
+    def test_remote_engine_error_of_151_seconds_is_OutsideTimeWindow(self):
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.et.verifyTimeliness,
+            self.timestamp,
+            self.engineBoots,
+            151,
+        )
+
+    def test_snmpEngineBoots_is_valid_under_int32_max(self):
+        engineBoots = (1 << 31) - 2
+        et = EngineTime(self.timestamp, engineBoots, True)
+        et.verifyTimeliness(self.timestamp, engineBoots, 0)
+
+    def test_snmpEngineBoots_of_int32_max_is_OutsideTimeWindow(self):
+        engineBoots = (1 << 31) - 1
+        et = EngineTime(self.timestamp, engineBoots, True)
+
+        self.assertRaises(
+            OutsideTimeWindow,
+            et.verifyTimeliness,
+            self.timestamp,
+            engineBoots,
+            0,
+        )
+
+class RemoteEngineTimeTest(unittest.TestCase):
+    def setUp(self):
+        self.engineBoots = 48
+        self.engineTime = 49
+        self.timestamp = 50.0
+
+        self.et = EngineTime(self.timestamp)
+        self.et.update(self.timestamp, self.engineBoots, self.engineTime)
+
+    def test_update_with_greater_engineBoots_sets_engineTime(self):
         self.et.update(
+            self.timestamp + 3.0,
+            self.engineBoots + 1,
+            1,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + 5.0)
+        self.assertEqual(self.et.snmpEngineBoots, self.engineBoots + 1)
+        self.assertEqual(engineTime, 3)
+
+    def test_update_with_lesser_engineBoots_has_no_effect(self):
+        self.et.update(
+            self.timestamp + 3.0,
+            self.engineBoots - 1,
+            59,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + 5.0)
+        self.assertEqual(engineTime, self.engineTime + 5.0)
+        self.assertEqual(self.et.snmpEngineBoots, self.engineBoots)
+
+    def test_update_with_greater_engineTime_reflected_in_calculation(self):
+        self.et.update(
+            self.timestamp + 3.0,
+            self.engineBoots,
+            self.engineTime + 5,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + 5.0)
+        self.assertEqual(engineTime, self.engineTime + 7)
+
+    def test_update_with_lesser_engineTime_does_not_change_calculation(self):
+        self.et.update(
+            self.timestamp + 3.0,
             self.engineBoots,
             self.engineTime + 1,
-            self.timestamp + 0.6,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + 5.0)
+        self.assertEqual(engineTime, self.engineTime + 5)
+
+    def test_update_picks_up_fractional_changes(self):
+        self.et.update(
+            self.timestamp + 0.625,
+            self.engineBoots,
+            self.engineTime + 1,
         )
 
         engineTime = self.et.snmpEngineTime(self.timestamp + 1.5)
         self.assertEqual(engineTime, self.engineTime + 1)
-        engineTime = self.et.snmpEngineTime(self.timestamp + 1.7)
+        engineTime = self.et.snmpEngineTime(self.timestamp + 1.625)
         self.assertEqual(engineTime, self.engineTime + 2)
 
-    def test_slow_update_does_not_change_the_notion_of_time(self):
-        delta = 12
-        delay = 3
-
-        self.et.update(
-            self.engineBoots,
-            self.engineTime - delay,
-            self.timestamp,
-        )
-
-        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
-        self.assertEqual(engineTime, self.engineTime + delta)
-
-    def test_update_has_no_effect_if_engineBoots_is_too_low(self):
-        delta = 5
-        self.et.update(
-            self.engineBoots - 1,
-            self.engineTime + 7852,
-            self.timestamp + 1,
-        )
-
-        engineTime = self.et.snmpEngineTime(self.timestamp + delta)
-        self.assertEqual(engineTime, self.engineTime + delta)
-
-    def test_update_resets_engineTime_when_engineBoots_is_incremented(self):
-        self.et.update(self.engineBoots + 1, 0, self.timestamp + 1)
-        engineTime = self.et.snmpEngineTime(self.timestamp + 5)
-        self.assertEqual(self.et.snmpEngineBoots, self.engineBoots + 1)
-        self.assertEqual(engineTime, 4)
-
-    def test_update_engineBoots_maxes_out_at_32_bit_signed_max(self):
-        self.et.update(1 << 31, 0, self.timestamp + 1)
+    def test_update_engineBoots_maxes_out_at_int32_max(self):
+        self.et.update(self.timestamp + 3.0, 1 << 31, 0)
         self.assertEqual(self.et.snmpEngineBoots, (1 << 31) - 1)
-        et = EngineTime(1 << 31, 0, self.timestamp)
-        self.assertEqual(et.snmpEngineBoots, (1 << 31) - 1)
 
-    def test_hint_has_no_effect_if_authenticated(self):
-        self.et.hint(self.engineBoots + 1, 0, self.timestamp)
-        engineTime = self.et.snmpEngineTime(self.timestamp)
-        self.assertEqual(engineTime, self.engineTime)
+    def test_hint_clobbers_the_previous_hint(self):
+        et = EngineTime(self.timestamp)
+        et.hint(self.timestamp, self.engineBoots + 3, 115)
 
-    def test_hint_clobbers_the_previous_notion(self):
-        et = EngineTime(self.engineBoots, self.engineTime, self.timestamp)
-
-        et.hint(self.engineBoots + 3, 99, self.timestamp)
         engineTime = et.snmpEngineTime(self.timestamp)
-        self.assertEqual(engineTime, 99)
+        self.assertEqual(engineTime, 115)
 
-        et.hint(self.engineBoots - 1, self.engineTime * 2, self.timestamp)
+        et.hint(self.timestamp, self.engineBoots - 1, self.engineTime * 2)
         engineTime = et.snmpEngineTime(self.timestamp)
         self.assertEqual(engineTime, self.engineTime * 2)
 
-    def test_update_clobbers_unauthenticated_notion(self):
-        et = EngineTime(
-            self.engineBoots + 3,
-            self.engineTime * 9,
-            self.timestamp,
-        )
+    def test_update_clobbers_hint(self):
+        et = EngineTime(self.timestamp)
+        et.hint(self.timestamp, self.engineBoots + 3, self.engineTime * 9)
 
-        et.update(self.engineBoots, self.engineTime, self.timestamp)
+        et.update(self.timestamp, self.engineBoots, self.engineTime)
         self.assertEqual(et.snmpEngineBoots, self.engineBoots)
         self.assertEqual(et.snmpEngineTime(self.timestamp), self.engineTime)
 
-    def test_valid_indicates_that_engineBoots_has_not_maxed_out(self):
-        self.assertTrue(self.et.valid)
-        self.et.update((1 << 31) - 2, 0, self.timestamp)
-        self.assertTrue(self.et.valid)
-        self.et.update(1 << 31, 0, self.timestamp)
-        self.assertFalse(self.et.valid)
+    def test_hint_has_no_effect_after_update(self):
+        et = EngineTime(self.timestamp)
+        et.update(self.timestamp, self.engineBoots, self.engineTime)
 
-    def test_computeAge_tells_how_long_since_the_message_was_generated(self):
-        delay = 123
-        age = self.et.computeAge(self.engineTime, self.timestamp + delay)
-        self.assertEqual(age, delay)
+        self.et.hint(self.timestamp + 3.0, self.engineBoots + 1, 0)
+        engineTime = self.et.snmpEngineTime(self.timestamp)
+        self.assertEqual(engineTime, self.engineTime)
 
 class TimeKeeperTest(unittest.TestCase):
     def setUp(self):
@@ -139,199 +188,88 @@ class TimeKeeperTest(unittest.TestCase):
         self.timekeeper = TimeKeeper()
         _ = self.timekeeper.updateAndVerify(
             self.engineID,
+            self.timestamp,
             self.engineBoots,
             self.engineTime,
-            self.timestamp,
         )
-
-    def test_getEngineTime_returns_zeros_for_unfamiliar_engineID(self):
-        eboots, etime = self.timekeeper.getEngineTime(b"unknown", time.time())
-        self.assertEqual(eboots, 0)
-        self.assertEqual(etime, 0)
 
     def test_getEngineTime_computes_engineTime_from_timestamp(self):
-        delta = 23.7
-        deltaInt = int(delta)
-
         engineBoots, engineTime = self.timekeeper.getEngineTime(
             self.engineID,
-            timestamp = self.timestamp + delta,
+            self.timestamp + 15.7,
         )
 
         self.assertEqual(engineBoots, self.engineBoots)
-        self.assertEqual(engineTime, self.engineTime + deltaInt)
+        self.assertEqual(engineTime, self.engineTime + 15)
 
-    def test_delayed_message_does_not_affect_the_local_notion_of_time(self):
-        delta = 5
-
-        valid = self.timekeeper.updateAndVerify(
-            self.engineID,
-            self.engineBoots,
-            self.engineTime + delta,
-            timestamp = self.timestamp + delta + 3,
-        )
-
+    def test_getEngineTime_returns_zeros_for_unfamiliar_engineID(self):
         engineBoots, engineTime = self.timekeeper.getEngineTime(
-            self.engineID,
-            timestamp = self.timestamp + delta + 2
-        )
-
-        self.assertEqual(engineBoots, self.engineBoots)
-        self.assertEqual(engineTime, self.engineTime + delta + 2)
-
-    def test_messages_that_seem_early_update_the_local_notion_of_time(self):
-        delta = 5
-
-        valid = self.timekeeper.updateAndVerify(
-            self.engineID,
-            self.engineBoots,
-            self.engineTime + delta,
-            timestamp = self.timestamp + delta - 1,
-        )
-
-        engineBoots, engineTime = self.timekeeper.getEngineTime(
-            self.engineID,
-            timestamp = self.timestamp + delta + 2
-        )
-
-        self.assertEqual(engineBoots, self.engineBoots)
-        self.assertEqual(engineTime, self.engineTime + delta + 3)
-
-    def test_hint_affects_notion_of_time_before_the_first_update(self):
-        timekeeper = TimeKeeper()
-        timekeeper.hint(
-            self.engineID,
-            self.engineBoots,
-            self.engineTime,
+            b"unknown",
             self.timestamp,
         )
 
-        newEngineBoots = self.engineBoots + 9
-        newEngineTime = 3906
-        delta = 5
+        self.assertEqual(engineBoots, 0)
+        self.assertEqual(engineTime, 0)
 
-        timekeeper.hint(
+    def test_each_engine_time_is_tracked_independently(self):
+        e1 = b"Engine ID #1"
+        e2 = b"Engine ID #2"
+        e3 = b"Engine ID #3"
+
+        tk = TimeKeeper()
+        _ = tk.updateAndVerify(e1, self.timestamp, 3, 29)
+        _ = tk.updateAndVerify(e2, self.timestamp + 0.25, 9, 229)
+        _ = tk.updateAndVerify(e3, self.timestamp + 0.5, 543, 12)
+
+        self.assertEqual((3, 100), tk.getEngineTime(e1, self.timestamp + 71.0))
+        self.assertEqual((9, 300), tk.getEngineTime(e2, self.timestamp + 72.0))
+        self.assertEqual((543, 15), tk.getEngineTime(e3, self.timestamp + 3.5))
+
+    def test_a_message_is_valid_if_it_is_less_than_151_seconds_old(self):
+        self.timekeeper.updateAndVerify(
             self.engineID,
-            newEngineBoots,
-            newEngineTime,
-            timestamp = self.timestamp,
-        )
-
-        engineBoots, engineTime = timekeeper.getEngineTime(
-            self.engineID,
-            timestamp = self.timestamp + delta,
-        )
-
-        self.assertEqual(engineBoots, newEngineBoots)
-        self.assertEqual(engineTime, newEngineTime + delta)
-
-    def test_update_overrides_past_hints(self):
-        timekeeper = TimeKeeper()
-        timekeeper.hint(
-            self.engineID,
+            self.timestamp + 150.9,
             self.engineBoots,
             self.engineTime,
-            self.timestamp,
         )
 
-        delta = 5
-        timekeeper.hint(
+    def test_a_message_is_invalid_if_it_is_151_seconds_old(self):
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.timekeeper.updateAndVerify,
             self.engineID,
-            self.engineBoots + 9,
-            3906,
-            timestamp = self.timestamp,
-        )
-
-        valid = timekeeper.updateAndVerify(
-            self.engineID,
+            self.timestamp + 151.0,
             self.engineBoots,
-            self.engineTime + delta,
-            timestamp = self.timestamp + delta,
+            self.engineTime,
         )
 
-        engineBoots, engineTime = timekeeper.getEngineTime(
+    def test_a_message_is_valid_if_engineBoots_advances(self):
+        self.timekeeper.updateAndVerify(
             self.engineID,
-            timestamp = self.timestamp + delta,
+            self.timestamp + 3.0,
+            self.engineBoots + 1,
+            1,
         )
 
-        self.assertEqual(engineBoots, self.engineBoots)
-        self.assertEqual(engineTime, self.engineTime + delta)
-
-    def test_hint_does_not_affect_notion_of_time_after_the_first_update(self):
-        delta = 5
-
-        self.timekeeper.hint(
+    def test_a_message_is_invalid_if_engineBoots_is_too_low(self):
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.timekeeper.updateAndVerify,
             self.engineID,
-            self.engineBoots + 9,
-            3906,
-            timestamp = self.timestamp,
+            self.timestamp + 3.0,
+            self.engineBoots - 1,
+            self.engineTime,
         )
 
-        valid = self.timekeeper.updateAndVerify(
+    def test_a_message_is_invalid_if_engineBoots_has_the_max_value(self):
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.timekeeper.updateAndVerify,
             self.engineID,
-            self.engineBoots,
-            self.engineTime + delta,
-            timestamp = self.timestamp + delta,
-        )
-
-        engineBoots, engineTime = self.timekeeper.getEngineTime(
-            self.engineID,
-            timestamp = self.timestamp + delta,
-        )
-
-        self.assertTrue(valid)
-        self.assertEqual(engineBoots, self.engineBoots)
-        self.assertEqual(engineTime, self.engineTime + delta)
-
-    def test_update_with_an_old_value_of_engineBoots_is_ignored(self):
-        newEngineBoots = self.engineBoots + 1
-        newEngineTime = 3
-        timestamp = self.timestamp + newEngineTime + 2
-        delta = 5
-
-        valid = self.timekeeper.updateAndVerify(
-            self.engineID,
-            newEngineBoots,
-            newEngineTime,
-            timestamp,
-        )
-
-        invalid = self.timekeeper.updateAndVerify(
-            self.engineID,
-            self.engineBoots,
-            self.engineTime + 1,
-            timestamp = self.timestamp + 1,
-        )
-
-        engineBoots, engineTime = self.timekeeper.getEngineTime(
-            self.engineID,
-            timestamp = timestamp + delta
-        )
-
-        self.assertTrue(valid)
-        self.assertFalse(invalid)
-        self.assertEqual(engineBoots, newEngineBoots)
-        self.assertEqual(engineTime, newEngineTime + delta)
-
-    def test_all_times_are_invalid_once_the_reboot_counter_maxes_out(self):
-        valid = self.timekeeper.updateAndVerify(
-            self.engineID,
-            0x7fffffff,
+            self.timestamp + 1.0,
+            (1 << 31) - 1,
             0,
-            self.timestamp + 1,
         )
-
-        self.assertFalse(valid)
-
-    def test_a_message_is_invalid_after_150_seconds(self):
-        valid = self.timekeeper.updateAndVerify(
-            self.engineID,
-            self.engineBoots,
-            self.engineTime,
-            self.timestamp + 151,
-        )
-
-        self.assertFalse(valid)
 
 if __name__ == '__main__':
     unittest.main()

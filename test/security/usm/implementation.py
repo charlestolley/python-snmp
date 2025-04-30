@@ -539,7 +539,7 @@ class UsmSyncTest(unittest.TestCase):
             IncomingMessageError,
             self.usm.processIncoming,
             self.responseMessage,
-            timestamp=self.responseTimestamp+TimeKeeper.TIME_WINDOW_SIZE+1,
+            timestamp=self.responseTimestamp+151,
         )
 
 class UsmIncomingTest(unittest.TestCase):
