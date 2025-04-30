@@ -1,7 +1,8 @@
-__all__ = ["HeaderData", "MessageFlags", "ScopedPDU"]
+__all__ = ["HeaderData", "MessageFlags", "ScopedPDU", "SNMPv3WireMessage"]
 
 from snmp.asn1 import ASN1
 from snmp.ber import *
+from snmp.message import ProtocolVersion
 from snmp.pdu import *
 from snmp.smi import *
 from snmp.typing import *
@@ -239,3 +240,89 @@ class ScopedPDU(Sequence):
             contextEngineID = contextEngineID.data,
             contextName     = contextName.data,
         )
+
+class SNMPv3WireMessage(Sequence):
+    VERSION = ProtocolVersion.SNMPv3
+
+    def __init__(self,
+        header: HeaderData,
+        scopedPduData: Union[ScopedPDU, OctetString],
+        securityParameters: OctetString,
+    ) -> None:
+        if header.flags.privFlag:
+            if not isinstance(scopedPduData, OctetString):
+                raise TypeError(
+                    "scopedPduData must be an OctetString"
+                    " when the privFlag is set"
+                )
+        else:
+            if not isinstance(scopedPduData, ScopedPDU):
+                raise TypeError(
+                    "scopedPduData must be a ScopedPDU"
+                    " when the privFlag is unset"
+                )
+
+        self.header = header
+        self.scopedPduData = scopedPduData
+        self.securityParameters = securityParameters
+
+    def __iter__(self) -> Iterator[ASN1]:
+        yield Integer(self.VERSION)
+        yield self.header
+        yield self.securityParameters
+        yield self.scopedPduData
+
+    def __len__(self) -> int:
+        return 4;
+
+    def __repr__(self) -> str:
+        args = (repr(field) for field in (
+            self.header,
+            self.scopedPduData,
+            self.securityParameters,
+        ))
+
+        return f"{typename(self)}({', '.join(args)})"
+
+    def __str__(self) -> str:
+        return self.toString()
+
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+        indent = tab * depth
+        subindent = indent + tab
+
+        if self.header.flags.privFlag:
+            payload = f"{subindent}Encrypted Data: {self.scopedPduData}"
+        else:
+            payload = self.scopedPduData.toString(depth+1, tab)
+
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            f"{self.header.toString(depth+1, tab)}",
+            f"{subindent}Security Parameters: {self.securityParameters}",
+            payload,
+        ))
+
+    @classmethod
+    def deserialize(cls, data: Union[bytes, subbytes]) -> "SNMPv3WireMessage":
+        msgVersion, ptr = Integer.decode(data)
+
+        try:
+            version = ProtocolVersion(msgVersion.value)
+        except ValueError as err:
+            errmsg = f"Unsupported msgVersion: {msgVersion.value}"
+            raise ParseError(errmsg) from err
+
+        if version != cls.VERSION:
+            errmsg = f"{typename(cls)} cannot decode {version.name} messages"
+            raise ParseError(errmsg)
+
+        msgGlobalData, ptr = HeaderData.decode(ptr)
+        msgSecurityData, ptr = OctetString.decode(ptr, copy=False)
+
+        if msgGlobalData.flags.privFlag:
+            scopedPduData = OctetString.decodeExact(ptr)
+        else:
+            scopedPduData = ScopedPDU.decodeExact(ptr)
+
+        return cls(msgGlobalData, scopedPduData, msgSecurityData)
