@@ -2,8 +2,6 @@ from snmp.dispatcher import *
 from snmp.exception import *
 from snmp.manager.v3 import *
 from snmp.message import *
-from snmp.message.v1 import SNMPv1MessageProcessor
-from snmp.message.v2c import SNMPv2cMessageProcessor
 from snmp.message.v3 import SNMPv3MessageProcessor
 from snmp.pipeline import *
 from snmp.scheduler import *
@@ -63,8 +61,6 @@ class Engine:
             Dict[Address, Transport[Address]]
         ] = {}
 
-        self.mpv1: Optional[SNMPv1MessageProcessor] = None
-        self.mpv2c: Optional[SNMPv2cMessageProcessor] = None
         self.mpv3: Optional[SNMPv3MessageProcessor] = None
         self._usm: Optional[UserBasedSecurityModule] = None
 
