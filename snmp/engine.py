@@ -1,8 +1,6 @@
-from snmp.dispatcher import *
 from snmp.exception import *
-from snmp.manager.v3 import *
 from snmp.message import *
-from snmp.message.v3 import SNMPv3MessageProcessor
+from snmp.pdu import *
 from snmp.pipeline import *
 from snmp.scheduler import *
 from snmp.security import *
@@ -14,6 +12,9 @@ from snmp.v1.manager import *
 from snmp.v1.requests import *
 from snmp.v2c.manager import *
 from snmp.v2c.requests import *
+from snmp.v3.interpreter import *
+from snmp.v3.manager import *
+from snmp.v3.requests import *
 
 Address = Tuple[str, int]
 
@@ -46,29 +47,27 @@ class Engine:
         self.msgMaxSize = msgMaxSize
         self.multiplexor = UdpMultiplexor(self.msgMaxSize)
         self.scheduler = Scheduler(self.multiplexor.poll)
+        self.usm = UserBasedSecurityModule()
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
 
-        self.dispatcher = Dispatcher()
+        self.v3_sorter = MessageSorter(SNMPv3Interpreter(self.usm))
+        self.v3_secretary = SNMPv3RequestSecretary(self.v3_sorter, self.scheduler)
+        self.v3_director = SNMPv3RequestDirector(self.v3_secretary, self.scheduler)
+        self.v3_secretary.reportTo(self.v3_director)
+        self.v3_sorter.register(ReportPDU, self.v3_secretary)
+        self.v3_sorter.register(ResponsePDU, self.v3_secretary)
+
         self.pipeline = VersionDecoder()
         self.pipeline.register(ProtocolVersion.SNMPv1, self.v1_admin)
         self.pipeline.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
-        self.pipeline.register(ProtocolVersion.SNMPv3, self.dispatcher)
+        self.pipeline.register(ProtocolVersion.SNMPv3, self.v3_sorter)
 
         self.transports: Dict[
             TransportDomain,
             Dict[Address, Transport[Address]]
         ] = {}
-
-        self.mpv3: Optional[SNMPv3MessageProcessor] = None
-        self._usm: Optional[UserBasedSecurityModule] = None
-
-    @property
-    def usm(self) -> UserBasedSecurityModule:
-        if self._usm is None:
-            self._usm = UserBasedSecurityModule()
-        return self._usm
 
     def __enter__(self) -> "Engine":
         return self
@@ -118,11 +117,7 @@ class Engine:
         engineID: Optional[bytes] = None,
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         **kwargs: Any,
-    ) -> SNMPv3UsmManager[Address]:
-        if self.mpv3 is None:
-            self.mpv3 = SNMPv3MessageProcessor(self.msgMaxSize)
-            self.dispatcher.addMessageProcessor(self.mpv3)
-
+    ):
         defaultUserName = kwargs.get("defaultUserName")
         namespace = kwargs.get("namespace", "")
 
@@ -140,18 +135,15 @@ class Engine:
                 namespace,
             )
 
-        self.mpv3.addSecurityModuleIfNeeded(self.usm)
-
-        return SNMPv3UsmManager(
-            self.scheduler,
-            self.dispatcher,
+        return SNMPv3Manager(
+            self.v3_director,
             self.usm,
             channel,
             namespace,
-            defaultUserName.encode(),
+            defaultUserName,
             defaultSecurityLevel,
+            autowait,
             engineID=engineID,
-            autowait=autowait,
         )
 
     def Manager(self,
@@ -164,7 +156,7 @@ class Engine:
     ) -> Union[
         SNMPv1Manager,
         SNMPv2cManager,
-        SNMPv3UsmManager[Address],
+        SNMPv3Manager,
     ]:
         if domain is None:
             domain = self.defaultDomain

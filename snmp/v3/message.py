@@ -121,6 +121,10 @@ class HeaderData(Sequence):
 
     @property
     def id(self) -> int:
+        return self.msgID
+
+    @property
+    def msgID(self) -> int:
         return self._msgID.value
 
     @property
