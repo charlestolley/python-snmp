@@ -129,7 +129,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             msgAuthenticationParameters = b''
             msgPrivacyParameters = b''
 
-        securityParameters = UsmSecurityParameters(
+        securityParameters = UnsignedUsmParameters(
             engineID,
             snmpEngineBoots,
             snmpEngineTime,
@@ -142,7 +142,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         wholeMsg = message.encode()
 
         if message.header.flags.authFlag:
-            location = UsmSecurityParameters.findSignature(
+            location = UnsignedUsmParameters.findPadding(
                 SNMPv3Message.findSecurityParameters(wholeMsg)
             )
 
@@ -159,7 +159,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         if timestamp is None:
             timestamp = time()
 
-        securityParameters = UsmSecurityParameters.decodeExact(
+        securityParameters = SignedUsmParameters.decodeExact(
             message.securityParameters.original,
         )
 
@@ -201,13 +201,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         if len(securityParameters.signature) != len(padding):
             raise WrongDigest("Invalid signature length")
 
-        assert securityParameters.signatureIndex is not None
-        start = securityParameters.signatureIndex
-        stop = start + len(padding)
-
-        assert securityParameters.wholeMsg is not None
-        signature = subbytes(securityParameters.wholeMsg, start, stop)
-        wholeMsg = signature.replace(padding)
+        wholeMsg = securityParameters.signature.replace(padding)
 
         if user.auth.sign(wholeMsg) != securityParameters.signature:
             raise WrongDigest("Invalid signature")
