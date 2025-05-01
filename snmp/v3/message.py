@@ -1,4 +1,7 @@
-__all__ = ["HeaderData", "MessageFlags", "ScopedPDU", "SNMPv3WireMessage"]
+__all__ = [
+    "HeaderData", "MessageFlags", "ScopedPDU", "SecurityName",
+    "SNMPv3Message", "SNMPv3WireMessage",
+]
 
 from snmp.asn1 import ASN1
 from snmp.ber import *
@@ -23,6 +26,11 @@ pduTypes = {
         ReportPDU,
     )
 }
+
+class SecurityName:
+    def __init__(self, userName: bytes, *namespaces: str):
+        self.userName = userName
+        self.namespaces = set(namespaces)
 
 class MessageFlags(OctetString):
     AUTH_FLAG: ClassVar[int]        = (1 << 0)
@@ -240,6 +248,53 @@ class ScopedPDU(Sequence):
             contextEngineID = contextEngineID.data,
             contextName     = contextName.data,
         )
+
+class SNMPv3Message:
+    def __init__(self,
+        header: HeaderData,
+        scopedPDU: ScopedPDU,
+        securityEngineID: bytes,
+        securityName: SecurityName,
+    ) -> None:
+        self.header = header
+        self.scopedPDU = scopedPDU
+        self.securityEngineID = securityEngineID
+        self.securityName = securityName
+
+    def __eq__(self, other: Any) -> bool:
+        try:
+            return (self.header == other.header
+                and self.scopedPDU == other.scopedPDU
+                and self.securityEngineID == other.securityEngineID
+                and self.securityName == other.securityName
+            )
+        except AttributeError:
+            return NotImplemented
+
+    def __repr__(self) -> str:
+        args = (repr(field) for field in (
+            self.header,
+            self.scopedPDU,
+            self.securityEngineID,
+            self.securityName,
+        ))
+
+        return f"{typename(self)}({', '.join(args)})"
+
+    def __str__(self) -> str:
+        return self.toString()
+
+    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+        indent = tab * depth
+        subindent = indent + tab
+
+        return "\n".join((
+            f"{indent}{typename(self)}:",
+            self.header.toString(depth+1, tab),
+            f"{subindent}Security EngineID: {self.securityEngineID}",
+            f"{subindent}Security Name: {self.securityName.userName}",
+            self.scopedPDU.toString(depth+1, tab),
+        ))
 
 class SNMPv3WireMessage(Sequence):
     VERSION = ProtocolVersion.SNMPv3

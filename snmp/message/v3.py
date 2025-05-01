@@ -1,4 +1,4 @@
-__all__ = ["SNMPv3Message", "SNMPv3MessageProcessor"]
+__all__ = ["SNMPv3MessageProcessor"]
 
 import weakref
 
@@ -40,152 +40,6 @@ class ResponseMismatch(IncomingMessageError):
     @classmethod
     def byField(cls, field: str) -> "ResponseMismatch":
         return cls(f"{field} does not match request")
-
-TMessage = TypeVar("TMessage", bound="SNMPv3Message")
-class SNMPv3Message(Sequence):
-    VERSION = ProtocolVersion.SNMPv3
-
-    def __init__(self,
-        header: HeaderData,
-        scopedPDU: Optional[ScopedPDU] = None,
-        encryptedPDU: Optional[OctetString] = None,
-        securityParameters: Optional[OctetString] = None,
-        securityEngineID: Optional[bytes] = None,
-        securityName: Optional[bytes] = None,
-    ) -> None:
-        self.header = header
-        self.scopedPDU = scopedPDU
-        self.encryptedPDU = encryptedPDU
-
-        if securityParameters is None:
-            securityParameters = OctetString()
-
-        self.securityParameters = securityParameters
-        self.securityEngineID = securityEngineID
-        self.securityName = securityName
-
-    def __iter__(self) -> Iterator[ASN1]:
-        yield Integer(self.VERSION)
-        yield self.header
-        yield self.securityParameters
-
-        if self.header.flags.privFlag:
-            try:
-                assert self.encryptedPDU is not None
-            except AssertionError as err:
-                errmsg = "encryptedPDU is required when privFlag is True"
-                raise SNMPLibraryBug(errmsg) from err
-
-            yield self.encryptedPDU
-        else:
-            try:
-                assert self.scopedPDU is not None
-            except AssertionError as err:
-                errmsg = "scopedPDU is required when privFlag is False"
-                raise SNMPLibraryBug(errmsg) from err
-
-            yield self.scopedPDU
-
-    def __len__(self) -> int:
-        return 4;
-
-    def __repr__(self) -> str:
-        args = [repr(self.header)]
-
-        if self.header.flags.privFlag:
-            args.append(f"encryptedPDU={repr(self.encryptedPDU)}")
-        else:
-            args.append(f"scopedPDU={repr(self.scopedPDU)}")
-
-        args.append(f"securityParameters={repr(self.securityParameters)}")
-
-        return f"{typename(self)}({', '.join(args)})"
-
-    def __str__(self) -> str:
-        return self.toString()
-
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
-        indent = tab * depth
-        subindent = indent + tab
-
-        if self.header.flags.privFlag:
-            payload = f"{subindent}Encrypted Data: {self.encryptedPDU}"
-        else:
-            assert self.scopedPDU is not None
-            payload = self.scopedPDU.toString(depth+1, tab)
-
-        return "\n".join((
-            f"{indent}{typename(self)}:",
-            f"{self.header.toString(depth+1, tab)}",
-            f"{subindent}Security Parameters: {self.securityParameters}",
-            payload,
-        ))
-
-    @overload
-    @classmethod
-    def decode(
-        cls: Type[TMessage],
-        data: Asn1Data,
-    ) -> TMessage:
-        ...
-
-    @overload
-    @classmethod
-    def decode(
-        cls: Type[TMessage],
-        data: Asn1Data,
-        leftovers: bool = False,
-        copy: bool = True,
-        **kwargs: Any,
-    ) -> Union[TMessage, Tuple[TMessage, subbytes]]:
-        ...
-
-    @classmethod
-    def decode(
-        cls: Type[TMessage],
-        data: Asn1Data,
-        leftovers: bool = False,
-        copy: bool = False,
-        **kwargs: Any,
-    ) -> Union[TMessage, Tuple[TMessage, subbytes]]:
-        return super().decode(data, leftovers, copy, **kwargs)
-
-    @classmethod
-    def deserialize(cls: Type[TMessage], data: Asn1Data) -> TMessage:
-        msgVersion, ptr = Integer.decode(data)
-
-        try:
-            version = ProtocolVersion(msgVersion.value)
-        except ValueError as err:
-            raise BadVersion(msgVersion.value) from err
-
-        if version != cls.VERSION:
-            raise BadVersion(f"{typename} does not support {version.name}")
-
-        msgGlobalData, ptr = HeaderData.decode(ptr)
-        msgSecurityData, ptr = OctetString.decode(ptr, copy=False)
-
-        scopedPDU = None
-        encryptedPDU = None
-        if msgGlobalData.flags.privFlag:
-            encryptedPDU = OctetString.decodeExact(ptr)
-        else:
-            scopedPDU = ScopedPDU.decodeExact(ptr)
-
-        return cls(
-            msgGlobalData,
-            scopedPDU=scopedPDU,
-            encryptedPDU=encryptedPDU,
-            securityParameters=msgSecurityData,
-        )
-
-    @classmethod
-    def findSecurityParameters(cls, wholeMsg: bytes) -> subbytes:
-        tag, ptr = decodeExact(wholeMsg)
-        tag, _, ptr = decode(ptr)
-        tag, _, ptr = decode(ptr)
-        tag, ptr, _ = decode(ptr)
-        return ptr
 
 class CacheEntry:
     def __init__(self,
@@ -255,17 +109,17 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
     def prepareDataElements(self,
         msg: Asn1Data,
     ) -> Tuple[SNMPv3Message, RequestHandle[SNMPv3Message]]:
-        message = SNMPv3Message.decodeExact(msg)
+        wireMessage = SNMPv3WireMessage.decodeExact(msg)
 
         try:
             securityModule = self.securityModules[
-                message.header.securityModel
+                wireMessage.header.securityModel
             ]
         except KeyError as e:
-            securityModel = message.header.securityModel
+            securityModel = wireMessage.header.securityModel
             raise UnknownSecurityModel(securityModel) from e
 
-        securityModule.processIncoming(message)
+        message = securityModule.processIncoming(wireMessage)
 
         try:
             assert message.scopedPDU is not None
@@ -293,7 +147,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
             if not report and entry.engineID != message.securityEngineID:
                 raise ResponseMismatch.byField("Security Engine ID")
 
-            if entry.securityName != message.securityName:
+            if entry.securityName != message.securityName.userName:
                 raise ResponseMismatch.byField("Security Name")
 
             if (not report
@@ -312,6 +166,7 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
         handle: RequestHandle[SNMPv3Message],
         engineID: bytes,
         securityName: bytes,
+        namespace: str,
         securityLevel: SecurityLevel = noAuthNoPriv,
         securityModel: Optional[SecurityModel] = None,
         contextName: bytes = b"",
@@ -347,6 +202,11 @@ class SNMPv3MessageProcessor(MessageProcessor[SNMPv3Message, AnyPDU]):
         flags = MessageFlags(securityLevel, reportable)
         header = HeaderData(msgID, self.msgMaxSize, flags, securityModel)
         scopedPDU = ScopedPDU(pdu, engineID, contextName=contextName)
-        message = SNMPv3Message(header, scopedPDU)
+        message = SNMPv3Message(
+            header,
+            scopedPDU,
+            engineID,
+            SecurityName(securityName, namespace),
+        )
 
-        return securityModule.prepareOutgoing(message, engineID, securityName)
+        return securityModule.prepareOutgoing(message)

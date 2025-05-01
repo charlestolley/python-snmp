@@ -8,7 +8,6 @@ from snmp.asn1 import *
 from snmp.dispatcher import *
 from snmp.exception import *
 from snmp.message import *
-from snmp.message.v3 import *
 from snmp.pdu import *
 from snmp.scheduler import *
 from snmp.security import *
@@ -18,6 +17,7 @@ from snmp.smi import *
 from snmp.transport import *
 from snmp.typing import *
 from snmp.utils import *
+from snmp.v3.message import SNMPv3Message
 from . import *
 
 usmStats = OID.parse("1.3.6.1.6.3.15.1.1")
@@ -51,15 +51,15 @@ class UnsupportedSecurityLevelReport(UsmStatsReport):
 
 class UnknownUserNameReport(UsmStatsReport):
     def __init__(self, message: SNMPv3Message, varbind: VarBind) -> None:
-        assert message.securityName is not None
-        userName = message.securityName.decode()
+        assert message.securityName.userName is not None
+        userName = message.securityName.userName.decode()
         errmsg = f"Remote Engine does not recognize user \"{userName}\""
         super().__init__(errmsg, varbind)
 
 class WrongDigestReport(UsmStatsReport):
     def __init__(self, message: SNMPv3Message, varbind: VarBind) -> None:
-        assert message.securityName is not None
-        userName = message.securityName.decode()
+        assert message.securityName.userName is not None
+        userName = message.securityName.userName.decode()
 
         errmsg = (
             "Remote Engine reported that your request failed authentication"
@@ -588,6 +588,7 @@ class SNMPv3UsmManager(Generic[T]):
             handle,
             engineID,
             user,
+            self.namespace,
             securityLevel=securityLevel,
             securityModel=SecurityModel.USM,
         )
