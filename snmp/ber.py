@@ -1,8 +1,4 @@
-__all__ = [
-    "EncodeError", "ParseError",
-    "Asn1Data", "Tag",
-    "decode", "decodeExact", "encode",
-]
+__all__ = ["Asn1Data", "Tag", "decode", "decodeExact", "encode"]
 
 from enum import IntEnum
 
@@ -11,16 +7,6 @@ from snmp.typing import *
 from snmp.utils import *
 
 Asn1Data = Union[bytes, subbytes]
-
-@final
-class EncodeError(SNMPException):
-    """Failure to encode a payload under ASN.1 Basic Encoding Rules."""
-    pass
-
-@final
-class ParseError(IncomingMessageError):
-    """Failure to translate a byte string into an ASN.1 object."""
-    pass
 
 @final
 class Tag:

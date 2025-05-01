@@ -1,7 +1,42 @@
-__all__ = ["MessageSorter", "VersionDecoder"]
+__all__ = ["Catcher", "MessageSorter", "VersionDecoder"]
 
+import logging
+import random
 import weakref
+
+from snmp.exception import *
 from snmp.message import *
+
+class Catcher:
+    def __init__(self, listener, verbose=False):
+        self.listener = listener
+        self.logger = logging.getLogger(__name__).parent
+        self.verbose = verbose
+
+        self.packets = 0
+        self.parseErrors = 0
+        self.badVersions = 0
+
+    def hear(self, data: bytes, channel) -> None:
+        self.packets += 1
+
+        try:
+            self.listener.hear(data, channel)
+        except ParseError as err:
+            self.parseErrors += 1
+
+            if self.verbose:
+                self.logger.debug(f"{err!r}\n{data!r}")
+        except BadVersion as err:
+            self.badVersions += 1
+
+            if self.verbose:
+                self.logger.debug(f"{err!r}\n{data!r}")
+        except IncomingMessageError as err:
+            if self.verbose:
+                self.logger.debug(f"{err!r}\n{data!r}")
+        except Exception as exc:
+            self.logger.exception(exc)
 
 class VersionDecoder:
     def __init__(self):

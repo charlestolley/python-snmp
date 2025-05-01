@@ -5,6 +5,8 @@ __all__ = [
 ]
 
 import unittest
+
+from snmp.exception import *
 from snmp.asn1 import *
 from snmp.ber import *
 from snmp.smi import BoundedInteger

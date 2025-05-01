@@ -3,7 +3,7 @@ __all__ = ["MessageTest"]
 import re
 import unittest
 
-from snmp.ber import *
+from snmp.exception import *
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.message import *

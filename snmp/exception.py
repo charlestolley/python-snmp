@@ -20,6 +20,15 @@ class AuthentiationNotEnabled(SNMPException):
 class PrivacyNotEnabled(SNMPException):
     pass
 
+class EncodeError(SNMPException):
+    pass
+
+class ParseError(IncomingMessageError):
+    pass
+
+class BadVersion(IncomingMessageError):
+    pass
+
 class DecryptionError(IncomingMessageError):
     pass
 
@@ -28,3 +37,7 @@ class InvalidSignature(IncomingMessageError):
 
 class OutsideTimeWindow(IncomingMessageError):
     pass
+
+class ReportMessage(SNMPException):
+    def __init__(self, message):
+        self.message = message

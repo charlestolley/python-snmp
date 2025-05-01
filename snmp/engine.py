@@ -59,10 +59,11 @@ class Engine:
         self.v3_sorter.register(ReportPDU, self.v3_secretary)
         self.v3_sorter.register(ResponsePDU, self.v3_secretary)
 
-        self.pipeline = VersionDecoder()
-        self.pipeline.register(ProtocolVersion.SNMPv1, self.v1_admin)
-        self.pipeline.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
-        self.pipeline.register(ProtocolVersion.SNMPv3, self.v3_sorter)
+        self.decoder = VersionDecoder()
+        self.pipeline = Catcher(self.decoder)
+        self.decoder.register(ProtocolVersion.SNMPv1, self.v1_admin)
+        self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
+        self.decoder.register(ProtocolVersion.SNMPv3, self.v3_sorter)
 
         self.transports: Dict[
             TransportDomain,

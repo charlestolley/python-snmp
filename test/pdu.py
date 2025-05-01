@@ -7,6 +7,8 @@ __all__ = [
 
 import re
 import unittest
+
+from snmp.exception import *
 from snmp.ber import *
 from snmp.pdu import *
 from snmp.smi import *

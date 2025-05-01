@@ -1,4 +1,4 @@
-__all__ = ["BadVersion", "ProtocolVersion", "VersionOnlyMessage"]
+__all__ = ["ProtocolVersion", "VersionOnlyMessage"]
 
 import enum
 
@@ -8,10 +8,6 @@ from snmp.exception import *
 from snmp.smi import *
 from snmp.typing import *
 from snmp.utils import *
-
-@final
-class BadVersion(IncomingMessageError):
-    pass
 
 class ProtocolVersion(enum.IntEnum):
     SNMPv1  = 0

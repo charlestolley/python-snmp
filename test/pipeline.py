@@ -3,6 +3,7 @@ __all__ = ["VersionDecoderTest"]
 import unittest
 import weakref
 
+from snmp.exception import *
 from snmp.message import *
 from snmp.pipeline import *
 

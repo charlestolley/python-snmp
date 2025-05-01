@@ -3,6 +3,7 @@ __all__ = ["VersionOnlyMessageTest"]
 import random
 import unittest
 
+from snmp.exception import *
 from snmp.message.version import *
 
 class VersionOnlyMessageTest(unittest.TestCase):

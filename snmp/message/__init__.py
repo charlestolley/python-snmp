@@ -1,5 +1,5 @@
 __all__ = [
-    "BadVersion", "ProtocolVersion", "VersionOnlyMessage",
+    "ProtocolVersion", "VersionOnlyMessage",
     "Message", "RequestHandle", "MessageProcessor",
 ]
 

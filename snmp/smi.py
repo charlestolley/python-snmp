@@ -8,6 +8,7 @@ __all__ = [
 
 from socket import inet_aton, inet_ntoa
 
+from snmp.exception import *
 from snmp.asn1 import *
 from snmp.ber import *
 from snmp.typing import *

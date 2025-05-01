@@ -1,7 +1,8 @@
 __all__ = ["Message"]
 
+from snmp.exception import *
 from snmp.asn1 import ASN1
-from snmp.ber import Asn1Data, ParseError, Tag
+from snmp.ber import Asn1Data, Tag
 from snmp.pdu import AnyPDU
 from snmp.smi import *
 from snmp.typing import *

@@ -3,6 +3,7 @@ __all__ = [
     "SNMPv3Message", "SNMPv3WireMessage",
 ]
 
+from snmp.exception import *
 from snmp.asn1 import ASN1
 from snmp.ber import *
 from snmp.message import ProtocolVersion

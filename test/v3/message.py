@@ -6,7 +6,6 @@ __all__ = [
 import unittest
 
 from snmp.exception import *
-from snmp.ber import ParseError
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.security import *
