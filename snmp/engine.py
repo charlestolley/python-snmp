@@ -201,7 +201,7 @@ class Engine:
             self.multiplexor.register(transport, self.pipeline)
             transports[localAddress] = transport
 
-        channel = TransportChannel(transport, address, localAddress)
+        channel = TransportChannel(transport, address)
 
         if version is None:
             version = self.defaultVersion

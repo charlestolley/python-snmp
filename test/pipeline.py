@@ -11,13 +11,17 @@ class VersionDecoderTest(unittest.TestCase):
         def __init__(self):
             self.messages = []
 
-        def hear(self, transport, addr, data):
+        def hear(self, data, channel):
             self.messages.append(data)
 
     def test_hear_ignores_messages_with_no_matching_listener(self):
         decoder = VersionDecoder()
-        args = (None, None, b"\x30\x03\x02\x01\x00")
-        self.assertRaises(BadVersion, decoder.hear, *args)
+        self.assertRaises(
+            BadVersion,
+            decoder.hear,
+            b"\x30\x03\x02\x01\x00",
+            None,
+        )
 
     def test_register_keeps_only_the_first_listener_and_returns_bool(self):
         s1 = self.Listener()
@@ -28,7 +32,7 @@ class VersionDecoderTest(unittest.TestCase):
         self.assertTrue(decoder.register(version, s1))
         self.assertFalse(decoder.register(version, s2))
 
-        decoder.hear(None, None, b"\x30\x03\x02\x01\x00")
+        decoder.hear(b"\x30\x03\x02\x01\x00", None)
         self.assertGreater(len(s1.messages), 0)
         self.assertEqual(len(s2.messages), 0)
 
@@ -42,8 +46,8 @@ class VersionDecoderTest(unittest.TestCase):
         decoder.register(ProtocolVersion.SNMPv1, v1_listener)
         decoder.register(ProtocolVersion.SNMPv2c, v2c_listener)
 
-        decoder.hear(None, None, v1_message)
-        decoder.hear(None, None, v2c_message)
+        decoder.hear(v1_message, None)
+        decoder.hear(v2c_message, None)
 
         self.assertEqual(v1_listener.messages, [v1_message])
         self.assertEqual(v2c_listener.messages, [v2c_message])

@@ -141,7 +141,7 @@ class SNMPv2cRequestAdmin:
 
         return handle
 
-    def hear(self, transport, address, data):
+    def hear(self, data, channel):
         message = Message.decodeExact(data, types=pduTypes)
 
         try:

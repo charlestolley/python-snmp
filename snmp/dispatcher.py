@@ -14,7 +14,7 @@ class Dispatcher(TransportListener):
     def addMessageProcessor(self, mp):
         self.msgProcessors[mp.VERSION] = mp
 
-    def hear(self, transport, address, data):
+    def hear(self, data, channel):
         try:
             try:
                 msgVersion = VersionOnlyMessage.decodeExact(data).version

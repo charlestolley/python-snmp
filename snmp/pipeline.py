@@ -7,7 +7,7 @@ class VersionDecoder:
     def __init__(self):
         self.listeners = weakref.WeakValueDictionary()
 
-    def hear(self, transport, address, data):
+    def hear(self, data, channel):
         msgVersion = VersionOnlyMessage.decodeExact(data).version
 
         try:
@@ -15,7 +15,7 @@ class VersionDecoder:
         except KeyError as err:
             raise BadVersion() from err
         else:
-            listener.hear(transport, address, data)
+            listener.hear(data, channel)
 
     def register(self, version, listener):
         registered = self.listeners.setdefault(version, listener)

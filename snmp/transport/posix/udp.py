@@ -36,7 +36,7 @@ class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
                     interrupted = True
             else:
                 addr, data = sock.receive(self.recvSize)
-                listener.hear(sock, addr, data)
+                listener.hear(data, TransportChannel(sock, addr))
 
         return interrupted
 

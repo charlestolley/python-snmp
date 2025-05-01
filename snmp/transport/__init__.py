@@ -38,28 +38,26 @@ class Transport(Generic[T]):
     def close(self) -> None:
         raise NotImplementedError()
 
-    def send(self, address: T, data: bytes) -> None:
+    def send(self, data: bytes, address: T) -> None:
         raise NotImplementedError()
 
 class TransportChannel(Generic[T]):
     def __init__(self,
         transport: Transport[T],
         address: T,
-        localAddress: T,
     ) -> None:
         self.transport = transport
         self.address = address
-        self.localAddress = localAddress
 
     @property
     def domain(self) -> TransportDomain:
         return self.transport.DOMAIN
 
     def send(self, data: bytes) -> None:
-        self.transport.send(self.address, data)
+        self.transport.send(data, self.address)
 
 class TransportListener(Generic[T]):
-    def hear(self, transport: Transport[T], address: T, data: bytes) -> None:
+    def hear(self, data, channel):
         raise NotImplementedError()
 
 class TransportMultiplexor(Generic[T]):

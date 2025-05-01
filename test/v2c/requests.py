@@ -145,9 +145,8 @@ class SNMPv2cRequestAdminTest(unittest.TestCase):
             IncomingMessageError,
             "[Rr]equest\s*ID",
             self.admin.hear,
-            None,
-            None,
             message.encode(),
+            None,
         )
 
     def test_hear_wrong_community_name_raises_IncomingMessageError(self):
@@ -172,9 +171,8 @@ class SNMPv2cRequestAdminTest(unittest.TestCase):
             IncomingMessageError,
             "[Cc]ommunity",
             self.admin.hear,
-            None,
-            None,
             message.encode(),
+            None,
         )
 
 if __name__ == "__main__":

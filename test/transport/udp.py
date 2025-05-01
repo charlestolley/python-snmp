@@ -120,7 +120,7 @@ def declareUdpMultiplexorTest(Multiplexor):
             def heard(self):
                 return self.event.is_set()
 
-            def hear(self, transport, addr, data):
+            def hear(self, data, channel):
                 self.event.set()
 
             def reset(self):
@@ -167,7 +167,7 @@ def declareUdpMultiplexorTest(Multiplexor):
             self.multiplexor.register(sock, self.listener)
 
             thread = self.spawnThread()
-            sock.send((sock.DOMAIN.loopback_address, sock.port), b"IPv4 test")
+            sock.send(b"IPv4 test", (sock.DOMAIN.loopback_address, sock.port))
             self.listener.wait(self.timeout)
             self.multiplexor.stop()
             thread.join(timeout=self.timeout)
@@ -179,7 +179,7 @@ def declareUdpMultiplexorTest(Multiplexor):
             self.multiplexor.register(sock, self.listener)
 
             thread = self.spawnThread()
-            sock.send((sock.DOMAIN.loopback_address, sock.port), b"IPv6 test")
+            sock.send(b"IPv6 test", (sock.DOMAIN.loopback_address, sock.port))
             self.listener.wait(self.timeout)
             self.multiplexor.stop()
             thread.join(timeout=self.timeout)
@@ -201,7 +201,7 @@ def declareUdpMultiplexorTest(Multiplexor):
             thread.join(timeout=self.timeout)
 
             addr = (ipv4.DOMAIN.loopback_address, ipv4.port)
-            ipv4.send(addr, b"Interruption test")
+            ipv4.send(b"Interruption test", addr)
             self.listener.wait(self.timeout)
             self.assertFalse(self.listener.heard)
 

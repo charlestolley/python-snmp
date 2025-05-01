@@ -78,7 +78,7 @@ class UdpSocket(Transport[Tuple[str, int]]):
         data, addr = self.socket.recvfrom(size)
         return addr, data
 
-    def send(self, address: Tuple[str, int], data: bytes) -> None:
+    def send(self, data: bytes, address: Tuple[str, int]) -> None:
         self.socket.sendto(data, address)
 
     def close(self) -> None:
