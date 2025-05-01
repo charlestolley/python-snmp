@@ -1,5 +1,5 @@
 __all__ = [
-    "InvalidEngineID", "InvalidSecurityLevel", "InvalidUserName",
+    "InvalidEngineID", "InvalidUserName",
     "AuthProtocol", "PrivProtocol", "UserBasedSecurityModule",
 ]
 

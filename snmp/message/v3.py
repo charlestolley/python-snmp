@@ -187,15 +187,6 @@ class SNMPv3Message(Sequence):
         tag, ptr, _ = decode(ptr)
         return ptr
 
-    @property
-    def plaintext(self) -> bytes:
-        assert self.scopedPDU is not None
-        return self.scopedPDU.encode()
-
-    @plaintext.setter
-    def plaintext(self, data: bytes) -> None:
-        self.scopedPDU, _ = ScopedPDU.decode(data)
-
 class CacheEntry:
     def __init__(self,
         engineID: bytes,

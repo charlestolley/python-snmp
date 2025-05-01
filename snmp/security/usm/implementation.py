@@ -1,4 +1,4 @@
-__all__ = ["InvalidSecurityLevel", "UserBasedSecurityModule"]
+__all__ = ["UserBasedSecurityModule"]
 
 from time import time
 
@@ -10,14 +10,12 @@ from snmp.security.models import *
 from snmp.smi import *
 from snmp.typing import *
 from snmp.utils import *
+from snmp.v3.message import *
 
 from . import AuthProtocol, DecryptionError, PrivProtocol
 from .parameters import *
 from .timekeeper import *
 from .users import *
-
-class UnsupportedSecLevel(IncomingMessageError):
-    pass
 
 class UnknownUserName(IncomingMessageError):
     pass
@@ -26,9 +24,6 @@ class UnknownEngineID(IncomingMessageError):
     pass
 
 class WrongDigest(IncomingMessageError):
-    pass
-
-class InvalidSecurityLevel(ValueError):
     pass
 
 class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
@@ -97,31 +92,17 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
 
         if message.header.flags.authFlag:
             user = self.users.getCredentials(engineID, securityName)
-
-            if user.auth is None:
-                userName = securityName.decode()
-                errmsg = f"Authentication is disabled for user \"{userName}\""
-                raise InvalidSecurityLevel(errmsg)
-
+            msgAuthenticationParameters = user.signaturePlaceholder()
             engineTime = self.timekeeper.getEngineTime(engineID, timestamp)
             snmpEngineBoots, snmpEngineTime = engineTime
-            msgAuthenticationParameters = user.auth.msgAuthenticationParameters
             msgPrivacyParameters = b''
 
             if message.header.flags.privFlag:
-                if user.priv is None:
-                    userName = securityName.decode()
-                    errmsg = f"Privacy is disabled for user \"{userName}\""
-                    raise InvalidSecurityLevel(errmsg)
-
-                assert message.scopedPDU is not None
-                ciphertext, msgPrivacyParameters = user.priv.encrypt(
-                    message.scopedPDU.encode(),
+                message.encryptedPDU, msgPrivacyParameters = user.encrypt(
+                    message.scopedPDU,
                     snmpEngineBoots,
                     snmpEngineTime,
                 )
-
-                message.encryptedPDU = OctetString(ciphertext)
 
         else:
             snmpEngineBoots = 0
@@ -138,17 +119,16 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
             msgPrivacyParameters,
         )
 
-        message.securityParameters = OctetString(securityParameters.encode())
-        wholeMsg = message.encode()
+        wireMessage = SNMPv3WireMessage(
+            message.header,
+            message.encryptedPDU if message.header.flags.privFlag else message.scopedPDU,
+            OctetString(securityParameters.encode()),
+        )
 
         if message.header.flags.authFlag:
-            location = UnsignedUsmParameters.findPadding(
-                SNMPv3Message.findSecurityParameters(wholeMsg)
-            )
-
-            assert user.auth is not None
-            signature = user.auth.sign(wholeMsg)
-            wholeMsg = location.replace(signature)
+            wholeMsg = user.sign(wireMessage)
+        else:
+            wholeMsg = wireMessage.encode()
 
         return wholeMsg
 
@@ -188,23 +168,7 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
         except InvalidUserName as err:
             raise UnknownUserName(securityParameters.userName) from err
 
-        if user.auth is None:
-            username = securityParameters.userName.decode()
-            errmsg = f"Authentication is disabled for user \"{username}\""
-            raise UnsupportedSecLevel(errmsg)
-        elif message.header.flags.privFlag and user.priv is None:
-            username = securityParameters.userName.decode()
-            errmsg = f"Data privacy is disabled for user \"{username}\""
-            raise UnsupportedSecLevel(errmsg)
-
-        padding = user.auth.msgAuthenticationParameters
-        if len(securityParameters.signature) != len(padding):
-            raise WrongDigest("Invalid signature length")
-
-        wholeMsg = securityParameters.signature.replace(padding)
-
-        if user.auth.sign(wholeMsg) != securityParameters.signature:
-            raise WrongDigest("Invalid signature")
+        user.verifySignature(securityParameters.signature)
 
         try:
             self.timekeeper.updateAndVerify(
@@ -218,8 +182,8 @@ class UserBasedSecurityModule(SecurityModule[SNMPv3Message]):
 
         if message.header.flags.privFlag:
             try:
-                message.plaintext = cast(PrivProtocol, user.priv).decrypt(
-                    cast(OctetString, message.encryptedPDU).data,
+                message.scopedPDU = user.decrypt(
+                    message.encryptedPDU,
                     securityParameters.engineBoots,
                     securityParameters.engineTime,
                     securityParameters.salt,

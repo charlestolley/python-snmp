@@ -334,3 +334,8 @@ class SNMPv3WireMessage(Sequence):
         tag, header, ptr    = decode(ptr)
         tag, ptr, tail      = decode(ptr)
         return ptr
+
+    @staticmethod
+    def decodePlaintext(data: Union[bytes, subbytes]) -> ScopedPDU:
+        scopedPDU, padding = ScopedPDU.decode(data)
+        return scopedPDU
