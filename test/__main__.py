@@ -6,7 +6,6 @@ test_modules = [
     "pdu",
     "message.version",
     "message.core",
-    #"message.v3",
     "numbers",
     "pipeline",
     "requests",
