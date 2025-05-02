@@ -29,6 +29,12 @@ class DummyPrivProtocol(PrivProtocol):
     def __init__(self, key):
         self.key = key
 
+    def __eq__(self, other):
+        if type(other) != type(self):
+            return NotImplemented
+
+        return self.key == other.key
+
     def decrypt(self, data, engineBoots, engineTime, salt):
         return data
 

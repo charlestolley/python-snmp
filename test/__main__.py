@@ -13,7 +13,7 @@ test_modules = [
     "security.models",
     "security.usm.timekeeper",
     "security.usm.parameters",
-    #"security.usm.credentials",
+    "security.usm.credentials",
     #"security.usm.users",
     #"security.usm.implementation",
     "security.usm.auth",

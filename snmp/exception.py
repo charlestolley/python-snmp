@@ -14,7 +14,7 @@ class IncomingMessageError(SNMPException):
     """An error indicating a received message is invalid in some way."""
     pass
 
-class AuthentiationNotEnabled(SNMPException):
+class AuthenticationNotEnabled(SNMPException):
     pass
 
 class PrivacyNotEnabled(SNMPException):
