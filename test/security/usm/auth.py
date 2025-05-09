@@ -22,6 +22,12 @@ class HmacMd5Test(unittest.TestCase):
 
         self.digest = bytes.fromhex("07 5f 47 b1 57 95 d1 15 77 df 58 19")
 
+    def test_two_instances_with_the_same_key_are_equal(self):
+        self.assertEqual(HmacMd5(self.authKey), HmacMd5(self.authKey))
+
+    def test_two_instances_with_different_keys_are_not_equal(self):
+        self.assertNotEqual(HmacMd5(self.authKey), HmacMd5(b"wrong key"))
+
     def test_msgAuthenticationParameters_contains_12_zero_bytes(self):
         auth = HmacMd5(self.authKey)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(12))
@@ -60,6 +66,12 @@ class HmacShaTest(unittest.TestCase):
 
         self.digest = bytes.fromhex("60 e3 8c 0e 8d e1 8f e2 b4 17 fc 4d")
 
+    def test_two_instances_with_the_same_key_are_equal(self):
+        self.assertEqual(HmacSha(self.authKey), HmacSha(self.authKey))
+
+    def test_two_instances_with_different_keys_are_not_equal(self):
+        self.assertNotEqual(HmacSha(self.authKey), HmacSha(b"wrong key"))
+
     def test_msgAuthenticationParameters_contains_12_zero_bytes(self):
         auth = HmacSha(self.authKey)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(12))
@@ -97,6 +109,12 @@ class HmacSha224Test(unittest.TestCase):
             "1d 6f 2b fe d5 dc 44 94 12 ec 42 01 72 7f d0 41"
         )
 
+    def test_two_instances_with_the_same_key_are_equal(self):
+        self.assertEqual(HmacSha224(self.authKey), HmacSha224(self.authKey))
+
+    def test_two_instances_with_different_keys_are_not_equal(self):
+        self.assertNotEqual(HmacSha224(self.authKey), HmacSha224(b"wrong key"))
+
     def test_localize_generates_the_expected_key_for_RFC3414_example(self):
         authKey = HmacSha224.localize(self.secret, self.engineID)
         self.assertEqual(authKey, self.authKey)
@@ -121,6 +139,12 @@ class HmacSha256Test(unittest.TestCase):
             42 8b f9 6e 69 98 5f f6 3e 87 1d 01 02 53 0b 44
             df 57 63 80 99 35 8f 54
         """))
+
+    def test_two_instances_with_the_same_key_are_equal(self):
+        self.assertEqual(HmacSha256(self.authKey), HmacSha256(self.authKey))
+
+    def test_two_instances_with_different_keys_are_not_equal(self):
+        self.assertNotEqual(HmacSha256(self.authKey), HmacSha256(b"wrong key"))
 
     def test_localize_generates_the_expected_key_for_RFC3414_example(self):
         authKey = HmacSha256.localize(self.secret, self.engineID)
@@ -147,6 +171,12 @@ class HmacSha384Test(unittest.TestCase):
             17 c5 9b c6 90 3d e9 a7 ee bb 97 a6 6f f2 37 1b
             8d 77 2a 59 95 1f 81 96 c2 54 2a 19 75 07 b3 af
         """))
+
+    def test_two_instances_with_the_same_key_are_equal(self):
+        self.assertEqual(HmacSha384(self.authKey), HmacSha384(self.authKey))
+
+    def test_two_instances_with_different_keys_are_not_equal(self):
+        self.assertNotEqual(HmacSha384(self.authKey), HmacSha384(b"wrong key"))
 
     def test_localize_generates_the_expected_key_for_RFC3414_example(self):
         authKey = HmacSha384.localize(self.secret, self.engineID)
@@ -175,6 +205,12 @@ class HmacSha512Test(unittest.TestCase):
             4d 5c 1a 40 c0 c6 fb 0e 2d cb 10 c7 6c 45 4e 29
             14 84 5a 89 a1 cd b7 42 4a f5 c7 07 11 c3 b9 f4
         """))
+
+    def test_two_instances_with_the_same_key_are_equal(self):
+        self.assertEqual(HmacSha512(self.authKey), HmacSha512(self.authKey))
+
+    def test_two_instances_with_different_keys_are_not_equal(self):
+        self.assertNotEqual(HmacSha512(self.authKey), HmacSha512(b"wrong key"))
 
     def test_localize_generates_the_expected_key_for_RFC3414_example(self):
         authKey = HmacSha512.localize(self.secret, self.engineID)

@@ -12,6 +12,9 @@ class AuthProtocol:
     def __init__(self, key: bytes) -> None:
         raise NotImplementedError()
 
+    def __eq__(self, other: object) -> bool:
+        return NotImplemented
+
     @classmethod
     def computeKey(cls, secret: bytes) -> bytes:
         raise NotImplementedError()

@@ -17,6 +17,11 @@ class HmacAuthProtocol(AuthProtocol):
     def __init__(self, key: bytes) -> None:
         self.key = key
 
+    def __eq__(self, other: object) -> bool:
+        if type(other) != type(self):
+            return NotImplemented
+
+        return self.key == other.key
 
     def __repr__(self) -> str:
         return f"{typename(self)}({self.key!r})"
