@@ -108,51 +108,7 @@ class UserBasedSecurityModule(SecurityModule):
         user = self.users.defaultUser(namespace)
         return user.decode() if user is not None else None
 
-    def registerRemoteEngine(self,
-        engineID: bytes,
-        namespace: str = "",
-    ) -> bool:
-        return True
-
-    def unregisterRemoteEngine(self,
-        engineID: bytes,
-        namespace: str = "",
-    ) -> None:
-        pass
-
     ### Methods for outgoing messages
-
-    def outgoingTime(self,
-        message: SNMPv3Message,
-        timestamp: float,
-    ) -> Tuple[int, int]:
-        engineID = message.securityEngineID
-        if engineID == self.engineID:
-            snmpEngineBoots = self.engineTime.snmpEngineBoots
-            snmpEngineTime = self.engineTime.snmpEngineTime(timestamp)
-            return snmpEngineBoots, snmpEngineTime
-        elif message.header.flags.authFlag:
-            return self.timekeeper.getEngineTime(engineID, timestamp)
-        else:
-            return 0, 0
-
-    def outgoingNamespace(self, message: SNMPv3Message) -> str:
-        if message.securityEngineID == self.engineID:
-            return self.namespace
-        else:
-            try:
-                return next(iter(message.securityName.namespaces))
-            except StopIteration as err:
-                userName = message.securityName.userName
-                errmsg = f"No namespace given for user {userName}"
-                raise TypeError(errmsg) from err
-
-    def outgoingUser(self, message: SNMPv3Message) -> LocalizedCredentials:
-        return self.users.credentials(
-            message.securityName.userName,
-            self.outgoingNamespace(message),
-            message.securityEngineID,
-        )
 
     def applyPrivacy(self,
         message: SNMPv3Message,
@@ -163,6 +119,16 @@ class UserBasedSecurityModule(SecurityModule):
             return user.encrypt(message.scopedPDU, *engineTime)
         else:
             return message.scopedPDU, b""
+
+    def encodeOutgoingMessage(self,
+        message: SNMPv3Message,
+        wireMessage: SNMPv3WireMessage,
+    ) -> bytes:
+        if message.header.flags.authFlag:
+            user = self.outgoingUser(message)
+            return user.sign(wireMessage)
+        else:
+            return wireMessage.encode()
 
     def outgoingData(self,
         message: SNMPv3Message,
@@ -198,15 +164,37 @@ class UserBasedSecurityModule(SecurityModule):
             OctetString(securityParameters.encode())
         )
 
-    def encodeOutgoingMessage(self,
-        message: SNMPv3Message,
-        wireMessage: SNMPv3WireMessage,
-    ) -> bytes:
-        if message.header.flags.authFlag:
-            user = self.outgoingUser(message)
-            return user.sign(wireMessage)
+    def outgoingNamespace(self, message: SNMPv3Message) -> str:
+        if message.securityEngineID == self.engineID:
+            return self.namespace
         else:
-            return wireMessage.encode()
+            try:
+                return next(iter(message.securityName.namespaces))
+            except StopIteration as err:
+                userName = message.securityName.userName
+                errmsg = f"No namespace given for user {userName}"
+                raise TypeError(errmsg) from err
+
+    def outgoingTime(self,
+        message: SNMPv3Message,
+        timestamp: float,
+    ) -> Tuple[int, int]:
+        engineID = message.securityEngineID
+        if engineID == self.engineID:
+            snmpEngineBoots = self.engineTime.snmpEngineBoots
+            snmpEngineTime = self.engineTime.snmpEngineTime(timestamp)
+            return snmpEngineBoots, snmpEngineTime
+        elif message.header.flags.authFlag:
+            return self.timekeeper.getEngineTime(engineID, timestamp)
+        else:
+            return 0, 0
+
+    def outgoingUser(self, message: SNMPv3Message) -> LocalizedCredentials:
+        return self.users.credentials(
+            message.securityName.userName,
+            self.outgoingNamespace(message),
+            message.securityEngineID,
+        )
 
     def prepareOutgoing(self,
         message: SNMPv3Message,
