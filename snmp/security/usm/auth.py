@@ -8,6 +8,7 @@ import hmac
 
 from snmp.security.usm import AuthProtocol
 from snmp.typing import *
+from snmp.utils import *
 
 class HmacAuthProtocol(AuthProtocol):
     ALGORITHM:  ClassVar[Callable[..., "hashlib._Hash"]]
@@ -15,6 +16,10 @@ class HmacAuthProtocol(AuthProtocol):
 
     def __init__(self, key: bytes) -> None:
         self.key = key
+
+
+    def __repr__(self) -> str:
+        return f"{typename(self)}({self.key!r})"
 
     @classmethod
     def computeKey(cls, secret: bytes) -> bytes:

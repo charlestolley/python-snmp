@@ -21,6 +21,9 @@ class LocalizedCredentials:
         else:
             return NotImplemented
 
+    def __repr__(self) -> str:
+        return f"{typename(self)}()"
+
     def withoutPrivacy(self) -> "LocalizedCredentials":
         return self
 
@@ -60,6 +63,9 @@ class LocalizedAuthCredentials(LocalizedCredentials):
         else:
             return result
 
+    def __repr__(self) -> str:
+        return f"{typename(self)}({self.auth!r})"
+
     def sign(self, message: SNMPv3WireMessage) -> bytes:
         wholeMsg = message.encode()
         ptr = message.findSecurityParameters(wholeMsg)
@@ -93,6 +99,9 @@ class LocalizedAuthPrivCredentials(LocalizedAuthCredentials):
             return self.priv == other.priv
         else:
             return result
+
+    def __repr__(self) -> str:
+        return f"{typename(self)}({self.auth!r}, {self.priv!r})"
 
     def withoutPrivacy(self) -> LocalizedCredentials:
         return LocalizedAuthCredentials(self.auth)
