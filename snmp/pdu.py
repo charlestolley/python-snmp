@@ -6,7 +6,6 @@ __all__ = [
     "SetRequestPDU",
     "ResponsePDU", "ReportPDU",
     "InformRequestPDU", "SNMPv2TrapPDU",
-    "Read", "Write", "Response", "Internal", "Notification", "Confirmed",
     "ErrorStatus", "ErrorResponse",
 ]
 
@@ -165,6 +164,13 @@ class ErrorStatus(enum.IntEnum):
     inconsistentName    = 18
 
 class PDU(Constructed):
+    READ_CLASS: ClassVar[bool] = False
+    WRITE_CLASS: ClassVar[bool] = False
+    RESPONSE_CLASS: ClassVar[bool] = False
+    NOTIFICATION_CLASS: ClassVar[bool] = False
+    INTERNAL_CLASS: ClassVar[bool] = False
+    CONFIRMED_CLASS: ClassVar[bool] = False
+
     def __init__(self,
         *args: Union[str, OID, VarBind],
         requestID: int = 0,
@@ -265,6 +271,13 @@ class PDU(Constructed):
         )
 
 class BulkPDU(Constructed):
+    READ_CLASS: ClassVar[bool] = False
+    WRITE_CLASS: ClassVar[bool] = False
+    RESPONSE_CLASS: ClassVar[bool] = False
+    NOTIFICATION_CLASS: ClassVar[bool] = False
+    INTERNAL_CLASS: ClassVar[bool] = False
+    CONFIRMED_CLASS: ClassVar[bool] = False
+
     def __init__(self,
         *args: Union[str, OID, VarBind],
         requestID: int = 0,
@@ -353,54 +366,50 @@ class BulkPDU(Constructed):
             variableBindings=variableBindings,
         )
 
-class Read:
-    pass
-
-class Write:
-    pass
-
-class Response:
-    pass
-
-class Notification:
-    pass
-
-class Internal:
-    pass
-
-class Confirmed:
-    pass
-
 @final
-class GetRequestPDU(PDU, Read, Confirmed):
+class GetRequestPDU(PDU):
+    CONFIRMED_CLASS = True
+    READ_CLASS = True
     TAG = Tag(0, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
-class GetNextRequestPDU(PDU, Read, Confirmed):
+class GetNextRequestPDU(PDU):
+    CONFIRMED_CLASS = True
+    READ_CLASS = True
     TAG = Tag(1, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
-class ResponsePDU(PDU, Response):
+class ResponsePDU(PDU):
+    RESPONSE_CLASS = True
     TAG = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
-class SetRequestPDU(PDU, Write, Confirmed):
+class SetRequestPDU(PDU):
+    CONFIRMED_CLASS = True
+    WRITE_CLASS = True
     TAG = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
-class GetBulkRequestPDU(BulkPDU, Read, Confirmed):
+class GetBulkRequestPDU(BulkPDU):
+    CONFIRMED_CLASS = True
+    READ_CLASS = True
     TAG = Tag(5, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
-class InformRequestPDU(PDU, Notification, Confirmed):
+class InformRequestPDU(PDU):
+    CONFIRMED_CLASS = True
+    NOTIFICATION_CLASS = True
     TAG = Tag(6, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
-class SNMPv2TrapPDU(PDU, Notification):
+class SNMPv2TrapPDU(PDU):
+    NOTIFICATION_CLASS = True
     TAG = Tag(7, True, Tag.Class.CONTEXT_SPECIFIC)
 
 @final
-class ReportPDU(PDU, Response, Internal):
+class ReportPDU(PDU):
+    INTERNAL_CLASS = True
+    RESPONSE_CLASS = True
     TAG = Tag(8, True, Tag.Class.CONTEXT_SPECIFIC)
 
 class ErrorResponse(SNMPException):

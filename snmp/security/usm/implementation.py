@@ -381,7 +381,7 @@ class UserBasedSecurityModule(SecurityModule):
 
             scopedPDU, namespaces = self.verifyIncomingData(message, sp)
 
-            reportable = isinstance(scopedPDU.pdu, Confirmed)
+            reportable = scopedPDU.pdu.CONFIRMED_CLASS
             requestID = scopedPDU.pdu.requestID
             contextName = scopedPDU.contextName
 

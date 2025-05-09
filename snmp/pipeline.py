@@ -73,9 +73,9 @@ class MessageSorter:
         try:
             subscriber = self.subscribers[pduType.TAG]
         except KeyError:
-            if not issubclass(pduType, Response):
+            if not pduType.RESPONSE_CLASS:
                 self.unknownHandlers += 1
-                if issubclass(pduType, Confirmed):
+                if pduType.CONFIRMED_CLASS:
                     reportMessage = self.interpreter.makeReport(
                         message,
                         VarBind(
