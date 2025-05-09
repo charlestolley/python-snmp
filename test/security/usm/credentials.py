@@ -196,6 +196,20 @@ class CredentialsTest(unittest.TestCase):
         l2 = c2.localize(self.engineID)
         self.assertEqual(l1, l2)
 
+    def test_priv_lc_not_equal_to_auth_only_lc(self):
+        c1 = AuthPrivCredentials(
+            DummyAuthProtocol,
+            DummyPrivProtocol,
+            self.authSecret,
+            self.privSecret,
+        )
+
+        c2 = AuthCredentials(DummyAuthProtocol, self.authSecret)
+
+        l1 = c1.localize(self.engineID)
+        l2 = c2.localize(self.engineID)
+        self.assertNotEqual(l1, l2)
+
     def test_empty_lc_withoutPrivacy_equals_self(self):
         credentials = Credentials()
         localizedCredentials = credentials.localize(self.engineID)
