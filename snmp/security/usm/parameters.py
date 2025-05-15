@@ -16,20 +16,51 @@ class UnsignedUsmParameters(Sequence):
         padding: bytes,
         salt: bytes,
     ):
-        self.engineID = engineID
-        self.engineBoots = engineBoots
-        self.engineTime = engineTime
-        self.userName = userName
-        self.padding = padding
-        self.salt = salt
+        if engineBoots < 0:
+            raise ValueError(f"negative value for engineBoots: {engineBoots}")
+        elif engineTime < 0:
+            raise ValueError(f"negative value for engineTime: {engineTime}")
+        elif len(userName) > 32:
+            raise ValueError(f"userName exceeds 32 characters: {userName!r}")
+
+        self._engineID = OctetString(engineID)
+        self._engineBoots = Integer(engineBoots)
+        self._engineTime = Integer(engineTime)
+        self._userName = OctetString(userName)
+        self._padding = OctetString(padding)
+        self._salt = OctetString(salt)
+
+    @property
+    def engineID(self) -> bytes:
+        return self._engineID.data
+
+    @property
+    def engineBoots(self) -> int:
+        return self._engineBoots.value
+
+    @property
+    def engineTime(self) -> int:
+        return self._engineTime.value
+
+    @property
+    def userName(self) -> bytes:
+        return self._userName.data
+
+    @property
+    def padding(self) -> bytes:
+        return self._padding.data
+
+    @property
+    def salt(self) -> bytes:
+        return self._salt.data
 
     def __iter__(self) -> Iterator[ASN1]:
-        yield OctetString(self.engineID)
-        yield Integer(self.engineBoots)
-        yield Integer(self.engineTime)
-        yield OctetString(self.userName)
-        yield OctetString(self.padding)
-        yield OctetString(self.salt)
+        yield self._engineID
+        yield self._engineBoots
+        yield self._engineTime
+        yield self._userName
+        yield self._padding
+        yield self._salt
 
     def __len__(self) -> int:
         return 6
@@ -73,14 +104,17 @@ class UnsignedUsmParameters(Sequence):
         padding, ptr    = OctetString.decode(ptr)
         salt            = OctetString.decodeExact(ptr)
 
-        return cls(
-            engineID.data,
-            engineBoots.value,
-            engineTime.value,
-            userName.data,
-            padding.data,
-            salt.data,
-        )
+        try:
+            return cls(
+                engineID.data,
+                engineBoots.value,
+                engineTime.value,
+                userName.data,
+                padding.data,
+                salt.data,
+            )
+        except ValueError as err:
+            raise ParseError(*err.args) from err
 
     @classmethod
     def findPadding(self, msgSecurityParameters: subbytes) -> subbytes:
@@ -101,20 +135,51 @@ class SignedUsmParameters(Sequence):
         signature: subbytes,
         salt: bytes,
     ):
-        self.engineID = engineID
-        self.engineBoots = engineBoots
-        self.engineTime = engineTime
-        self.userName = userName
-        self.signature = signature
-        self.salt = salt
+        if engineBoots < 0:
+            raise ValueError(f"negative value for engineBoots: {engineBoots}")
+        elif engineTime < 0:
+            raise ValueError(f"negative value for engineTime: {engineTime}")
+        elif len(userName) > 32:
+            raise ValueError(f"userName exceeds 32 characters: {userName!r}")
+
+        self._engineID = OctetString(engineID)
+        self._engineBoots = Integer(engineBoots)
+        self._engineTime = Integer(engineTime)
+        self._userName = OctetString(userName)
+        self._signature = OctetString(signature)
+        self._salt = OctetString(salt)
+
+    @property
+    def engineID(self) -> bytes:
+        return self._engineID.data
+
+    @property
+    def engineBoots(self) -> int:
+        return self._engineBoots.value
+
+    @property
+    def engineTime(self) -> int:
+        return self._engineTime.value
+
+    @property
+    def userName(self) -> bytes:
+        return self._userName.data
+
+    @property
+    def signature(self) -> subbytes:
+        return self._signature.original
+
+    @property
+    def salt(self) -> bytes:
+        return self._salt.data
 
     def __iter__(self) -> Iterator[ASN1]:
-        yield OctetString(self.engineID)
-        yield Integer(self.engineBoots)
-        yield Integer(self.engineTime)
-        yield OctetString(self.userName)
-        yield OctetString(self.signature)
-        yield OctetString(self.salt)
+        yield self._engineID
+        yield self._engineBoots
+        yield self._engineTime
+        yield self._userName
+        yield self._signature
+        yield self._salt
 
     def __len__(self) -> int:
         return 6
@@ -158,11 +223,14 @@ class SignedUsmParameters(Sequence):
         signature, ptr  = OctetString.decode(ptr, copy=False)
         salt            = OctetString.decodeExact(ptr)
 
-        return cls(
-            engineID.data,
-            engineBoots.value,
-            engineTime.value,
-            userName.data,
-            signature.original,
-            salt.data,
-        )
+        try:
+            return cls(
+                engineID.data,
+                engineBoots.value,
+                engineTime.value,
+                userName.data,
+                signature.original,
+                salt.data,
+            )
+        except ValueError as err:
+            raise ParseError(*err.args) from err

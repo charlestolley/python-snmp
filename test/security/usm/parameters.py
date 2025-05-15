@@ -2,6 +2,7 @@ __all__ = ["SignedUsmParametersTest", "UnsignedUsmParametersTest"]
 
 import unittest
 
+from snmp.exception import ParseError
 from snmp.security.usm.parameters import *
 from snmp.utils import subbytes
 
@@ -57,6 +58,55 @@ class SignedUsmParametersTest(unittest.TestCase):
             self.salt,
         )
 
+    def test_constructor_raises_ValueError_for_negative_engineBoots(self):
+        self.assertRaises(
+            ValueError,
+            SignedUsmParameters,
+            self.engineID,
+            -1,
+            self.engineTime,
+            self.userName,
+            self.signature,
+            self.salt,
+        )
+
+    def test_constructor_raises_ValueError_for_negative_engineTime(self):
+        self.assertRaises(
+            ValueError,
+            SignedUsmParameters,
+            self.engineID,
+            self.engineBoots,
+            -1,
+            self.userName,
+            self.signature,
+            self.salt,
+        )
+
+    def test_decode_raises_ParseError_for_negative_engineBoots(self):
+        encoding = bytes.fromhex(
+            "30 10"
+            "   04 01 80"
+            "   02 01 ff"
+            "   02 01 00"
+            "   04 01 71"
+            "   04 00"
+            "   04 00"
+        )
+
+        self.assertRaises(ParseError, SignedUsmParameters.decode, encoding)
+
+    def test_decode_raises_ParseError_for_negative_engineTime(self):
+        encoding = bytes.fromhex(
+            "30 10"
+            "   04 01 80"
+            "   02 01 00"
+            "   02 01 ff"
+            "   04 01 71"
+            "   04 00"
+            "   04 00"
+        )
+
+        self.assertRaises(ParseError, SignedUsmParameters.decode, encoding)
 
     def test_decode_all_six_fields_defined_in_RFC3414(self):
         params = SignedUsmParameters.decodeExact(self.encoding)
@@ -144,6 +194,55 @@ class UnsignedUsmParametersTest(unittest.TestCase):
             self.salt,
         )
 
+    def test_constructor_raises_ValueError_for_negative_engineBoots(self):
+        self.assertRaises(
+            ValueError,
+            UnsignedUsmParameters,
+            self.engineID,
+            -1,
+            self.engineTime,
+            self.userName,
+            self.padding,
+            self.salt,
+        )
+
+    def test_constructor_raises_ValueError_for_negative_engineTime(self):
+        self.assertRaises(
+            ValueError,
+            UnsignedUsmParameters,
+            self.engineID,
+            self.engineBoots,
+            -1,
+            self.userName,
+            self.padding,
+            self.salt,
+        )
+
+    def test_decode_raises_ParseError_for_negative_engineBoots(self):
+        encoding = bytes.fromhex(
+            "30 10"
+            "   04 01 80"
+            "   02 01 ff"
+            "   02 01 00"
+            "   04 01 71"
+            "   04 00"
+            "   04 00"
+        )
+
+        self.assertRaises(ParseError, UnsignedUsmParameters.decode, encoding)
+
+    def test_decode_raises_ParseError_for_negative_engineTime(self):
+        encoding = bytes.fromhex(
+            "30 10"
+            "   04 01 80"
+            "   02 01 00"
+            "   02 01 ff"
+            "   04 01 71"
+            "   04 00"
+            "   04 00"
+        )
+
+        self.assertRaises(ParseError, UnsignedUsmParameters.decode, encoding)
 
     def test_decode_all_six_fields_defined_in_RFC3414(self):
         params = UnsignedUsmParameters.decodeExact(self.encoding)
