@@ -257,5 +257,14 @@ class UserRegistryTest(unittest.TestCase):
         self.assertEqual(result, localizedCredentials)
         self.assertNotEqual(result, wrongLocalizedCredentials)
 
+    def test_credentials_raises_ValueError_for_unknown_user(self):
+        self.assertRaises(
+            ValueError,
+            self.users.credentials,
+            self.userName,
+            self.namespace,
+            self.engineID,
+        )
+
 if __name__ == "__main__":
     unittest.main()

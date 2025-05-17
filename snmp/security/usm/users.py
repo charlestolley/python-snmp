@@ -118,7 +118,13 @@ class UserRegistry:
         except KeyError:
             pass
 
-        credentials = self.namespaceConfigs[namespace][userName].credentials
+        try:
+            creds = self.namespaceConfigs[namespace][userName].credentials
+        except KeyError as err:
+            raise ValueError(
+                f"User {userName!r} is not defined"
+                f" in namespace \"{namespace}\""
+            ) from err
 
         try:
             users = self.localizedCredentials[namespace]
@@ -132,7 +138,7 @@ class UserRegistry:
             engines = {}
             users[userName] = engines
 
-        localizedCredentials = credentials.localize(engineID)
+        localizedCredentials = creds.localize(engineID)
         engines[engineID] = localizedCredentials
         return localizedCredentials
 
