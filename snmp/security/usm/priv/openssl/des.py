@@ -2,6 +2,7 @@ __all__ = ["DesCbc"]
 
 import os
 
+from snmp.smi import OID
 from snmp.security.usm import DecryptionError, PrivProtocol
 from snmp.typing import *
 
@@ -21,9 +22,18 @@ class DesCbc(PrivProtocol):
             errmsg = f"key must be at least {self.KEYLEN} bytes long"
             raise ValueError(errmsg)
 
+        self.algorithm = OID.parse("1.3.6.1.6.3.10.1.2.2")
         self.key = key[:self.BLOCKLEN]
         self.preIV = key[self.BLOCKLEN:self.KEYLEN]
         self.salt = int.from_bytes(os.urandom(self.SALTLEN), self.BYTEORDER)
+
+    def __eq__(self, other: object) -> bool:
+        try:
+            return (self.algorithm == other.algorithm
+                and self.key == other.key
+                and self.preIV == other.preIV)
+        except AttributeError:
+            return NotImplemented
 
     def computeIV(self, salt: bytes) -> bytes:
         return bytes(a ^ b for a, b in zip(self.preIV, salt))

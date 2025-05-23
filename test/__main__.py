@@ -17,6 +17,7 @@ test_modules = [
     "security.usm.users",
     #"security.usm.implementation",
     "security.usm.auth",
+    "security.usm.priv",
     "security.usm.priv.openssl",
     "security.usm.priv.pycryptodome",
     "transport.udp",

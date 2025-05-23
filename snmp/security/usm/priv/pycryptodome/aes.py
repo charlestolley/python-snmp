@@ -5,6 +5,7 @@ import os
 from Crypto.Cipher import AES
 from Crypto.Cipher._mode_cfb import CfbMode
 
+from snmp.smi import OID
 from snmp.security.usm import DecryptionError, PrivProtocol
 from snmp.typing import *
 
@@ -24,8 +25,15 @@ class AesCfb128(PrivProtocol):
             errmsg = "key must be at least {} bytes long".format(self.KEYLEN)
             raise ValueError(errmsg)
 
+        self.algorithm = OID.parse("1.3.6.1.6.3.10.1.2.4")
         self.key = key[:self.KEYLEN]
         self.salt = int.from_bytes(os.urandom(self.SALTLEN), self.BYTEORDER)
+
+    def __eq__(self, other: object) -> bool:
+        try:
+            return self.algorithm == other.algorithm and self.key == other.key
+        except AttributeError:
+            return NotImplemented
 
     def newCipher(self, iv: bytes) -> CfbMode:
         return AES.new(

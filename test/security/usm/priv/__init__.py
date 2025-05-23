@@ -1,4 +1,7 @@
-__all__ = ["makeAesCfb128Test", "makeDesCbcTest"]
+__all__ = [
+    "makeAesCfb128Test", "makeDesCbcTest",
+    "AesCfb128CrossTest", "DesCbcCrossTest", "CrossAlgorithmTest",
+]
 
 import re
 import unittest
@@ -29,6 +32,19 @@ def makeAesCfb128Test(AesCfb128):
 
             self.engineBoots = 918273645
             self.engineTime  = 546372819
+
+        def test_two_objects_with_the_same_key_are_equal(self):
+            key = self.authProtocol.localize(self.secret, self.engineID)
+            a = self.privProtocol(key)
+            b = self.privProtocol(key)
+            self.assertEqual(a, b)
+
+        def test_two_objects_with_different_keys_are_not_equal(self):
+            ka = self.authProtocol.localize(self.secret, self.engineID)
+            kb = self.authProtocol.localize(b"strawberryjam", self.engineID)
+            a = self.privProtocol(ka)
+            b = self.privProtocol(kb)
+            self.assertNotEqual(a, b)
 
         def test_decrypt_successfully_decrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
@@ -102,6 +118,19 @@ def makeDesCbcTest(DesCbc):
             self.engineBoots = 918273645
             self.engineTime  = 546372819
 
+        def test_two_objects_with_the_same_key_are_equal(self):
+            key = self.authProtocol.localize(self.secret, self.engineID)
+            a = self.privProtocol(key)
+            b = self.privProtocol(key)
+            self.assertEqual(a, b)
+
+        def test_two_objects_with_different_keys_are_not_equal(self):
+            ka = self.authProtocol.localize(self.secret, self.engineID)
+            kb = self.authProtocol.localize(b"strawberryjam", self.engineID)
+            a = self.privProtocol(ka)
+            b = self.privProtocol(kb)
+            self.assertNotEqual(a, b)
+
         def test_decrypt_successfully_decrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
             priv = self.privProtocol(privKey)
@@ -150,3 +179,111 @@ def makeDesCbcTest(DesCbc):
             self.assertEqual(contents, self.data)
 
     return DesCbcTest
+
+try:
+    from snmp.security.usm.priv.openssl.aes import (
+        AesCfb128 as AesCfb128OpenSSL,
+    )
+except ImportError:
+    AesCfb128OpenSSL = None
+
+try:
+    from snmp.security.usm.priv.pycryptodome.aes import (
+        AesCfb128 as AesCfb128PyCrypto,
+    )
+except ImportError:
+    AesCfb128PyCrypto = None
+
+class AesCfb128CrossTest(unittest.TestCase):
+    def setUp(self):
+        if AesCfb128OpenSSL is None:
+            self.skipTest("OpenSSL FFI is not installed")
+
+        if AesCfb128PyCrypto is None:
+            self.skipTest("pycryptodome is not installed")
+
+        self.authProtocol = HmacSha
+        self.engineID = bytes(11) + b"\x02"
+        self.secret = b"maplesyrup"
+
+    def test_two_objects_with_the_same_key_are_equal(self):
+        key = self.authProtocol.localize(self.secret, self.engineID)
+        a = AesCfb128OpenSSL(key)
+        b = AesCfb128PyCrypto(key)
+        self.assertEqual(a, b)
+        self.assertEqual(b, a)
+
+    def test_two_objects_with_different_keys_are_not_equal(self):
+        ka = self.authProtocol.localize(self.secret, self.engineID)
+        kb = self.authProtocol.localize(b"strawberryjam", self.engineID)
+        a = AesCfb128OpenSSL(ka)
+        b = AesCfb128PyCrypto(kb)
+        self.assertNotEqual(a, b)
+        self.assertNotEqual(b, a)
+
+try:
+    from snmp.security.usm.priv.openssl.des import DesCbc as DesCbcOpenSSL
+except ImportError:
+    DesCbcOpenSSL = None
+
+try:
+    from snmp.security.usm.priv.pycryptodome.des import (
+        DesCbc as DesCbcPyCrypto,
+    )
+except ImportError:
+    DesCbcPyCrypto = None
+
+class DesCbcCrossTest(unittest.TestCase):
+    def setUp(self):
+        if DesCbcOpenSSL is None:
+            self.skipTest("OpenSSL FFI is not installed")
+
+        if DesCbcPyCrypto is None:
+            self.skipTest("pycryptodome is not installed")
+
+        self.authProtocol = HmacSha
+        self.engineID = bytes(11) + b"\x02"
+        self.secret = b"maplesyrup"
+
+    def test_two_objects_with_the_same_key_are_equal(self):
+        key = self.authProtocol.localize(self.secret, self.engineID)
+        a = DesCbcOpenSSL(key)
+        b = DesCbcPyCrypto(key)
+        self.assertEqual(a, b)
+        self.assertEqual(b, a)
+
+    def test_two_objects_with_different_keys_are_not_equal(self):
+        ka = self.authProtocol.localize(self.secret, self.engineID)
+        kb = self.authProtocol.localize(b"strawberryjam", self.engineID)
+        a = DesCbcOpenSSL(ka)
+        b = DesCbcPyCrypto(kb)
+        self.assertNotEqual(a, b)
+        self.assertNotEqual(b, a)
+
+class CrossAlgorithmTest(unittest.TestCase):
+    def setUp(self):
+        if AesCfb128OpenSSL is None or DesCbcOpenSSL is None:
+            self.skipTest("OpenSSL FFI is not installed")
+
+        if AesCfb128PyCrypto is None or DesCbcPyCrypto is None:
+            self.skipTest("pycryptodome is not installed")
+
+        self.authProtocol = HmacSha
+        self.engineID = bytes(11) + b"\x02"
+        self.secret = b"maplesyrup"
+
+    def test_two_objects_with_different_algorithms_are_not_equal(self):
+        key = self.authProtocol.localize(self.secret, self.engineID)
+        a = AesCfb128OpenSSL(key)
+        b = AesCfb128PyCrypto(key)
+        c = DesCbcOpenSSL(key)
+        d = DesCbcPyCrypto(key)
+
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+        self.assertNotEqual(b, c)
+        self.assertNotEqual(b, d)
+        self.assertNotEqual(c, a)
+        self.assertNotEqual(c, b)
+        self.assertNotEqual(d, a)
+        self.assertNotEqual(d, b)
