@@ -235,6 +235,17 @@ class UserRegistryTest(unittest.TestCase):
         self.assertIn(self.namespace, namespaces)
         self.assertIn("included namespace", namespaces)
 
+    def test_exists_returns_True_if_a_user_is_defined_in_a_namespace(self):
+        self.users.addUser(
+            self.userName,
+            self.namespace,
+        )
+
+        self.assertTrue(self.users.exists(self.userName, self.namespace))
+
+    def test_exists_returns_False_if_user_is_not_defined_in_namespace(self):
+        self.assertFalse(self.users.exists(self.userName, self.namespace))
+
     def test_credentials_produces_the_right_localized_credentials(self):
         self.users.addUser(
             self.userName,

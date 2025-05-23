@@ -108,6 +108,14 @@ class UserRegistry:
             if userName in config:
                 yield name
 
+    def exists(self, userName: bytes, namespace: str):
+        try:
+            config = self.namespaceConfigs[namespace]
+        except KeyError:
+            return False
+
+        return userName in config
+
     def credentials(self,
         userName: bytes,
         namespace: str,
