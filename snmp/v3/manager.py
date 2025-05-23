@@ -16,45 +16,6 @@ usmStatsUnknownEngineIDsInstance    = usmStats.extend(4, 0)
 usmStatsWrongDigestsInstance        = usmStats.extend(5, 0)
 usmStatsDecryptionErrorsInstance    = usmStats.extend(6, 0)
 
-class UnsupportedSecurityLevel(IncomingMessageError):
-    def __init__(self, level=None):
-        if level is None:
-            errmsg = f"The remote engine does not support" \
-                " the requested securityLevel"
-        else:
-            errmsg = f"The remote engine does not support {level}"
-
-        super().__init__(errmsg)
-
-class UnknownUserName(IncomingMessageError):
-    def __init__(self, username=None):
-        if username is None:
-            errmsg = "The remote engine does not recognize the requested user"
-        else:
-            errmsg = f'The remote engine does not recognize user "{username}"'
-
-        super().__init__(errmsg)
-
-class WrongDigest(IncomingMessageError):
-    def __init__(self, username=None):
-        errmsg = "The remote engine reported an incorrect message signature"
-
-        if username is not None:
-            errmsg += f"; check that \"{username}\" is using" \
-                " the right authentication protocol and secret"
-
-        super().__init__(errmsg)
-
-class DecryptionError(IncomingMessageError):
-    def __init__(self, username=None):
-        errmsg = "The remote engine was not able to decrypt the message"
-
-        if username is not None:
-            errmsg += f"; check that \"{username}\" is using" \
-                " the right privacy protocol and secret"
-
-        super().__init__(errmsg)
-
 class UnhandledReport(IncomingMessageError):
     pass
 

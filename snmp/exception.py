@@ -29,14 +29,57 @@ class ParseError(IncomingMessageError):
 class BadVersion(IncomingMessageError):
     pass
 
-class DecryptionError(IncomingMessageError):
-    pass
-
 class InvalidSignature(IncomingMessageError):
     pass
 
+# USM Stats Errors
+
+class UnsupportedSecLevel(IncomingMessageError):
+    def __init__(self, level=None):
+        if level is None:
+            errmsg = f"The remote engine does not support" \
+                " the requested securityLevel"
+        else:
+            errmsg = f"The remote engine does not support {level}"
+
+        super().__init__(errmsg)
+
 class OutsideTimeWindow(IncomingMessageError):
     pass
+
+class UnknownUserName(IncomingMessageError):
+    def __init__(self, username=None):
+        if username is None:
+            errmsg = "The remote engine does not recognize the requested user"
+        else:
+            errmsg = f'The remote engine does not recognize user "{username}"'
+
+        super().__init__(errmsg)
+
+class UnknownEngineID(IncomingMessageError):
+    pass
+
+class WrongDigest(IncomingMessageError):
+    def __init__(self, username=None):
+        errmsg = "The remote engine reported an incorrect message signature"
+
+        if username is not None:
+            errmsg += f"; check that \"{username}\" is using" \
+                " the right authentication protocol and secret"
+
+        super().__init__(errmsg)
+
+class DecryptionError(IncomingMessageError):
+    def __init__(self, username=None):
+        errmsg = "The remote engine was not able to decrypt the message"
+
+        if username is not None:
+            errmsg += f"; check that \"{username}\" is using" \
+                " the right privacy protocol and secret"
+
+        super().__init__(errmsg)
+
+
 
 class ReportMessage(SNMPException):
     def __init__(self, message):

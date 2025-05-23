@@ -1,4 +1,4 @@
-__all__ = ["TimeKeeper"]
+__all__ = ["EngineTime", "TimeKeeper"]
 
 from snmp.exception import OutsideTimeWindow
 from snmp.typing import *

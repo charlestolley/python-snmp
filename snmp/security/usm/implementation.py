@@ -26,24 +26,6 @@ usmStatsUnknownEngineIDsInstance    = usmStats.extend(4, 0)
 usmStatsWrongDigestsInstance        = usmStats.extend(5, 0)
 usmStatsDecryptionErrorsInstance    = usmStats.extend(6, 0)
 
-class UnsupportedSecLevel(IncomingMessageError):
-    pass
-
-class UnknownUserName(IncomingMessageError):
-    pass
-
-class UnknownEngineID(IncomingMessageError):
-    pass
-
-class WrongDigest(IncomingMessageError):
-    pass
-
-class MissingEncryptedPDU(DecryptionError):
-    pass
-
-class MissingPlaintext(IncomingMessageError):
-    pass
-
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM
 
@@ -212,17 +194,23 @@ class UserBasedSecurityModule(SecurityModule):
 
     def candidateNamespaces(self, sp: SignedUsmParameters) -> List[str]:
         if self.engineID is not None and sp.engineID == self.engineID:
-            return [self.namespace]
+            if self.users.exists(sp.userName, self.namespace):
+                return [self.namespace]
+            else:
+                return []
         else:
             return list(self.users.namespaces(sp.userName))
 
     def authenticate(self,
         securityParameters: SignedUsmParameters,
-        namespaces: Iterable[str],
+        namespaces: List[str],
     ) -> List[str]:
         authMatch = None
         authEnabled = False
         authenticated = list()
+
+        if not namespaces:
+            raise UnknownUserName(securityParameters.userName)
 
         for namespace in namespaces:
             user = self.users.credentials(
@@ -244,13 +232,12 @@ class UserBasedSecurityModule(SecurityModule):
             elif user.withoutPrivacy() == authMatch:
                 authenticated.append(namespace)
 
-        if not authenticated:
-            if authEnabled:
-                raise WrongDigest(securityParameters.signature)
-            else:
-                raise UnsupportedSecLevel(authNoPriv)
-
-        return authenticated
+        if authenticated:
+            return authenticated
+        elif authEnabled:
+            raise WrongDigest(securityParameters.signature)
+        else:
+            raise UnsupportedSecLevel(authNoPriv)
 
     def decrypt(self,
         encryptedPDU: OctetString,
@@ -289,7 +276,7 @@ class UserBasedSecurityModule(SecurityModule):
         if successful:
             return scopedPDU, successful
         elif privEnabled:
-            raise DecryptionError(message.scopedPduData)
+            raise DecryptionError(encryptedPDU)
         else:
             raise UnsupportedSecLevel(authPriv)
 
@@ -307,16 +294,12 @@ class UserBasedSecurityModule(SecurityModule):
         message: SNMPv3WireMessage,
         sp: SignedUsmParameters,
     ) -> Tuple[ScopedPDU, List[str]]:
-        namespaces = self.candidateNamespaces(sp)
-
         if message.header.flags.authFlag:
-            if not namespaces:
-                raise UnknownUserName(sp.userName)
-
+            namespaces = self.candidateNamespaces(sp)
             authenticated = self.authenticate(sp, namespaces)
             return self.unlockPrivacy(message, sp, authenticated)
         else:
-            return message.scopedPduData, namespaces
+            return message.scopedPduData, []
 
     def verifyIncomingTime(self,
         message: SNMPv3WireMessage,
@@ -360,21 +343,32 @@ class UserBasedSecurityModule(SecurityModule):
 
         try:
             reportSecurityLevel = noAuthNoPriv
-            reportable = message.header.flags.reportableFlag
-            requestID = 0
-            contextName = b""
+
+            if message.header.flags.privFlag:
+                reportable = message.header.flags.reportableFlag
+                requestID = 0
+                contextName = b""
+            else:
+                scopedPDU = message.scopedPduData
+                reportable = scopedPDU.pdu.CONFIRMED_CLASS
+                requestID = scopedPDU.pdu.requestID
+                contextName = scopedPDU.contextName
 
             if reportable and sp.engineID != self.engineID:
                 raise UnknownEngineID(sp.engineID)
 
             scopedPDU, namespaces = self.verifyIncomingData(message, sp)
 
-            reportable = scopedPDU.pdu.CONFIRMED_CLASS
-            requestID = scopedPDU.pdu.requestID
-            contextName = scopedPDU.contextName
+            if message.header.flags.authFlag:
+                reportSecurityLevel = authNoPriv
 
-            if reportable and sp.engineID != self.engineID:
-                raise UnknownEngineID(sp.engineID)
+                if message.header.flags.privFlag:
+                    reportable = scopedPDU.pdu.CONFIRMED_CLASS
+                    requestID = scopedPDU.pdu.requestID
+                    contextName = scopedPDU.contextName
+
+                    if reportable and sp.engineID != self.engineID:
+                        raise UnknownEngineID(sp.engineID)
 
             self.verifyIncomingTime(message, sp, timestamp)
 
@@ -388,7 +382,6 @@ class UserBasedSecurityModule(SecurityModule):
         except OutsideTimeWindow as err:
             self.notInTimeWindows += 1
             if reportable:
-                reportSecurityLevel = authNoPriv
                 oid = usmStatsNotInTimeWindowsInstance
                 value = Counter32(self.notInTimeWindows)
             else:
@@ -402,7 +395,7 @@ class UserBasedSecurityModule(SecurityModule):
                 raise
         except UnknownEngineID as err:
             self.unknownEngineIDs += 1
-            if reportable:
+            if reportable and self.engineID is not None:
                 oid = usmStatsUnknownEngineIDsInstance
                 value = Counter32(self.unknownEngineIDs)
             else:
@@ -435,7 +428,7 @@ class UserBasedSecurityModule(SecurityModule):
                     message.header.msgID,
                     message.header.maxSize,
                     MessageFlags(reportSecurityLevel),
-                    SecurityModel.USM,
+                    self.MODEL,
                 ),
                 ScopedPDU(
                     ReportPDU(VarBind(oid, value), requestID=requestID),

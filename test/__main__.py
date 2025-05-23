@@ -15,7 +15,7 @@ test_modules = [
     "security.usm.parameters",
     "security.usm.credentials",
     "security.usm.users",
-    #"security.usm.implementation",
+    "security.usm.implementation",
     "security.usm.auth",
     "security.usm.priv",
     "security.usm.priv.openssl",
