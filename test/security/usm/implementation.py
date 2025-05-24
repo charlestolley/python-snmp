@@ -250,7 +250,8 @@ class UsmOutgoingNoAuthAuthoritativeTest(unittest.TestCase):
         )
 
     def test_time_parameters_give_the_time_when_the_message_was_sent(self):
-        wholeMsg = self.usm.prepareOutgoing(self.message, self.timestamp + 774.0)
+        timestamp = self.timestamp + 774.0
+        wholeMsg = self.usm.prepareOutgoing(self.message, timestamp)
         spString = SNMPv3WireMessage.findSecurityParameters(wholeMsg)
         securityParameters = SignedUsmParameters.decodeExact(spString)
         self.assertEqual(securityParameters.engineBoots, self.engineBoots)
