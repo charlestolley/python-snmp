@@ -1956,13 +1956,13 @@ class ScopedPduPaddingTest(unittest.TestCase):
         securityName = SecurityName(self.userName, "")
         return SNMPv3Message(header, scopedPDU, engineID, securityName)
 
-    def test_privFlag_False_and_ScopedPDU_has_padding(self):
+    def test_ParseError_if_plaintext_ScopedPDU_has_padding(self):
         header = self.makeHeader(MessageFlags(authNoPriv, True))
         message = self.makeMessage(header, GetRequestPDU(), b"local")
         wholeMsg = self.remote.prepareOutgoing(message)
         self.assertRaises(ParseError, SNMPv3WireMessage.decode, wholeMsg)
 
-    def test_privFlag_True_and_ScopedPDU_has_padding(self):
+    def test_no_error_if_encrypted_ScopedPDU_has_padding(self):
         self.local.addUser(
             self.userName.decode(),
             namespace="",
@@ -1983,6 +1983,8 @@ class ScopedPduPaddingTest(unittest.TestCase):
         self.assertEqual(message.scopedPDU.contextEngineID, b"local")
         self.assertEqual(message.securityEngineID, b"local")
         self.assertEqual(message.securityName.userName, self.userName)
+
+# TODO: Test incoming message time window verification
 
 if __name__ == "__main__":
     unittest.main()
