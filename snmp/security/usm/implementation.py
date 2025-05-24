@@ -280,27 +280,6 @@ class UserBasedSecurityModule(SecurityModule):
         else:
             raise UnsupportedSecLevel(authPriv)
 
-    def unlockPrivacy(self,
-        message: SNMPv3WireMessage,
-        sp: SignedUsmParameters,
-        namespaces: Iterable[str],
-    ) -> Tuple[ScopedPDU, List[str]]:
-        if message.header.flags.privFlag:
-            return self.decrypt(message.scopedPduData, sp, namespaces)
-        else:
-            return message.scopedPduData, namespaces
-
-    def verifyIncomingData(self,
-        message: SNMPv3WireMessage,
-        sp: SignedUsmParameters,
-    ) -> Tuple[ScopedPDU, List[str]]:
-        if message.header.flags.authFlag:
-            namespaces = self.candidateNamespaces(sp)
-            authenticated = self.authenticate(sp, namespaces)
-            return self.unlockPrivacy(message, sp, authenticated)
-        else:
-            return message.scopedPduData, []
-
     def verifyIncomingTime(self,
         message: SNMPv3WireMessage,
         sp: SignedUsmParameters,
@@ -357,18 +336,29 @@ class UserBasedSecurityModule(SecurityModule):
             if reportable and sp.engineID != self.engineID:
                 raise UnknownEngineID(sp.engineID)
 
-            scopedPDU, namespaces = self.verifyIncomingData(message, sp)
+            namespaces = self.candidateNamespaces(sp)
 
             if message.header.flags.authFlag:
+                namespaces = self.authenticate(sp, namespaces)
                 reportSecurityLevel = authNoPriv
 
                 if message.header.flags.privFlag:
+                    scopedPDU, namespaces = self.decrypt(
+                        message.scopedPduData,
+                        sp,
+                        namespaces,
+                    )
+
                     reportable = scopedPDU.pdu.CONFIRMED_CLASS
                     requestID = scopedPDU.pdu.requestID
                     contextName = scopedPDU.contextName
 
                     if reportable and sp.engineID != self.engineID:
                         raise UnknownEngineID(sp.engineID)
+                else:
+                    scopedPDU = message.scopedPduData
+            else:
+                scopePDU = message.scopedPduData
 
             self.verifyIncomingTime(message, sp, timestamp)
 

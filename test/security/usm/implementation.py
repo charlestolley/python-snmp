@@ -7,7 +7,7 @@ __all__ = [
     "UsmOutgoingAuthNonAuthoritativeTest",
     "UsmOutgoingAuthAuthoritativeTest",
     "UsmOutgoingAuthPrivTest",
-    "UsmIncomingTest",
+    "IncomingMessageTest",
     "UnknownEngineIDTest",
     "UnknownUserNameTest",
     "UnsupportedSecLevelTest",
@@ -16,6 +16,7 @@ __all__ = [
     "DecryptionErrors",
     "SuccessfulIncomingMessageTest",
     "SuccessfulIncomingPrivateMessageTest",
+    "ScopedPduPaddingTest",
 ]
 
 import time
@@ -615,7 +616,7 @@ class UsmOutgoingAuthPrivTest(unittest.TestCase):
         tag, scopedPDU      = decodeExact(ptr)
         self.assertEqual(tag, OctetString.TAG)
 
-class UsmIncomingTest(unittest.TestCase):
+class IncomingMessageTest(unittest.TestCase):
     def setUp(self):
         self.usm = UserBasedSecurityModule()
         self.response = ResponsePDU(
@@ -1236,7 +1237,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
             pdu = scopedPDU.pdu
             securityName = message.securityName
 
-            #self.assertTrue(header.flags.authFlag)
+            self.assertTrue(header.flags.authFlag)
             self.assertEqual(securityName.userName, self.userName)
             self.assertEqual(len(securityName.namespaces), 1)
             self.assertIn("", securityName.namespaces)
@@ -1581,9 +1582,9 @@ class DecryptionErrors(unittest.TestCase):
             header = message.header
             scopedPDU = message.scopedPDU
             pdu = message.scopedPDU.pdu
-
             securityName = message.securityName
-            #self.assertTrue(message.header.flags.authFlag)
+
+            self.assertTrue(message.header.flags.authFlag)
             self.assertEqual(securityName.userName, self.userName)
             self.assertEqual(len(securityName.namespaces), 1)
             self.assertIn("", securityName.namespaces)
@@ -1913,6 +1914,74 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
         self.assertEqual(len(message.securityName.namespaces), 1)
         self.assertIn("", message.securityName.namespaces)
         self.assertEqual(message.scopedPDU.contextName, b"successContext")
+
+class ScopedPduPaddingTest(unittest.TestCase):
+    class PaddedScopedPDU(ScopedPDU):
+        def encode(self):
+            return super().encode() + bytes(10)
+
+    def setUp(self):
+        self.local = UserBasedSecurityModule(engineID=b"local", namespace="")
+        self.remote = UserBasedSecurityModule(engineID=b"remote", namespace="")
+
+        self.userName = b"paddington"
+        self.authProtocol = HmacSha
+        self.privProtocol = AesCfb128
+        self.authSecret = b"lock it up"
+        self.privSecret = b"hide the key"
+
+        self.remote.addUser(
+            self.userName.decode(),
+            namespace="",
+            authProtocol=self.authProtocol,
+            privProtocol=self.privProtocol,
+            authSecret=self.authSecret,
+            privSecret=self.privSecret,
+        )
+
+        self.messageID = 0x52448986
+        self.requestID = -0x41ac61a6
+
+    def makeHeader(self, flags):
+        return HeaderData(self.messageID, 1500, flags, SecurityModel.USM)
+
+    def makeMessage(self, header, pdu, engineID, context=b""):
+        scopedPDU = self.PaddedScopedPDU(
+            pdu.withRequestID(self.requestID),
+            engineID,
+            context,
+        )
+
+        securityName = SecurityName(self.userName, "")
+        return SNMPv3Message(header, scopedPDU, engineID, securityName)
+
+    def test_privFlag_False_and_ScopedPDU_has_padding(self):
+        header = self.makeHeader(MessageFlags(authNoPriv, True))
+        message = self.makeMessage(header, GetRequestPDU(), b"local")
+        wholeMsg = self.remote.prepareOutgoing(message)
+        self.assertRaises(ParseError, SNMPv3WireMessage.decode, wholeMsg)
+
+    def test_privFlag_True_and_ScopedPDU_has_padding(self):
+        self.local.addUser(
+            self.userName.decode(),
+            namespace="",
+            authProtocol=self.authProtocol,
+            privProtocol=self.privProtocol,
+            authSecret=self.authSecret,
+            privSecret=self.privSecret,
+        )
+
+        header = self.makeHeader(MessageFlags(authPriv, True))
+        message = self.makeMessage(header, GetRequestPDU(), b"local")
+        wholeMsg = self.remote.prepareOutgoing(message)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        message = self.local.processIncoming(wireMessage)
+        self.assertEqual(message.header.msgID, self.messageID)
+        self.assertEqual(message.scopedPDU.pdu.requestID, self.requestID)
+        self.assertEqual(message.scopedPDU.contextEngineID, b"local")
+        self.assertEqual(message.securityEngineID, b"local")
+        self.assertEqual(message.securityName.userName, self.userName)
 
 if __name__ == "__main__":
     unittest.main()
