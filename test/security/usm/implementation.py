@@ -1108,10 +1108,6 @@ class UnsupportedSecLevelTest(unittest.TestCase):
 
 class UnsupportedPrivacyTest(unittest.TestCase):
     def setUp(self):
-        if not privacySupported:
-            msg = "The requisite encryption libraries are not installed"
-            self.skipTest(msg)
-
         self.local = UserBasedSecurityModule(engineID=b"local", namespace="")
         self.remote = UserBasedSecurityModule(engineID=b"remote", namespace="")
 
@@ -1927,7 +1923,7 @@ class ScopedPduPaddingTest(unittest.TestCase):
 
         self.userName = b"paddington"
         self.authProtocol = HmacSha
-        self.privProtocol = AesCfb128
+        self.privProtocol = DummyPrivProtocol
         self.authSecret = b"lock it up"
         self.privSecret = b"hide the key"
 
