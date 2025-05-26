@@ -3,9 +3,9 @@ __all__ = ["SNMPv1ManagerTest"]
 import unittest
 import weakref
 
-from snmp.manager import Timeout
 from snmp.message import *
 from snmp.pdu import *
+from snmp.requests import Timeout
 from snmp.scheduler import *
 from snmp.smi import *
 from snmp.v1.manager import *

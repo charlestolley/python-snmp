@@ -3,7 +3,6 @@ __all__ = ["SNMPv2cManager"]
 import weakref
 
 from snmp.asn1 import *
-from snmp.manager import *
 from snmp.message import *
 from snmp.pdu import *
 from snmp.scheduler import *
