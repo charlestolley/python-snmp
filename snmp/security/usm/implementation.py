@@ -92,59 +92,6 @@ class UserBasedSecurityModule(SecurityModule):
 
     ### Methods for outgoing messages
 
-    def applyPrivacy(self,
-        message: SNMPv3Message,
-        engineTime: Tuple[int, int],
-        user: LocalizedCredentials,
-    ) -> Tuple[Union[ScopedPDU, OctetString], bytes]:
-        if message.header.flags.privFlag:
-            return user.encrypt(message.scopedPDU, *engineTime)
-        else:
-            return message.scopedPDU, b""
-
-    def encodeOutgoingMessage(self,
-        message: SNMPv3Message,
-        wireMessage: SNMPv3WireMessage,
-    ) -> bytes:
-        if message.header.flags.authFlag:
-            user = self.outgoingUser(message)
-            return user.sign(wireMessage)
-        else:
-            return wireMessage.encode()
-
-    def outgoingData(self,
-        message: SNMPv3Message,
-        engineTime: Tuple[int, int],
-    ) -> Tuple[Union[ScopedPDU, OctetString], bytes, bytes]:
-        if message.header.flags.authFlag:
-            user = self.outgoingUser(message)
-            placeholder = user.signaturePlaceholder()
-            scopedPduData, salt = self.applyPrivacy(message, engineTime, user)
-            return scopedPduData, placeholder, salt
-        else:
-            return message.scopedPDU, b"", b""
-
-    def outgoingMessage(self,
-        message: SNMPv3Message,
-        engineTime: Tuple[int, int],
-        messageData: Tuple[Union[ScopedPDU, OctetString], bytes, bytes],
-    ) -> SNMPv3WireMessage:
-        scopedPduData, signature, salt = messageData
-
-        securityParameters = UnsignedUsmParameters(
-            message.securityEngineID,
-            *engineTime,
-            message.securityName.userName,
-            signature,
-            salt,
-        )
-
-        return SNMPv3WireMessage(
-            message.header,
-            scopedPduData,
-            OctetString(securityParameters.encode())
-        )
-
     def outgoingNamespace(self, message: SNMPv3Message) -> str:
         if message.securityEngineID == self.engineID:
             return self.namespace
@@ -155,6 +102,13 @@ class UserBasedSecurityModule(SecurityModule):
                 userName = message.securityName.userName
                 errmsg = f"No namespace given for user {userName}"
                 raise TypeError(errmsg) from err
+
+    def outgoingUser(self, message: SNMPv3Message) -> LocalizedCredentials:
+        return self.users.credentials(
+            message.securityName.userName,
+            self.outgoingNamespace(message),
+            message.securityEngineID,
+        )
 
     def outgoingTime(self,
         message: SNMPv3Message,
@@ -170,13 +124,6 @@ class UserBasedSecurityModule(SecurityModule):
         else:
             return 0, 0
 
-    def outgoingUser(self, message: SNMPv3Message) -> LocalizedCredentials:
-        return self.users.credentials(
-            message.securityName.userName,
-            self.outgoingNamespace(message),
-            message.securityEngineID,
-        )
-
     def prepareOutgoing(self,
         message: SNMPv3Message,
         timestamp: Optional[float] = None,
@@ -184,10 +131,42 @@ class UserBasedSecurityModule(SecurityModule):
         if timestamp is None:
             timestamp = time()
 
-        engineTime = self.outgoingTime(message, timestamp)
-        messageData = self.outgoingData(message, engineTime)
-        wireMessage = self.outgoingMessage(message, engineTime, messageData)
-        return self.encodeOutgoingMessage(message, wireMessage)
+        scopedPduData = message.scopedPDU
+        placeholder = b""
+        salt = b""
+
+        engineBoots, engineTime = self.outgoingTime(message, timestamp)
+
+        if message.header.flags.authFlag:
+            user = self.outgoingUser(message)
+            placeholder = user.signaturePlaceholder()
+
+            if message.header.flags.privFlag:
+                scopedPduData, salt = user.encrypt(
+                    message.scopedPDU,
+                    engineBoots,
+                    engineTime,
+                )
+
+        securityParameters = UnsignedUsmParameters(
+            message.securityEngineID,
+            engineBoots,
+            engineTime,
+            message.securityName.userName,
+            placeholder,
+            salt,
+        )
+
+        wireMessage = SNMPv3WireMessage(
+            message.header,
+            scopedPduData,
+            OctetString(securityParameters.encode())
+        )
+
+        if message.header.flags.authFlag:
+            return user.sign(wireMessage)
+        else:
+            return wireMessage.encode()
 
     ### Methods for incoming messages
 
