@@ -17,6 +17,7 @@ __all__ = [
     "SuccessfulIncomingMessageTest",
     "SuccessfulIncomingPrivateMessageTest",
     "ScopedPduPaddingTest",
+    "TimeWindowTest",
 ]
 
 import time
@@ -1980,7 +1981,1027 @@ class ScopedPduPaddingTest(unittest.TestCase):
         self.assertEqual(message.securityEngineID, b"local")
         self.assertEqual(message.securityName.userName, self.userName)
 
-# TODO: Test incoming message time window verification
+class TimeWindowTest(unittest.TestCase):
+    def setUp(self):
+        self.authProtocol = DummyAuthProtocol
+        self.privProtocol = DummyPrivProtocol
+        self.authSecret = b"timeless"
+        self.privSecret = b"when?"
+
+        credentials = AuthPrivCredentials(
+            self.authProtocol,
+            self.privProtocol,
+            self.authSecret,
+            self.privSecret,
+        )
+
+        self.engineBoots = 0xd46a169
+        self.userName = b"timeUser"
+        self.credentials = credentials.localize(b"remote")
+
+        self.local = UserBasedSecurityModule(
+            engineID=b"local",
+            namespace="",
+            engineBoots=self.engineBoots,
+        )
+
+        self.local.addUser(
+            self.userName.decode(),
+            namespace="",
+            authProtocol=self.authProtocol,
+            privProtocol=self.privProtocol,
+            authSecret=self.authSecret,
+            privSecret=self.privSecret,
+        )
+
+    def extractSecurityParameters(self, wholeMsg):
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        spString = wireMessage.securityParameters.data
+        return SignedUsmParameters.decodeExact(spString)
+
+    def makeHeader(self, flags):
+        return HeaderData(0, 1500, flags, SecurityModel.USM)
+
+    def makeRemoteRequest(self):
+        return SNMPv3Message(
+            self.makeHeader(MessageFlags(authNoPriv, True)),
+            ScopedPDU(GetRequestPDU(), b"remote"),
+            b"remote",
+            SecurityName(self.userName, ""),
+        )
+
+    def makeResponse(self, securityLevel, engineBoots, engineTime):
+        if securityLevel.auth:
+            padding = self.credentials.signaturePlaceholder()
+        else:
+            padding = b""
+
+        wireMessage = SNMPv3WireMessage(
+            self.makeHeader(MessageFlags(securityLevel)),
+            ScopedPDU(ResponsePDU(), b"remote"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"remote",
+                    engineBoots,
+                    engineTime,
+                    self.userName,
+                    padding,
+                    b"",
+                ).encode()
+            )
+        )
+
+        if securityLevel.auth:
+            wholeMsg = self.credentials.sign(wireMessage)
+        else:
+            wholeMsg = wireMessage.encode()
+
+        return SNMPv3WireMessage.decodeExact(wholeMsg)
+
+    def test_noAuthNoPriv_engineBoots_negative_non_authoritative(self):
+        wholeMsg = SNMPv3WireMessage(
+            self.makeHeader(MessageFlags()),
+            ScopedPDU(ResponsePDU(), b"remote"),
+            OctetString(
+                bytes.fromhex(
+                    "30 1c"
+                    "   04 06 72 65 6d 6f 74 65"
+                    "   02 01 ff"
+                    "   02 01 00"
+                    "   04 08 74 69 6d 65 55 73 65 72"
+                    "   04 00"
+                    "   04 00"
+                )
+            )
+        ).encode()
+
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        self.assertRaises(ParseError, self.local.processIncoming, wireMessage)
+
+    def test_noAuthNoPriv_engineBoots_too_low_non_authoritative(self):
+        wireMessage = self.makeResponse(noAuthNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 3)
+
+        wireMessage = self.makeResponse(noAuthNoPriv, 2, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 2)
+
+    def test_noAuthNoPriv_engineBoots_matches_non_authoritative(self):
+        wireMessage = self.makeResponse(noAuthNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 3)
+
+        wireMessage = self.makeResponse(noAuthNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 3)
+
+    def test_noAuthNoPriv_engineBoots_too_high_non_authoritative(self):
+        wireMessage = self.makeResponse(noAuthNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 3)
+
+        wireMessage = self.makeResponse(noAuthNoPriv, 4, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 4)
+
+    def test_noAuthNoPriv_engineBoots_max_non_authoritative(self):
+        wireMessage = self.makeResponse(noAuthNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 3)
+
+        wireMessage = self.makeResponse(noAuthNoPriv, (1 << 31) - 1, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, (1 << 31) - 1)
+
+    def test_authNoPriv_engineBoots_negative_non_authoritative(self):
+        wholeMsg = SNMPv3WireMessage(
+            self.makeHeader(MessageFlags(authNoPriv)),
+            ScopedPDU(ResponsePDU(), b"remote"),
+            OctetString(
+                bytes.fromhex(
+                    "30 1e"
+                    "   04 06 72 65 6d 6f 74 65"
+                    "   02 01 ff"
+                    "   02 01 00"
+                    "   04 08 74 69 6d 65 55 73 65 72"
+                    "   04 02 4f 00"
+                    "   04 00"
+                )
+            )
+        ).encode()
+
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        self.assertRaises(ParseError, self.local.processIncoming, wireMessage)
+
+    def test_authNoPriv_engineBoots_negative_authoritative(self):
+        wholeMsg = SNMPv3WireMessage(
+            self.makeHeader(MessageFlags(authNoPriv)),
+            ScopedPDU(ResponsePDU(), b"local"),
+            OctetString(
+                bytes.fromhex(
+                    "30 1d"
+                    "   04 05 6c 6f 63 61 6c"
+                    "   02 01 ff"
+                    "   02 01 00"
+                    "   04 08 74 69 6d 65 55 73 65 72"
+                    "   04 02 4d 00"
+                    "   04 00"
+                )
+            )
+        ).encode()
+
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        self.assertRaises(ParseError, self.local.processIncoming, wireMessage)
+
+    def test_authNoPriv_engineBoots_too_low_non_authoritative(self):
+        wireMessage = self.makeResponse(authNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wireMessage = self.makeResponse(authNoPriv, 2, 0)
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_too_low_authoritative(self):
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2195,
+                1500,
+                MessageFlags(authNoPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(SNMPv2TrapPDU(requestID=2200), b"local"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots - 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_too_low_authoritative_reportable(self):
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2227,
+                1500,
+                MessageFlags(authNoPriv, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(GetRequestPDU(requestID=2232), b"local", b"timeContext"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots - 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+
+        try:
+            self.local.processIncoming(wireMessage)
+        except ReportMessage as report:
+            message = report.message
+            header = message.header
+            scopedPDU = message.scopedPDU
+            pdu = message.scopedPDU.pdu
+            securityName = message.securityName
+
+            self.assertTrue(message.header.flags.authFlag)
+            self.assertEqual(securityName.userName, self.userName)
+            self.assertEqual(len(securityName.namespaces), 1)
+            self.assertIn("", securityName.namespaces)
+
+            self.assertEqual(header.msgID, 2227)
+            self.assertEqual(scopedPDU.contextName, b"timeContext")
+            self.assertEqual(pdu.requestID, 2232)
+
+            self.assertGreaterEqual(len(pdu.variableBindings), 1)
+            vb = pdu.variableBindings[0]
+
+            self.assertEqual(vb.name, OID(1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0))
+            self.assertEqual(vb.value.TAG, Counter32.TAG)
+            self.assertEqual(vb.value.value, 1)
+
+            wholeMsg = self.local.prepareOutgoing(message)
+            securityParameters = self.extractSecurityParameters(wholeMsg)
+            self.assertEqual(securityParameters.engineBoots, self.engineBoots)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_too_high_non_authoritative(self):
+        wireMessage = self.makeResponse(authNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wireMessage = self.makeResponse(authNoPriv, 4, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, 4)
+
+    def test_authNoPriv_engineBoots_too_high_authoritative(self):
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2293,
+                1500,
+                MessageFlags(authNoPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(SNMPv2TrapPDU(requestID=2298), b"local"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots + 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_too_high_authoritative_reportable(self):
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2329,
+                1500,
+                MessageFlags(authNoPriv, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(GetRequestPDU(requestID=2334), b"local", b"timeContext"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots + 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+
+        try:
+            self.local.processIncoming(wireMessage)
+        except ReportMessage as report:
+            message = report.message
+            header = message.header
+            scopedPDU = message.scopedPDU
+            pdu = message.scopedPDU.pdu
+            securityName = message.securityName
+
+            self.assertTrue(message.header.flags.authFlag)
+            self.assertEqual(securityName.userName, self.userName)
+            self.assertEqual(len(securityName.namespaces), 1)
+            self.assertIn("", securityName.namespaces)
+
+            self.assertEqual(header.msgID, 2329)
+            self.assertEqual(scopedPDU.contextName, b"timeContext")
+            self.assertEqual(pdu.requestID, 2334)
+
+            self.assertGreaterEqual(len(pdu.variableBindings), 1)
+            vb = pdu.variableBindings[0]
+
+            self.assertEqual(vb.name, OID(1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0))
+            self.assertEqual(vb.value.TAG, Counter32.TAG)
+            self.assertEqual(vb.value.value, 1)
+
+            wholeMsg = self.local.prepareOutgoing(message)
+            securityParameters = self.extractSecurityParameters(wholeMsg)
+            self.assertEqual(securityParameters.engineBoots, self.engineBoots)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_max_non_authoritative(self):
+        wireMessage = self.makeResponse(authNoPriv, 3, 0)
+        _ = self.local.processIncoming(wireMessage)
+
+        wireMessage = self.makeResponse(authNoPriv, (1 << 31) - 1, 0)
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+        wholeMsg = self.local.prepareOutgoing(self.makeRemoteRequest())
+        securityParameters = self.extractSecurityParameters(wholeMsg)
+        self.assertEqual(securityParameters.engineBoots, (1 << 31) - 1)
+
+    def test_authNoPriv_engineBoots_max_authoritative(self):
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2403,
+                1500,
+                MessageFlags(authNoPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(SNMPv2TrapPDU(requestID=2408), b"local"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    (1 << 31) - 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_max_authoritative_reportable(self):
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2435,
+                1500,
+                MessageFlags(authNoPriv, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(GetRequestPDU(requestID=2440), b"local", b"timeContext"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    (1 << 31) - 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+
+        try:
+            self.local.processIncoming(wireMessage)
+        except ReportMessage as report:
+            message = report.message
+            header = message.header
+            scopedPDU = message.scopedPDU
+            pdu = message.scopedPDU.pdu
+            securityName = message.securityName
+
+            self.assertTrue(message.header.flags.authFlag)
+            self.assertEqual(securityName.userName, self.userName)
+            self.assertEqual(len(securityName.namespaces), 1)
+            self.assertIn("", securityName.namespaces)
+
+            self.assertEqual(header.msgID, 2435)
+            self.assertEqual(scopedPDU.contextName, b"timeContext")
+            self.assertEqual(pdu.requestID, 2440)
+
+            self.assertGreaterEqual(len(pdu.variableBindings), 1)
+            vb = pdu.variableBindings[0]
+
+            self.assertEqual(vb.name, OID(1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0))
+            self.assertEqual(vb.value.TAG, Counter32.TAG)
+            self.assertEqual(vb.value.value, 1)
+
+            wholeMsg = self.local.prepareOutgoing(message)
+            securityParameters = self.extractSecurityParameters(wholeMsg)
+            self.assertEqual(securityParameters.engineBoots, self.engineBoots)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_matched_at_max_authoritative(self):
+        local = UserBasedSecurityModule(
+            engineID=b"local",
+            namespace="",
+            engineBoots=(1<<31)-1,
+        )
+
+        local.addUser(
+            self.userName.decode(),
+            namespace="",
+            authProtocol=self.authProtocol,
+            authSecret=self.authSecret,
+        )
+
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2507,
+                1500,
+                MessageFlags(authNoPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(SNMPv2TrapPDU(requestID=2512), b"local"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    (1 << 31) - 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            local.processIncoming,
+            wireMessage,
+        )
+        self.assertEqual(local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_matched_at_max_authoritative_reportable(self):
+        local = UserBasedSecurityModule(
+            engineID=b"local",
+            namespace="",
+            engineBoots=(1<<31)-1,
+        )
+
+        local.addUser(
+            self.userName.decode(),
+            namespace="",
+            authProtocol=self.authProtocol,
+            authSecret=self.authSecret,
+        )
+
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2552,
+                1500,
+                MessageFlags(authNoPriv, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(GetRequestPDU(requestID=2557), b"local", b"timeContext"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    (1 << 31) - 1,
+                    0,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(local.notInTimeWindows, 0)
+
+        try:
+            local.processIncoming(wireMessage)
+        except ReportMessage as report:
+            message = report.message
+            header = message.header
+            scopedPDU = message.scopedPDU
+            pdu = message.scopedPDU.pdu
+            securityName = message.securityName
+
+            self.assertTrue(message.header.flags.authFlag)
+            self.assertEqual(securityName.userName, self.userName)
+            self.assertEqual(len(securityName.namespaces), 1)
+            self.assertIn("", securityName.namespaces)
+
+            self.assertEqual(header.msgID, 2552)
+            self.assertEqual(scopedPDU.contextName, b"timeContext")
+            self.assertEqual(pdu.requestID, 2557)
+
+            self.assertGreaterEqual(len(pdu.variableBindings), 1)
+            vb = pdu.variableBindings[0]
+
+            self.assertEqual(vb.name, OID(1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0))
+            self.assertEqual(vb.value.TAG, Counter32.TAG)
+            self.assertEqual(vb.value.value, 1)
+
+            wholeMsg = local.prepareOutgoing(message)
+            securityParameters = self.extractSecurityParameters(wholeMsg)
+            self.assertEqual(securityParameters.engineBoots, (1 << 31) - 1)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineBoots_matched_engineTime_negative_non_authoritative(self):
+        wholeMsg = SNMPv3WireMessage(
+            self.makeHeader(MessageFlags(authNoPriv)),
+            ScopedPDU(ResponsePDU(), b"remote"),
+            OctetString(
+                bytes.fromhex(
+                    "30 1e"
+                    "   04 06 72 65 6d 6f 74 65"
+                    "   02 01 03"
+                    "   02 01 ff"
+                    "   04 08 74 69 6d 65 55 73 65 72"
+                    "   04 02 4f 00"
+                    "   04 00"
+                )
+            )
+        ).encode()
+
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        self.assertRaises(ParseError, self.local.processIncoming, wireMessage)
+
+    def test_authNoPriv_engineBoots_negative_authoritative(self):
+        wholeMsg = SNMPv3WireMessage(
+            self.makeHeader(MessageFlags(authNoPriv)),
+            ScopedPDU(ResponsePDU(), b"local"),
+            OctetString(
+                bytes.fromhex(
+                    "30 20"
+                    "   04 05 6c 6f 63 61 6c"
+                    "   02 04 0d 46 a1 69"
+                    "   02 01 ff"
+                    "   04 08 74 69 6d 65 55 73 65 72"
+                    "   04 02 50 00"
+                    "   04 00"
+                )
+            )
+        ).encode()
+
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        self.assertRaises(ParseError, self.local.processIncoming, wireMessage)
+
+    def test_authNoPriv_engineTime_too_low_non_authoritative(self):
+        wireMessage = self.makeResponse(authNoPriv, 3, 2653)
+        _ = self.local.processIncoming(wireMessage)
+
+        wireMessage = self.makeResponse(authNoPriv, 3, 2100)
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineTime_too_low_authoritative(self):
+        timestamp = time.time()
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2668,
+                1500,
+                MessageFlags(authNoPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(SNMPv2TrapPDU(requestID=2673), b"local"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots,
+                    1234,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+            timestamp = timestamp + 2679.0,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineTime_too_low_authoritative_reportable(self):
+        timestamp = time.time()
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2703,
+                1500,
+                MessageFlags(authNoPriv, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(GetRequestPDU(requestID=2708), b"local", b"timeContext"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots,
+                    2222,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+
+        try:
+            self.local.processIncoming(wireMessage, timestamp=timestamp+2727.0)
+        except ReportMessage as report:
+            message = report.message
+            header = message.header
+            scopedPDU = message.scopedPDU
+            pdu = message.scopedPDU.pdu
+            securityName = message.securityName
+
+            self.assertTrue(message.header.flags.authFlag)
+            self.assertEqual(securityName.userName, self.userName)
+            self.assertEqual(len(securityName.namespaces), 1)
+            self.assertIn("", securityName.namespaces)
+
+            self.assertEqual(header.msgID, 2703)
+            self.assertEqual(scopedPDU.contextName, b"timeContext")
+            self.assertEqual(pdu.requestID, 2708)
+
+            self.assertGreaterEqual(len(pdu.variableBindings), 1)
+            vb = pdu.variableBindings[0]
+
+            self.assertEqual(vb.name, OID(1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0))
+            self.assertEqual(vb.value.TAG, Counter32.TAG)
+            self.assertEqual(vb.value.value, 1)
+
+            wholeMsg = self.local.prepareOutgoing(
+                message,
+                timestamp=timestamp+2727.0,
+            )
+
+            securityParameters = self.extractSecurityParameters(wholeMsg)
+            self.assertEqual(securityParameters.engineTime, 2727)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineTime_matched_non_authoritative(self):
+        timestamp = time.time()
+        wireMessage = self.makeResponse(authNoPriv, 3, 2760)
+        _ = self.local.processIncoming(wireMessage)
+
+        wireMessage = self.makeResponse(authNoPriv, 3, 2763)
+        self.local.processIncoming(wireMessage, timestamp + 3.0)
+
+    def test_authNoPriv_engineTime_matched_authoritative(self):
+        timestamp = time.time()
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2771,
+                1500,
+                MessageFlags(authNoPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(SNMPv2TrapPDU(requestID=2776), b"local"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots,
+                    2781,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        self.local.processIncoming(wireMessage, timestamp=timestamp+2781.0)
+
+    def test_authNoPriv_engineTime_matched_authoritative_reportable(self):
+        timestamp = time.time()
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2797,
+                1500,
+                MessageFlags(authNoPriv, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(GetRequestPDU(requestID=2802), b"local", b"timeContext"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots,
+                    2807,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+        self.local.processIncoming(wireMessage, timestamp=timestamp+2807.0)
+
+    def test_authNoPriv_engineTime_too_high_non_authoritative(self):
+        wireMessage = self.makeResponse(authNoPriv, 3, 2820)
+        _ = self.local.processIncoming(wireMessage)
+
+        wireMessage = self.makeResponse(authNoPriv, 3, 4321)
+        self.local.processIncoming(wireMessage)
+
+    def test_authNoPriv_engineTime_too_high_authoritative(self):
+        timestamp = time.time()
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2830,
+                1500,
+                MessageFlags(authNoPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(SNMPv2TrapPDU(requestID=2835), b"local"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots,
+                    4321,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+        self.assertRaises(
+            OutsideTimeWindow,
+            self.local.processIncoming,
+            wireMessage,
+            timestamp = timestamp + 2840.0,
+        )
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authNoPriv_engineTime_too_high_authoritative_reportable(self):
+        timestamp = time.time()
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2864,
+                1500,
+                MessageFlags(authNoPriv, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(GetRequestPDU(requestID=2869), b"local", b"timeContext"),
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots,
+                    4444,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    b"",
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+
+        try:
+            self.local.processIncoming(wireMessage, timestamp=timestamp+2874.0)
+        except ReportMessage as report:
+            message = report.message
+            header = message.header
+            scopedPDU = message.scopedPDU
+            pdu = message.scopedPDU.pdu
+            securityName = message.securityName
+
+            self.assertTrue(message.header.flags.authFlag)
+            self.assertEqual(securityName.userName, self.userName)
+            self.assertEqual(len(securityName.namespaces), 1)
+            self.assertIn("", securityName.namespaces)
+
+            self.assertEqual(header.msgID, 2864)
+            self.assertEqual(scopedPDU.contextName, b"timeContext")
+            self.assertEqual(pdu.requestID, 2869)
+
+            self.assertGreaterEqual(len(pdu.variableBindings), 1)
+            vb = pdu.variableBindings[0]
+
+            self.assertEqual(vb.name, OID(1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0))
+            self.assertEqual(vb.value.TAG, Counter32.TAG)
+            self.assertEqual(vb.value.value, 1)
+
+            wholeMsg = self.local.prepareOutgoing(
+                message,
+                timestamp=timestamp+2874.0,
+            )
+
+            securityParameters = self.extractSecurityParameters(wholeMsg)
+            self.assertEqual(securityParameters.engineTime, 2874)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.local.notInTimeWindows, 1)
+
+    def test_authPriv_engineTime_too_low_authoritative_reportable(self):
+        timestamp = time.time()
+        scopedPDU = ScopedPDU(
+            GetRequestPDU(requestID=2939),
+            b"local",
+            b"timeContext",
+        )
+
+        engineTime = 1234
+        encryptedPDU, salt = self.credentials.encrypt(
+            scopedPDU,
+            self.engineBoots,
+            engineTime,
+        )
+
+        wireMessage = SNMPv3WireMessage(
+            HeaderData(
+                2952,
+                1500,
+                MessageFlags(authPriv, True),
+                SecurityModel.USM,
+            ),
+            encryptedPDU,
+            OctetString(
+                UnsignedUsmParameters(
+                    b"local",
+                    self.engineBoots,
+                    engineTime,
+                    self.userName,
+                    self.credentials.signaturePlaceholder(),
+                    salt,
+                ).encode()
+            )
+        )
+
+        wholeMsg = self.credentials.sign(wireMessage)
+        wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
+
+        self.assertEqual(self.local.notInTimeWindows, 0)
+
+        try:
+            self.local.processIncoming(wireMessage, timestamp=timestamp+2977.0)
+        except ReportMessage as report:
+            message = report.message
+            header = message.header
+            scopedPDU = message.scopedPDU
+            pdu = message.scopedPDU.pdu
+            securityName = message.securityName
+
+            self.assertTrue(message.header.flags.authFlag)
+            self.assertFalse(message.header.flags.privFlag)
+            self.assertEqual(securityName.userName, self.userName)
+            self.assertEqual(len(securityName.namespaces), 1)
+            self.assertIn("", securityName.namespaces)
+
+            self.assertEqual(header.msgID, 2952)
+            self.assertEqual(scopedPDU.contextName, b"timeContext")
+            self.assertEqual(pdu.requestID, 2939)
+
+            self.assertGreaterEqual(len(pdu.variableBindings), 1)
+            vb = pdu.variableBindings[0]
+
+            self.assertEqual(vb.name, OID(1, 3, 6, 1, 6, 3, 15, 1, 1, 2, 0))
+            self.assertEqual(vb.value.TAG, Counter32.TAG)
+            self.assertEqual(vb.value.value, 1)
+
+            wholeMsg = self.local.prepareOutgoing(
+                message,
+                timestamp=timestamp+2977.0,
+            )
+
+            securityParameters = self.extractSecurityParameters(wholeMsg)
+            self.assertEqual(securityParameters.engineTime, 2977)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.local.notInTimeWindows, 1)
 
 if __name__ == "__main__":
     unittest.main()
