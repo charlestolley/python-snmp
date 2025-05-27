@@ -116,14 +116,13 @@ class UserBasedSecurityModule(SecurityModule):
         message: SNMPv3Message,
         engineTime: Tuple[int, int],
     ) -> Tuple[Union[ScopedPDU, OctetString], bytes, bytes]:
-        scopedPDU = message.scopedPDU
         if message.header.flags.authFlag:
             user = self.outgoingUser(message)
             placeholder = user.signaturePlaceholder()
             scopedPduData, salt = self.applyPrivacy(message, engineTime, user)
             return scopedPduData, placeholder, salt
         else:
-            return scopedPDU, b"", b""
+            return message.scopedPDU, b"", b""
 
     def outgoingMessage(self,
         message: SNMPv3Message,
@@ -355,10 +354,6 @@ class UserBasedSecurityModule(SecurityModule):
 
                     if reportable and sp.engineID != self.engineID:
                         raise UnknownEngineID(sp.engineID)
-                else:
-                    scopedPDU = message.scopedPduData
-            else:
-                scopePDU = message.scopedPduData
 
             self.verifyIncomingTime(message, sp, timestamp)
 
