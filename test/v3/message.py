@@ -352,6 +352,19 @@ class HeaderDataTest(unittest.TestCase):
     def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         self.assertEqual(eval(repr(self.header)), self.header)
 
+    def test_withMessageID_returns_the_same_header_with_msgID_changed(self):
+        maxSize = 1492
+        flags = MessageFlags(authNoPriv, True)
+        model = SecurityModel.USM
+
+        header = HeaderData(0, maxSize, flags, model)
+        newHeader = header.withMessageID(2319)
+
+        self.assertEqual(newHeader.msgID, 2319)
+        self.assertEqual(newHeader.maxSize, maxSize)
+        self.assertEqual(newHeader.flags, flags)
+        self.assertEqual(newHeader.securityModel, model)
+
 class ScopedPDUTest(unittest.TestCase):
     def setUp(self):
         self.encoding = bytes.fromhex(
@@ -707,6 +720,37 @@ class SNMPv3WireMessageTest(unittest.TestCase):
             eval(repr(self.encryptedMessage)),
             self.encryptedMessage,
         )
+
+    def test_withMessageID_returns_the_same_message_with_msgID_changed(self):
+        header = HeaderData(
+            0,
+            1492,
+            MessageFlags(reportable=True),
+            SecurityModel.USM,
+        )
+
+        engineID = b"engineID",
+        scopedPDU = ScopedPDU(
+            GetBulkRequestPDU(
+                "1.3.6.1.2.1.1.1",
+                "1.3.6.1.2.1.2.2.1.2",
+                nonRepeaters=1,
+                maxRepetitions=5,
+                requestID=64,
+            ),
+            engineID,
+            b"context",
+        )
+
+        securityName = SecurityName(b"user", "namespace")
+
+        message = SNMPv3Message(header, scopedPDU, engineID, securityName)
+        newMessage = message.withMessageID(2418)
+
+        self.assertEqual(newMessage.header, header.withMessageID(2418))
+        self.assertEqual(newMessage.scopedPDU, scopedPDU)
+        self.assertEqual(newMessage.securityEngineID, engineID)
+        self.assertEqual(newMessage.securityName, securityName)
 
 if __name__ == "__main__":
     unittest.main()

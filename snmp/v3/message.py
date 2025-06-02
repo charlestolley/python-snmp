@@ -167,6 +167,14 @@ class HeaderData(Sequence):
             f"{subindent}Security Model: {securityModel.name}"
         ))
 
+    def withMessageID(self, messageID) -> "HeaderData":
+        return HeaderData(
+            messageID,
+            self.maxSize,
+            self.flags,
+            self.securityModel,
+        )
+
     @classmethod
     def deserialize(cls, data: Union[bytes, subbytes]) -> "HeaderData":
         msgID, data         = Integer.decode(data)
@@ -300,6 +308,14 @@ class SNMPv3Message:
             f"{subindent}Security Name: {self.securityName.userName}",
             self.scopedPDU.toString(depth+1, tab),
         ))
+
+    def withMessageID(self, messageID) -> "SNMPv3Message":
+        return SNMPv3Message(
+            self.header.withMessageID(messageID),
+            self.scopedPDU,
+            self.securityEngineID,
+            self.securityName,
+        )
 
 class SNMPv3WireMessage(Sequence):
     VERSION = ProtocolVersion.SNMPv3
