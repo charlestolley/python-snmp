@@ -214,303 +214,303 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         handle = manager.get("1.3.6.1.2.1.1.1.0")
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
     def test_request_securityLevel_does_not_apply_to_discovery(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv)
         handle = manager.get("1.3.6.1.2.1.1.1.0")
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
     def test_only_send_discovery_request_once_for_multiple_requests(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0")
         h2 = manager.get("1.2.3.4.5.6")
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1")
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
     def test_discovery_request_uses_refreshPeriod_of_the_first_request(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=3/8)
         h2 = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-    
+
     def test_if_the_first_request_expires_discovery_uses_the_refreshPeriod_of_the_second_request(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6", timeout=1.625, refreshPeriod=3/8)
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1", refreshPeriod=1.0)
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         # The discovery message outlives the first request
         self.wait(self.interrupt(1/2))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         # Wait for the first discovery message to expire
         self.wait(self.interrupt(7/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         # The new discovery message has the refreshPeriod of the second request
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         # The second request has expired by now
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         # The new discovery message has the refreshPeriod of the third request
         self.wait(self.interrupt(15/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
     def test_if_all_requests_expire_stop_sending_discovery_messages(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6", timeout=1.75, refreshPeriod=1.0)
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(15/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(15/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         # The second request has expired by now
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 0)
-    
+
     def test_restart_discovery_messages_when_a_new_request_is_made(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
-    
+
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(3.0))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         h2 = manager.get("1.2.3.4.5.6")
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
     def test_discovery_resets_when_restarted_before_old_disc_msg_expires(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(3/4))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         h2 = manager.get("1.2.3.4.5.6", timeout=3.0, refreshPeriod=1/2)
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         # Check that the message from the first request does not refresh
         self.wait(self.interrupt(1/4))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/4))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(1/2))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         # Check that the message from the first request still does not refresh
         self.wait(self.interrupt(1/4))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.wait(self.interrupt(1/4))
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
     def test_send_request_message_as_soon_as_discovery_is_complete(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=5.0, refreshPeriod=1.0)
-    
+
         interrupt = self.interrupt(1/32)
         self.assertEqual(len(pcap.messages), 1)
         discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(interrupt)
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.incoming.send(discoveryReply)
         self.assertEqual(len(pcap.messages), 1)
-    
+
         message = pcap.messages.pop()
         self.assertFalse(message.header.flags.authFlag)
         self.assertEqual(message.securityEngineID, b"remote")
         self.assertEqual(message.securityName.userName, self.userName)
-    
+
         scopedPDU = message.scopedPDU
         self.assertEqual(scopedPDU.contextEngineID, b"remote")
         #self.assertEqual(scopedPDU.contextName, b"???")
-    
+
         pdu = scopedPDU.pdu
         self.assertNotEqual(pdu.requestID, 0)
         self.assertEqual(pdu.errorStatus, ErrorStatus.noError)
         self.assertEqual(len(pdu.variableBindings), 1)
-    
+
         vb = pdu.variableBindings[0]
         self.assertEqual(vb.name, OID(1,3,6,1,2,1,1,1,0))
         self.assertEqual(vb.value, Null())
-    
+
     def test_send_all_requests_as_soon_as_discovery_is_complete(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=5.0, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6")
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1")
-    
+
         interrupt = self.interrupt(1/32)
         self.assertEqual(len(pcap.messages), 1)
         discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(interrupt)
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.incoming.send(discoveryReply)
         self.assertEqual(len(pcap.messages), 3)
-    
+
         oids = {
             OID.parse("1.3.6.1.2.1.1.1.0"),
             OID.parse("1.2.3.4.5.6"),
             OID.parse("1.3.6.1.2.1.2.2.1.2.1"),
         }
-    
+
         while pcap.messages:
             message = pcap.messages.pop()
             self.assertFalse(message.header.flags.authFlag)
             self.assertEqual(message.securityEngineID, b"remote")
             self.assertEqual(message.securityName.userName, self.userName)
-    
+
             scopedPDU = message.scopedPDU
             self.assertEqual(scopedPDU.contextEngineID, b"remote")
             #self.assertEqual(scopedPDU.contextName, b"???")
-    
+
             pdu = scopedPDU.pdu
             self.assertNotEqual(pdu.requestID, 0)
             self.assertEqual(pdu.errorStatus, ErrorStatus.noError)
             self.assertEqual(len(pdu.variableBindings), 1)
-    
+
             vb = pdu.variableBindings[0]
             self.assertIn(vb.name, oids)
             self.assertEqual(vb.value, Null())
             oids.remove(vb.name)
-    
+
         self.assertEqual(len(oids), 0)
-    
+
     def test_do_not_send_requests_that_expired_during_discovery(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1.5, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6", timeout=3.0, refreshPeriod=1.0)
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1", timeout=3.0)
-    
+
         self.assertEqual(len(pcap.messages), 1)
         _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         self.wait(self.interrupt(1.0))
         self.assertEqual(len(pcap.messages), 1)
         discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
-    
+
         # The first request has expired by now
         self.wait(self.interrupt(3/4))
         self.assertEqual(len(pcap.messages), 0)
-    
+
         self.incoming.send(discoveryReply)
         self.assertEqual(len(pcap.messages), 2)
-    
+
         oids = {
             OID.parse("1.2.3.4.5.6"),
             OID.parse("1.3.6.1.2.1.2.2.1.2.1"),
         }
-    
+
         while pcap.messages:
             message = pcap.messages.pop()
             self.assertFalse(message.header.flags.authFlag)
             self.assertEqual(message.securityEngineID, b"remote")
             self.assertEqual(message.securityName.userName, self.userName)
-    
+
             scopedPDU = message.scopedPDU
             self.assertEqual(scopedPDU.contextEngineID, b"remote")
             #self.assertEqual(scopedPDU.contextName, b"???")
-    
+
             pdu = scopedPDU.pdu
             self.assertNotEqual(pdu.requestID, 0)
             self.assertEqual(pdu.errorStatus, ErrorStatus.noError)
             self.assertEqual(len(pdu.variableBindings), 1)
-    
+
             vb = pdu.variableBindings[0]
             self.assertIn(vb.name, oids)
             self.assertEqual(vb.value, Null())
             oids.remove(vb.name)
-    
+
         self.assertEqual(len(oids), 0)
-    
+
     def test_request_messages_refresh_every_refreshPeriod(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")
