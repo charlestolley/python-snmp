@@ -1,5 +1,6 @@
 # TODO: Remove the 1/64 second delay from the Channel implementation
 # TODO: Use a Thingy that sends the discovery reply from within the hear() method
+# TODO: Check line lengths
 
 import unittest
 
@@ -209,44 +210,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             message.securityName,
         )
 
-    def test_handle_raises_Timeout_after_timeout_if_there_is_no_response(self):
-        manager = self.makeManager(engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", timeout=3.375)
-        self.assertRaises(Timeout, handle.wait)
-        self.assertEqual(self.time(), 3.375)
-
-    def test_handle_returns_VarBindList_upon_receiving_a_vaild_response(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6")
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        self.incoming.send(SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                1472,
-                MessageFlags(message.header.flags.securityLevel),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    VarBind("1.2.3.4.5.6", Integer(123456)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        ))
-
-        vblist = handle.wait()
-        self.assertEqual(len(vblist), 1)
-
-        vb = vblist[0]
-        self.assertEqual(vb.name, OID(1,2,3,4,5,6))
-        self.assertEqual(vb.value, Integer(123456))
-
     def test_request_is_not_sent_if_discovery_is_needed(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
@@ -265,7 +228,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_only_send_discovery_request_once_for_multiple_requests(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0")
         h2 = manager.get("1.2.3.4.5.6")
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1")
@@ -275,7 +238,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_discovery_request_uses_refreshPeriod_of_the_first_request(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=3/8)
         h2 = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
     
@@ -304,7 +267,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_if_the_first_request_expires_discovery_uses_the_refreshPeriod_of_the_second_request(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6", timeout=1.625, refreshPeriod=3/8)
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1", refreshPeriod=1.0)
@@ -350,7 +313,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_if_all_requests_expire_stop_sending_discovery_messages(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6", timeout=1.75, refreshPeriod=1.0)
     
@@ -373,7 +336,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_restart_discovery_messages_when_a_new_request_is_made(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
     
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
     
@@ -389,7 +352,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_discovery_resets_when_restarted_before_old_disc_msg_expires(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
     
         self.assertEqual(len(pcap.messages), 1)
@@ -424,7 +387,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_send_request_message_as_soon_as_discovery_is_complete(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=5.0, refreshPeriod=1.0)
     
         interrupt = self.interrupt(1/32)
@@ -457,7 +420,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_send_all_requests_as_soon_as_discovery_is_complete(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=5.0, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6")
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1")
@@ -500,9 +463,9 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
         self.assertEqual(len(oids), 0)
     
-    def test_do_not_send_requests_that_expire_during_discovery(self):
+    def test_do_not_send_requests_that_expired_during_discovery(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1.5, refreshPeriod=1.0)
         h2 = manager.get("1.2.3.4.5.6", timeout=3.0, refreshPeriod=1.0)
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1", timeout=3.0)
@@ -550,29 +513,13 @@ class SNMPv3Manager3Tester(unittest.TestCase):
     
     def test_request_messages_refresh_every_refreshPeriod(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager(engineID=b"remote")
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=5.0, refreshPeriod=1.0)
 
         self.assertEqual(len(pcap.messages), 1)
-        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
-
-        self.incoming.send(discoveryReply)
-        self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
         pdu = message.scopedPDU.pdu
-        self.assertEqual(len(pdu.variableBindings), 1)
-        self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,1,1,0))
-
-        requestID = pdu.requestID
-
-        self.wait(self.interrupt(15/16))
-        self.assertEqual(len(pcap.messages), 0)
-
-        self.wait(self.interrupt(1/16))
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-        pdu = message.scopedPDU.pdu
-        self.assertEqual(pdu.requestID, requestID)
+        self.assertEqual(pdu.requestID, h1.requestID)
         self.assertEqual(len(pdu.variableBindings), 1)
         self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,1,1,0))
 
@@ -583,27 +530,109 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
         pdu = message.scopedPDU.pdu
-        self.assertEqual(pdu.requestID, requestID)
+        self.assertEqual(pdu.requestID, h1.requestID)
         self.assertEqual(len(pdu.variableBindings), 1)
         self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,1,1,0))
 
-    #def test_each_request_refreshes_at_its_own_rate(self):
-    #    self.assertTrue(False)
+        self.wait(self.interrupt(15/16))
+        self.assertEqual(len(pcap.messages), 0)
 
-    def test_handle_raises_Timeout_if_no_response_is_received(self):
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        pdu = message.scopedPDU.pdu
+        self.assertEqual(pdu.requestID, h1.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,1,1,0))
+
+    def test_each_request_refreshes_at_its_own_rate(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
-        handle = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2)
+        manager = self.makeManager(engineID=b"remote")
+        h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=5.0, refreshPeriod=7/16)
+        h2 = manager.get("1.2.3.4.5.6", timeout=3.0, refreshPeriod=3/4)
+        h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1", refreshPeriod=1.0)
 
+        self.assertEqual(len(pcap.messages), 3)
+        pcap.messages.clear()
+
+        self.wait(self.interrupt(6/16))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
-        self.incoming.send(discoveryReply)
+        message = pcap.messages.pop()
+        pdu = message.scopedPDU.pdu
+        self.assertEqual(pdu.requestID, h1.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,1,1,0))
 
+        self.wait(self.interrupt(4/16))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        pdu = message.scopedPDU.pdu
+        self.assertEqual(pdu.requestID, h2.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        pdu = message.scopedPDU.pdu
+        self.assertEqual(pdu.requestID, h1.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,1,1,0))
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        pdu = message.scopedPDU.pdu
+        self.assertEqual(pdu.requestID, h3.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+
+    def test_handle_raises_Timeout_after_timeout_if_there_is_no_response(self):
+        manager = self.makeManager(engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6", timeout=3.375)
         self.assertRaises(Timeout, handle.wait)
+        self.assertEqual(self.time(), 3.375)
+
+    def test_no_discovery_message_sent_if_timeout_is_zero(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        handle = manager.get("1.3.6.1.2.1.1.1.0", timeout=0.0)
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_no_messages_sent_during_discovery_if_timeout_is_zero(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        h1 = manager.get("1.3.6.1.2.1.1.1.0")
+        self.assertEqual(len(pcap.messages), 1)
+        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", timeout=0.0)
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_no_messages_sent_during_normal_operation_if_timeout_is_zero(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+        h1 = manager.get("1.3.6.1.2.1.1.1.0")
+        self.assertEqual(len(pcap.messages), 1)
+        pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", timeout=0.0)
+        self.assertEqual(len(pcap.messages), 0)
 
     def test_request_timeout_includes_time_spent_on_discovery(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(noAuthNoPriv)
+        manager = self.makeManager()
         handle = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2)
 
         self.assertEqual(len(pcap.messages), 1)
@@ -615,8 +644,69 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertRaises(Timeout, handle.wait)
         self.assertEqual(self.time(), 1/2)
 
+    def test_request_refresh_clock_starts_when_request_is_sent(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        handle = manager.get("1.2.3.4.5.6", timeout=3.0, refreshPeriod=1/2)
+
+        self.assertEqual(len(pcap.messages), 1)
+        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
+
+        self.wait(self.interrupt(1/4))
+        self.incoming.send(discoveryReply)
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        pdu = message.scopedPDU.pdu
+        self.assertEqual(pdu.requestID, handle.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
+
+        self.wait(self.interrupt(7/16))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        pdu = message.scopedPDU.pdu
+        self.assertEqual(pdu.requestID, handle.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
+
+    def test_handle_returns_VarBindList_upon_receiving_a_vaild_response(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.incoming.send(SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                1472,
+                MessageFlags(message.header.flags.securityLevel),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                b"remote",
+            ),
+            b"remote",
+            SecurityName(self.userName, self.namespace),
+        ))
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 1)
+
+        vb = vblist[0]
+        self.assertEqual(vb.name, OID(1,2,3,4,5,6))
+        self.assertEqual(vb.value, Integer(123456))
+
 # TODO: Test with timeout zero
 #       - discovery message should not be sent
+# TODO: If you delete a manager, make sure it releases all message IDs
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

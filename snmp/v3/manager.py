@@ -13,6 +13,7 @@ from snmp.smi import *
 from snmp.requests import *
 from snmp.v3.message import *
 from snmp.v3.requests import MessageIDAuthority, SNMPv3RequestHandle
+from snmp.utils import typename
 
 class UnhandledReport(IncomingMessageError):
     pass
@@ -431,39 +432,63 @@ class RequestInfo:
         self.message = message
         self.refreshPeriod = refreshPeriod
 
-class DiscoveryState:
+class Undiscovered:
+    def __init__(self, manager):
+        self.manager = manager
+
+    def makeRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
+        nextState = Discovering(
+            self.manager,
+            handle,
+            NotAMessage(pdu, userName, securityLevel),
+            refreshPeriod,
+        )
+
+        self.manager.internalState = nextState
+        nextState.refresh()
+
+    def onRequestClosed(self, requestID):
+        errmsg = f"{typename(self)}.onRequestClosed() should never be called"
+        raise SNMPLibraryBug(errmsg)
+
+class Discovering:
     class RefreshTask(SchedulerTask):
-        def __init__(self, handle, messageID, discoveryState):
-            self.handle_ref = weakref.ref(handle)
-            self.discoveryState = discoveryState
-            self.messageID = messageID
+        def __init__(self, state):
+            self.state = state
+            self.cancelled = False
+
+        def cancel(self):
+            self.cancelled = True
 
         def run(self):
-            self.discoveryState.manager.thingy.releaseMessageID(self.messageID)
+            if not self.cancelled:
+                self.state.refresh()
 
-            handle = self.handle_ref()
-            if handle is not None and handle.active():
-                self.discoveryState.sendDiscoveryMessage()
-
-    def __init__(self, manager):
-        self.handle = None
+    def __init__(self, manager, handle, message, refreshPeriod):
         self.manager = manager
-        self.unsent = collections.deque()
+        self.unsent = collections.OrderedDict()
+        self.unsent[handle.requestID] = RequestInfo(handle, message, refreshPeriod)
+
+        self.requestID = self.manager.requestIDAuthority.reserve()
+        self.messageID = 0
 
     def hear(self, message):
-        self.handle.expire()
-        self.handle = None
-
         self.manager.engineID = message.securityEngineID
-        self.manager.internalState = SteadyState(self.manager)
 
-        for requestInfo in self.unsent:
+        self.refreshTask.cancel()
+        self.manager.thingy.releaseMessageID(self.messageID)
+        self.manager.requestIDAuthority.release(self.requestID)
+
+        steadyState = SteadyState(self.manager)
+        self.manager.internalState = steadyState
+
+        for requestInfo in self.unsent.values():
             handle = requestInfo.handle_ref()
 
             if handle is None:
                 continue
 
-            self.manager.internalState.makeRequest(
+            steadyState.makeRequest(
                 handle,
                 requestInfo.message.pdu,
                 requestInfo.message.userName,
@@ -471,21 +496,35 @@ class DiscoveryState:
                 requestInfo.refreshPeriod,
             )
 
-    def sendDiscoveryMessage(self):
-        if self.handle is None or not self.unsent:
-            return
+    def makeRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
+        message = NotAMessage(pdu, userName, securityLevel)
+        requestInfo = RequestInfo(handle, message, refreshPeriod)
+        self.unsent[handle.requestID] = requestInfo
 
-        refreshPeriod = self.unsent[0].refreshPeriod
-        messageID = self.manager.thingy.reserveMessageID(self)
+    def onRequestClosed(self, requestID):
+        del self.unsent[requestID]
+
+        if not self.unsent:
+            self.refreshTask.cancel()
+            self.manager.thingy.releaseMessageID(self.messageID)
+            self.manager.requestIDAuthority.release(self.requestID)
+            self.manager.internalState = Undiscovered(self.manager)
+
+    def refresh(self):
+        if self.messageID != 0:
+            self.manager.thingy.releaseMessageID(self.messageID)
+
+        self.messageID = self.manager.thingy.reserveMessageID(self)
+
         message = SNMPv3Message(
             HeaderData(
-                messageID,
+                self.messageID,
                 1472,
                 MessageFlags(reportable=True),
                 SecurityModel.USM,
             ),
             ScopedPDU(
-                GetRequestPDU(requestID=self.handle.requestID),
+                GetRequestPDU(requestID=self.requestID),
                 b"",
             ),
             b"",
@@ -493,85 +532,12 @@ class DiscoveryState:
         )
 
         self.manager.sender.send(message, self.manager.channel)
-        task = self.RefreshTask(self.handle, messageID, self)
-        self.manager.scheduler.schedule(task, refreshPeriod)
 
-    def makeRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
-        message = NotAMessage(pdu, userName, securityLevel)
-        requestInfo = RequestInfo(handle, message, refreshPeriod)
-        self.unsent.append(requestInfo)
-
-        if self.handle is None:
-            self.handle = self.manager.openRequestNoTimeout()
-            self.sendDiscoveryMessage()
-
-    def onRequestClosed(self, requestID):
-        while self.unsent:
-            handle = self.unsent[0].handle_ref()
-            if handle is not None and handle.active():
-                break
-
-            self.unsent.popleft()
-        else:
-            if (self.handle is not None
-            and self.handle.active()):
-                self.handle.expire()
-                self.handle = None
+        self.refreshTask = self.RefreshTask(self)
+        refreshPeriod = next(iter(self.unsent.values())).refreshPeriod
+        self.manager.scheduler.schedule(self.refreshTask, refreshPeriod)
 
 class SteadyState:
-    def __init__(self, manager):
-        self.manager = manager
-
-    def makeRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
-        if not handle.active():
-            return
-
-        message = SNMPv3Message(
-            HeaderData(
-                0,
-                1472,
-                MessageFlags(securityLevel, True),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(pdu.withRequestID(handle.requestID), self.manager.engineID),
-            self.manager.engineID,
-            SecurityName(userName, self.manager.namespace),
-        )
-
-        self.manager.messages[handle.requestID] = message
-        self.manager.requests[handle.requestID] = handle
-        sendTask = self.manager.SendTask(handle, self.manager)
-        self.manager.scheduler.schedule(sendTask, period=refreshPeriod)
-
-    def onRequestClosed(self, requestID):
-        del self.manager.requests[requestID]
-        message = self.manager.messages.pop(requestID)
-        self.manager.thingy.releaseMessageID(message.header.msgID)
-
-class SNMPv3Manager3:
-    class DiscoveryTask(SchedulerTask):
-        def __init__(self, handle, messageID, manager):
-            self.handle_ref = weakref.ref(handle)
-            self.manager = manager
-            self.messageID = messageID
-
-        def run(self):
-            self.manager.thingy.releaseMessageID(self.messageID)
-
-            handle = self.handle_ref()
-            if handle is not None and handle.active():
-                self.manager.sendDiscoveryMessage()
-
-    class ExpireTask(SchedulerTask):
-        def __init__(self, handle):
-            self.handle_ref = weakref.ref(handle)
-
-        def run(self):
-            handle = self.handle_ref()
-
-            if handle is not None:
-                handle.expire()
-
     class SendTask(SchedulerTask):
         def __init__(self, handle, manager):
             self.handle_ref = weakref.ref(handle)
@@ -586,35 +552,11 @@ class SNMPv3Manager3:
             else:
                 return None
 
-    def __init__(self,
-        scheduler,
-        thingy,
-        sender,
-        channel,
-        namespace,
-        defaultUserName,
-        defaultSecurityLevel,
-        engineID,
-    ):
-        self.channel = channel
-        self.scheduler = scheduler
-        self.sender = sender
-        self.thingy = thingy
+    def __init__(self, manager):
+        self.manager = manager
 
-        self.engineID = engineID
-        self.namespace = namespace
-        self.defaultUserName = defaultUserName
-        self.defaultSecurityLevel = defaultSecurityLevel
-
-        self.requestIDAuthority = RequestIDAuthority()
-
-        self.requests = {}
         self.messages = {}
-
-        if self.engineID is None:
-            self.internalState = DiscoveryState(self)
-        else:
-            self.internalState = SteadyState(self)
+        self.requests = {}
 
     def hear(self, message):
         pdu = message.scopedPDU.pdu
@@ -629,6 +571,96 @@ class SNMPv3Manager3:
         else:
             # TODO: Verify the response
             handle.push(pdu)
+
+    def makeRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
+        message = SNMPv3Message(
+            HeaderData(
+                0,
+                1472,
+                MessageFlags(securityLevel, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(pdu.withRequestID(handle.requestID), self.manager.engineID),
+            self.manager.engineID,
+            SecurityName(userName, self.manager.namespace),
+        )
+
+        self.messages[handle.requestID] = message
+        self.requests[handle.requestID] = handle
+        sendTask = self.SendTask(handle, self)
+        self.manager.scheduler.schedule(sendTask, period=refreshPeriod)
+
+    def onRequestClosed(self, requestID):
+        del self.requests[requestID]
+        message = self.messages.pop(requestID)
+        self.manager.thingy.releaseMessageID(message.header.msgID)
+
+    def sendRequest(self, requestID):
+        message = self.messages[requestID]
+        messageID = message.header.msgID
+
+        if messageID != 0:
+            self.manager.thingy.releaseMessageID(messageID)
+
+        messageID = self.manager.thingy.reserveMessageID(self)
+        message = SNMPv3Message(
+            HeaderData(
+                messageID,
+                message.header.maxSize,
+                message.header.flags,
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                message.scopedPDU.pdu,
+                self.manager.engineID,
+                message.scopedPDU.contextName,
+            ),
+            self.manager.engineID,
+            message.securityName,
+        )
+
+        self.messages[requestID] = message
+        self.manager.sender.send(message, self.manager.channel)
+
+class SNMPv3Manager3:
+    class ExpireTask(SchedulerTask):
+        def __init__(self, handle):
+            self.handle_ref = weakref.ref(handle)
+
+        def run(self):
+            handle = self.handle_ref()
+
+            if handle is not None:
+                handle.expire()
+
+    def __init__(self,
+        scheduler,
+        thingy,
+        sender,
+        channel,
+        namespace,
+        defaultUserName,
+        defaultSecurityLevel,
+        engineID,
+    ):
+        self.channel = channel
+        self.sender = sender
+        self.thingy = thingy
+
+        self.engineID = engineID
+        self.namespace = namespace
+
+        # This is the stuff it directly uses
+        self.defaultUserName = defaultUserName
+        self.defaultSecurityLevel = defaultSecurityLevel
+
+        self.scheduler = scheduler
+        self.requestIDAuthority = RequestIDAuthority()
+
+        if self.engineID is None:
+            self.internalState = Undiscovered(self)
+        else:
+            self.internalState = SteadyState(self)
 
     def openRequestNoTimeout(self, *callbacks):
         handle = SNMPv3RequestHandle(
@@ -649,38 +681,6 @@ class SNMPv3Manager3:
     def onRequestClosed(self, requestID):
         self.internalState.onRequestClosed(requestID)
 
-    def sendRequest(self, requestID):
-        message = self.messages[requestID]
-        messageID = message.header.msgID
-
-        if messageID != 0:
-            self.thingy.releaseMessageID(messageID)
-
-        if self.engineID is None:
-            engineID = b""
-        else:
-            engineID = self.engineID
-
-        messageID = self.thingy.reserveMessageID(self)
-        message = SNMPv3Message(
-            HeaderData(
-                messageID,
-                message.header.maxSize,
-                message.header.flags,
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                message.scopedPDU.pdu,
-                engineID,
-                message.scopedPDU.contextName,
-            ),
-            message.securityEngineID,
-            message.securityName,
-        )
-
-        self.messages[requestID] = message
-        self.sender.send(message, self.channel)
-
     def makeRequest(self, pdu, userName=None, securityLevel=None, timeout=10.0, refreshPeriod=1.0):
         if securityLevel is None:
             securityLevel = self.defaultSecurityLevel
@@ -688,8 +688,12 @@ class SNMPv3Manager3:
         if userName is None:
             userName = self.defaultUserName
 
-        handle = self.openRequest(timeout, self.onRequestClosed)
-        self.internalState.makeRequest(handle, pdu, userName, securityLevel, refreshPeriod)
+        handle = self.openRequest(timeout)
+
+        if handle.active():
+            self.internalState.makeRequest(handle, pdu, userName, securityLevel, refreshPeriod)
+            handle.addCallback(self.onRequestClosed)
+
         return handle
 
 # Manager needs:
