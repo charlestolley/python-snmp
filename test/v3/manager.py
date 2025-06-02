@@ -663,6 +663,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
 
         self.wait(self.interrupt(7/16))
+        print(pcap.messages)
         self.assertEqual(len(pcap.messages), 0)
 
         self.wait(self.interrupt(1/16))
@@ -704,8 +705,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertEqual(vb.name, OID(1,2,3,4,5,6))
         self.assertEqual(vb.value, Integer(123456))
 
-# TODO: Test with timeout zero
-#       - discovery message should not be sent
 # TODO: If you delete a manager, make sure it releases all message IDs
 
 if __name__ == "__main__":
