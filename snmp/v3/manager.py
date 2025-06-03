@@ -562,7 +562,7 @@ class SNMPv3Manager3:
                     handle.expire()
                     return None
 
-                self.messageID = self.manager.allocateMessage(handle.requestID)
+                self.messageID = self.manager.allocateMessage(handle.requestID, self.engineID)
 
                 message = self.manager.requests[handle.requestID].message
 
@@ -694,9 +694,9 @@ class SNMPv3Manager3:
 # The sendMessage should return the messageID, so the SendTask can store it
 # But we also need a way to find the SendTask for a messageID
 
-    def allocateMessage(self, requestID):
+    def allocateMessage(self, requestID, engineID):
         messageID = self.thingy.reserveMessageID(self)
-        self.mapping[messageID] = requestID
+        self.mapping[messageID] = requestID, engineID
         return messageID
 
     def deallocateMessage(self, messageID):
@@ -707,7 +707,7 @@ class SNMPv3Manager3:
         messageID = message.header.msgID
 
         try:
-            requestID = self.mapping[messageID]
+            requestID, engineID = self.mapping[messageID]
         except KeyError as err:
             errmsg = f"RequestID not found for message {messageID}"
             raise IncomingMessageError(errmsg) from err
@@ -716,8 +716,6 @@ class SNMPv3Manager3:
         handle = requestState.handle
         requestMessage = requestState.message
 
-        # TODO: Track down the engineID that was sent in the request
-
         pdu = message.scopedPDU.pdu
         if pdu.INTERNAL_CLASS:
             if len(pdu.variableBindings) < 1:
@@ -725,21 +723,16 @@ class SNMPv3Manager3:
 
             oid = pdu.variableBindings[0].name
             if oid == usmStatsUnknownEngineIDsInstance:
-                if requestMessage.header.flags.authFlag:
-                    pass
-                elif self.engineIDAuthenticated:
-                    pass
-                else:
-                    requestState.resend(message.securityEngineID, self)
-                # If the request requires auth, then you can't cancel the outstanding messages
-                # If the engineID is already authenticated, you can't overwrite it
+                self.setEngineID(message.securityEngineID, False)
+            elif message.securityEngineID != engineID:
+                raise IncomingMessageError("Engine ID does not match the request")
             elif oid == usmStatsNotInTimeWindowsInstance:
                 # TODO: Check authFlag of the incoming message
                 if requestMessage.header.flags.authFlag:
                     refreshPeriod = requestState.refreshPeriod
 
-                    requestState.cancel(message.securityEngineID)
-                    requestState.resend(message.securityEngineID, self)
+                    requestState.cancel(engineID)
+                    requestState.resend(engineID, self)
             elif oid == usmStatsUnsupportedSecLevelsInstance:
                 securityLevel = requestMessage.header.flags.securityLevel
                 handle.report(UnsupportedSecLevel(securityLevel))
@@ -747,7 +740,6 @@ class SNMPv3Manager3:
                 if message.header.flags.authFlag:
                     handle.expire()
                 else:
-                    engineID = message.securityEngineID
                     requestState.expireOnRefresh(engineID)
             elif oid == usmStatsUnknownUserNamesInstance:
                 userName = requestMessage.securityName.userName
@@ -760,7 +752,6 @@ class SNMPv3Manager3:
                 handle.report(UnknownUserName(user))
 
                 if requestMessage.header.flags.authFlag:
-                    engineID = message.securityEngineID
                     requestState.expireOnRefresh(engineID)
                 else:
                     handle.expire()
@@ -774,7 +765,6 @@ class SNMPv3Manager3:
                         user = None
 
                     handle.report(WrongDigest(user))
-                    engineID = message.securityEngineID
                     requestState.expireOnRefresh(engineID)
             elif oid == usmStatsDecryptionErrorsInstance:
                 if requestMessage.header.flags.privFlag:
@@ -790,7 +780,6 @@ class SNMPv3Manager3:
                     if message.header.flags.authFlag:
                         handle.expire()
                     else:
-                        engineID = message.securityEngineID
                         requestState.expireOnRefresh(engineID)
         else:
             if pdu.requestID != requestID:
