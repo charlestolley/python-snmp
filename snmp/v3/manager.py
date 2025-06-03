@@ -419,7 +419,7 @@ class Thingy3:
 
         self.authority.release(messageID)
 
-class NotAMessage:
+class AlmostMessage:
     def __init__(self, pdu, userName, securityLevel):
         self.pdu = pdu
         self.securityLevel = securityLevel
@@ -463,7 +463,7 @@ class DiscoveryHandler:
 
     def hear(self, message):
         self.stopDiscovery()
-        self.callback(message.securityEngineID, self.unsent.values())
+        self.callback(message.securityEngineID)
 
     def expireMessage(self):
         self.thingy.releaseMessageID(self.messageID)
@@ -487,7 +487,7 @@ class DiscoveryHandler:
 
     def scheduleRefresh(self, delay=None):
         if delay is None:
-            delay = next(iter(self.unsent.values())).refreshPeriod
+            delay = next(iter(self.unsent.values()))
 
         self.refreshTask = self.RefreshTask(self)
         self.scheduler.schedule(self.refreshTask, delay)
@@ -501,12 +501,8 @@ class DiscoveryHandler:
         else:
             return False
 
-    def saveRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
-        self.unsent[handle.requestID] = RequestInfo(
-            handle,
-            NotAMessage(pdu, userName, securityLevel),
-            refreshPeriod,
-        )
+    def saveRequest(self, requestID, refreshPeriod):
+        self.unsent[requestID] = refreshPeriod
 
         if self.refreshTask is None:
             self.sendNewMessage()
@@ -521,78 +517,16 @@ class DiscoveryHandler:
     def onHandleDeactivate(self, requestID):
         self.stopDiscovery()
 
-class RequestHandler:
-    class RefreshTask(SchedulerTask):
-        def __init__(self, handle, handler):
-            self.handle_ref = weakref.ref(handle)
-            self.handler = handler
-
-        def run(self):
-            handle = self.handle_ref()
-
-            if handle is not None and handle.active():
-                self.handler.expireMessage()
-                self.handler.sendMessage()
-                return self
-
-    def __init__(self, handle, message, thingy, sender, channel):
-        self.handle_ref = weakref.ref(handle)
-        self.message = message
-        self.thingy = thingy
-        self.sender = sender
-        self.channel = channel
-        self.scheduler = None
-
-    def hear(self, message):
-        handle = self.handle_ref()
-
-        if handle is None:
-            return
-
-        pdu = message.scopedPDU.pdu
-        if pdu.requestID != handle.requestID:
-            raise IncomingMessageError(f"Unknown requestID: {pdu.requestID}")
-
-        if pdu.INTERNAL_CLASS:
-            pass
-        else:
-            # TODO: Verify the response
-            handle.push(pdu)
-
-    def expireMessage(self):
-        self.thingy.releaseMessageID(self.message.header.msgID)
-
-    def sendMessage(self):
-        messageID = self.thingy.reserveMessageID(self)
-
-        self.message = SNMPv3Message(
-            HeaderData(
-                messageID,
-                self.message.header.maxSize,
-                self.message.header.flags,
-                self.message.header.securityModel,
-            ),
-            self.message.scopedPDU,
-            self.message.securityEngineID,
-            self.message.securityName,
-        )
-
-        self.sender.send(self.message, self.channel)
-
-    def activate(self, scheduler, refreshPeriod):
-        handle = self.handle_ref()
-
-        if handle is None:
-            return
-
-        self.sendMessage()
-        handle.addCallback(self.onHandleDeactivate)
-
-        self.refreshTask = self.RefreshTask(handle, self)
-        scheduler.schedule(self.refreshTask, refreshPeriod, period=refreshPeriod)
-
-    def onHandleDeactivate(self, requestID):
-        self.expireMessage()
+# DiscoveryHandler just needs handles and refreshPeriods
+# RequestsHandler should have a save function, and then a way to send all
+# When an Unknown Engine ID report comes in, it needs to call back to the
+# manager to set the engineID, and then a way to cancel and re-send all
+# requests with the new requestID.
+# However, for now, it's easier if we just assume that an engineID can
+# never change after it's been initially configured.
+# In that case, we need to keep track of the messageID that carries each
+# request, and when a message comes in, we find the request handle using
+# the messageID, but then confirm that the requestID matches as well
 
 class SNMPv3Manager3:
     class ExpireTask(SchedulerTask):
@@ -604,6 +538,20 @@ class SNMPv3Manager3:
 
             if handle is not None:
                 handle.expire()
+
+    class SendTask(SchedulerTask):
+        def __init__(self, handle, manager):
+            self.handle_ref = weakref.ref(handle)
+            self.manager = manager
+
+        def run(self):
+            handle = self.handle_ref()
+
+            if handle is None or not handle.active():
+                return None
+
+            self.manager.sendMessage(handle.requestID)
+            return self
 
     def __init__(self,
         scheduler,
@@ -622,7 +570,6 @@ class SNMPv3Manager3:
         self.engineID = engineID
         self.namespace = namespace
 
-        # This is the stuff it directly uses
         self.defaultUserName = defaultUserName
         self.defaultSecurityLevel = defaultSecurityLevel
 
@@ -630,6 +577,10 @@ class SNMPv3Manager3:
         self.requestIDAuthority = RequestIDAuthority()
 
         self.discovery = None
+        self.unsent = collections.deque()
+
+        self.messages = {}
+        self.requests = weakref.WeakValueDictionary()
 
     def openRequestNoTimeout(self, *callbacks):
         handle = SNMPv3RequestHandle(
@@ -652,29 +603,23 @@ class SNMPv3Manager3:
             if self.discovery.dropRequest(requestID):
                 self.discovery = None
 
+    def saveRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
+        self.unsent.append(
+            RequestInfo(
+                handle,
+                AlmostMessage(pdu, userName, securityLevel),
+                refreshPeriod,
+            )
+        )
+
     def setEngineID(self, engineID):
         self.engineID = engineID
 
-    def sendRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
-        message = SNMPv3Message(
-            HeaderData(
-                0,
-                1472,
-                MessageFlags(securityLevel, True),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(pdu.withRequestID(handle.requestID), self.engineID),
-            self.engineID,
-            SecurityName(userName, self.namespace),
-        )
-
-        handler = RequestHandler(handle, message, self.thingy, self.sender, self.channel)
-        handler.activate(self.scheduler, refreshPeriod)
-
-    def discoveryCallback(self, engineID, requests):
+    def discoveryCallback(self, engineID):
         self.setEngineID(engineID)
+        self.discovery = None
 
-        for requestInfo in requests:
+        for requestInfo in self.unsent:
             handle = requestInfo.handle_ref()
 
             if handle is None or not handle.active():
@@ -688,7 +633,56 @@ class SNMPv3Manager3:
                 requestInfo.refreshPeriod,
             )
 
-        self.discovery = None
+        self.unsent.clear()
+
+    def sendRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
+        self.requests[handle.requestID] = handle
+        self.messages[handle.requestID] = SNMPv3Message(
+            HeaderData(
+                0,
+                1472,
+                MessageFlags(securityLevel, True),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(pdu, self.engineID),
+            self.engineID,
+            SecurityName(userName, self.namespace),
+        )
+
+        sendTask = self.SendTask(handle, self)
+        self.scheduler.schedule(sendTask, period=refreshPeriod)
+
+    def sendMessage(self, requestID):
+        message = self.messages[requestID]
+
+        if message.header.msgID != 0:
+            self.thingy.releaseMessageID(message.header.msgID)
+
+        messageID = self.thingy.reserveMessageID(self)
+        message = message.withMessageID(messageID)
+
+        self.messages[requestID] = message
+        self.sender.send(message, self.channel)
+
+    def hear(self, message):
+        pdu = message.scopedPDU.pdu
+        requestID = pdu.requestID
+
+        try:
+            messageID = self.messages[requestID].header.msgID
+        except KeyError as err:
+            raise IncomingMessageError("Unhelpful message")
+        else:
+            if message.header.msgID != messageID:
+                raise IncomingMessageError("Unhelpful message")
+
+        handle = self.requests[requestID]
+
+        if pdu.INTERNAL_CLASS:
+            pass
+        else:
+            # TODO: Verify the response
+            handle.push(pdu)
 
     def makeRequest(self, pdu, userName=None, securityLevel=None, timeout=10.0, refreshPeriod=1.0):
         if securityLevel is None:
@@ -700,6 +694,8 @@ class SNMPv3Manager3:
         handle = self.openRequest(timeout)
 
         if handle.active():
+            pdu = pdu.withRequestID(handle.requestID)
+
             if self.engineID is None:
                 if self.discovery is None:
                     discoveryHandle = self.openRequestNoTimeout()
@@ -712,7 +708,8 @@ class SNMPv3Manager3:
                         self.channel,
                     )
 
-                self.discovery.saveRequest(handle, pdu, userName, securityLevel, refreshPeriod)
+                self.discovery.saveRequest(handle.requestID, refreshPeriod)
+                self.saveRequest(handle, pdu, userName, securityLevel, refreshPeriod)
             else:
                 self.sendRequest(handle, pdu, userName, securityLevel, refreshPeriod)
 

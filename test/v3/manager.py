@@ -14,6 +14,7 @@ from snmp.v3.manager import *
 from snmp.v3.message import *
 from snmp.v3.requests import *
 from snmp.v3.manager import Thingy3, SNMPv3Manager3
+from snmp.v3.manager import usmStatsUnknownEngineIDsInstance
 
 class TimeFunction:
     def __init__(self):
@@ -663,7 +664,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
 
         self.wait(self.interrupt(7/16))
-        print(pcap.messages)
         self.assertEqual(len(pcap.messages), 0)
 
         self.wait(self.interrupt(1/16))
@@ -705,7 +705,93 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertEqual(vb.name, OID(1,2,3,4,5,6))
         self.assertEqual(vb.value, Integer(123456))
 
+    #def test_unknownEngineID_report(self):
+    #    # TODO: Test with different security levels
+    #    # TODO: Test with fraudulent messages
+    #    # TODO: Test cooldown period
+    #    pcap = self.connect(PacketCapture())
+    #    manager = self.makeManager(engineID=b"remove")
+    #    handle = manager.get("1.2.3.4.5.6")
+    #    self.assertEqual(len(pcap.messages), 1)
+    #    message = pcap.messages.pop()
+
+    #    message = SNMPv3Message(
+    #        HeaderData(
+    #            message.header.msgID,
+    #            message.header.maxSize,
+    #            MessageFlags(),
+    #            SecurityModel.USM,
+    #        ),
+    #        ScopedPDU(
+    #            ReportPDU(
+    #                VarBind(usmStatsUnknownEngineIDsInstance, Counter32(1)),
+    #                requestID=message.scopedPDU.pdu.requestID,
+    #            ),
+    #            b"remote",
+    #        ),
+    #        b"remote",
+    #        SecurityName(self.userName, self.namespace),
+    #    )
+
+    #    self.incoming.send(message)
+    #    self.assertEqual(len(pcap.messages), 1)
+    #    newMessage = pcap.messages.pop()
+
+    #    vblist = newMessage.scopedPDU.pdu.variableBindings
+    #    self.assertEqual(len(vblist), 1)
+    #    self.assertEqual(vblist[0].name, OID(1,2,3,4,5,6))
+    #    self.assertEqual(vblist[0].value, Null())
+
+    #    self.assertEqual(newMessage.scopedPDU.contextEngineID, b"remote")
+    #    self.assertEqual(newMessage.securityEngineID, b"remote")
+
+    #    self.assertEqual(newMessage.securityName.userName, self.userName)
+    #    self.assertEqual(len(newMessage.securityName.namespaces), 1)
+    #    self.assertIn(self.namespace, newMessage.securityName.namespaces)
+
+    #def test_unknownEngineID_report_sets_engineID(self):
+    #    pcap = self.connect(PacketCapture())
+    #    manager = self.makeManager(engineID=b"remove")
+    #    handle = manager.get("1.2.3.4.5.6")
+    #    self.assertEqual(len(pcap.messages), 1)
+    #    message = pcap.messages.pop()
+
+    #    message = SNMPv3Message(
+    #        HeaderData(
+    #            message.header.msgID,
+    #            message.header.maxSize,
+    #            MessageFlags(),
+    #            SecurityModel.USM,
+    #        ),
+    #        ScopedPDU(
+    #            ReportPDU(
+    #                VarBind(usmStatsUnknownEngineIDsInstance, Counter32(1)),
+    #                requestID=message.scopedPDU.pdu.requestID,
+    #            ),
+    #            b"remote",
+    #        ),
+    #        b"remote",
+    #        SecurityName(self.userName, self.namespace),
+    #    )
+
+    #    self.incoming.send(message)
+    #    self.assertEqual(len(pcap.messages), 1)
+    #    pcap.messages.pop()
+
+    #    # Send a new request; this one should have the updated engine ID
+    #    manager.get("1.3.6.1.2.1.1.1.0")
+    #    self.assertEqual(len(pcap.messages), 1)
+    #    message = pcap.messages.pop()
+
+    #    vblist = message.scopedPDU.pdu.variableBindings
+    #    self.assertEqual(len(vblist), 1)
+    #    self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+
+    #    self.assertEqual(message.scopedPDU.contextEngineID, b"remote")
+    #    self.assertEqual(message.securityEngineID, b"remote")
+
 # TODO: If you delete a manager, make sure it releases all message IDs
+# TODO: Test a valid messageID that is matched with the wrong request
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
