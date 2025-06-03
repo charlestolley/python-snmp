@@ -21,6 +21,7 @@ class UnhandledReport(IncomingMessageError):
 class SNMPv3Manager:
     def __init__(self,
         director,
+        usm,
         channel,
         namespace,
         defaultUserName,
@@ -29,6 +30,7 @@ class SNMPv3Manager:
         engineID = None,
     ):
         self.director = director
+        self.usm = usm
         self.channel = channel
         self.namespace = namespace
         self.defaultUserName = defaultUserName.encode()
@@ -45,8 +47,7 @@ class SNMPv3Manager:
         self.unsent = collections.deque()
 
     def initiateDiscovery(self, timeout):
-        discoveryHandle = self.director.openRequest(self, timeout)
-        self.discoveryHandle = discoveryHandle
+        self.discoveryHandle = self.director.openRequest(self, timeout)
         self.director.sendRequest(
             self.discoveryHandle.requestID,
             self.channel,
@@ -59,7 +60,7 @@ class SNMPv3Manager:
             timeout,
         )
 
-        discoveryHandle.addCallback(self.onRequestClosed)
+        self.discoveryHandle.addCallback(self.onRequestClosed)
 
     def sendNext(self):
         requestID = self.unsent.popleft()
