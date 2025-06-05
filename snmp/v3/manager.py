@@ -585,6 +585,7 @@ class SNMPv3Manager3:
             self.message = message
             self.refreshPeriod = refreshPeriod
 
+            self.cancelled = {}
             self.tasks = {}
 
         @property
@@ -598,7 +599,13 @@ class SNMPv3Manager3:
             return handle
 
         def cancel(self, engineID):
-            self.tasks[engineID].cancel()
+            if engineID in self.cancelled:
+                return False
+
+            task = self.tasks.pop(engineID)
+            task.cancel()
+            self.cancelled[engineID] = task
+            return True
 
         def expireOnRefresh(self, engineID):
             self.tasks[engineID].raiseException()
@@ -606,10 +613,19 @@ class SNMPv3Manager3:
         def resend(self, engineID, manager):
             if engineID in self.tasks:
                 self.tasks[engineID].cancel()
+                del self.tasks[engineID]
 
             self.send(engineID, manager)
 
+        def select(self, engineID):
+            for taskEngineID, task in self.tasks.items():
+                if taskEngineID != engineID:
+                    task.cancel()
+
         def send(self, engineID, manager):
+            if engineID in self.tasks:
+                return
+
             sendTask = self.SendTask(self.handle, engineID, manager)
             manager.scheduler.schedule(sendTask, period=self.refreshPeriod)
             self.tasks[engineID] = sendTask
@@ -676,18 +692,17 @@ class SNMPv3Manager3:
         if engineID == self.engineID:
             return
 
+        oldEngineID = self.engineID
         self.engineID = engineID
 
         for request in self.requests.values():
+            request.select(engineID)
             request.send(engineID, self)
 
     # TODO: Send all requests in setEngineID and get rid of this method
     def discoveryCallback(self, engineID):
         self.discovery = None
         self.setEngineID(engineID, False)
-
-    def sendRequest(self, handle, pdu, userName, securityLevel, refreshPeriod):
-        requestState.send(self.engineID, self)
 
 # Each SendTask has one messageID at a time
 # The manager should have a cancel message function, which releases the messageID
@@ -723,24 +738,34 @@ class SNMPv3Manager3:
 
             oid = pdu.variableBindings[0].name
             if oid == usmStatsUnknownEngineIDsInstance:
-                self.setEngineID(message.securityEngineID, False)
+                requestState.send(message.securityEngineID, self)
             elif message.securityEngineID != engineID:
                 raise IncomingMessageError("Engine ID does not match the request")
             elif oid == usmStatsNotInTimeWindowsInstance:
                 # TODO: Check authFlag of the incoming message
                 if requestMessage.header.flags.authFlag:
                     refreshPeriod = requestState.refreshPeriod
+                    cancelled = requestState.cancel(engineID)
 
-                    requestState.cancel(engineID)
-                    requestState.resend(engineID, self)
+                    if cancelled:
+                        requestState.resend(engineID, self)
+                    else:
+                        handle.report(OutsideTimeWindow())
+                        if message.header.flags.authFlag:
+                            handle.expire()
+                        else:
+                            requestState.expireOnRefresh(engineID)
             elif oid == usmStatsUnsupportedSecLevelsInstance:
-                securityLevel = requestMessage.header.flags.securityLevel
-                handle.report(UnsupportedSecLevel(securityLevel))
+                requestSecLevel = requestMessage.header.flags.securityLevel
+                reportSecLevel = message.header.flags.securityLevel
 
-                if message.header.flags.authFlag:
-                    handle.expire()
-                else:
-                    requestState.expireOnRefresh(engineID)
+                if reportSecLevel < requestSecLevel:
+                    handle.report(UnsupportedSecLevel(requestSecLevel))
+
+                    if message.header.flags.authFlag:
+                        handle.expire()
+                    else:
+                        requestState.expireOnRefresh(engineID)
             elif oid == usmStatsUnknownUserNamesInstance:
                 userName = requestMessage.securityName.userName
 

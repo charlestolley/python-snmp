@@ -140,7 +140,21 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.userName = b"chuck"
         self.namespace = ""
 
+        self.unsupportedSecLevels = 0
+        self.notInTimeWindows = 0
         self.unknownEngineIDs = 0
+
+    def tearDown(self):
+        prev = self.time()
+        self.scheduler.wait()
+        now = self.time()
+
+        while now != prev:
+            prev = now
+            self.scheduler.wait()
+            now = self.time()
+
+        self.assertEqual(len(self.thingy.authority.reserved), 0)
 
     def connect(self, target):
         self.incoming.connect(self.thingy, self.outgoing)
@@ -162,23 +176,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
                 raise RuntimeError("Interrupt is not scheduled")
 
             prev = now
-
-    def expectDiscovery(self, message, engineID):
-        self.assertFalse(message.header.flags.authFlag)
-        self.assertTrue(message.header.flags.reportableFlag)
-        self.assertEqual(message.scopedPDU.contextEngineID, b"")
-        self.assertEqual(message.securityEngineID, b"")
-        self.assertEqual(message.securityName.userName, b"")
-
-        pdu = message.scopedPDU.pdu
-        self.assertNotEqual(pdu.requestID, 0)
-        self.assertEqual(pdu.withRequestID(0), GetRequestPDU())
-
-        self.unknownEngineIDs += 1
-        oid = "1.3.6.1.6.3.15.1.1.4.0"
-        value = Counter32(self.unknownEngineIDs)
-        report = ReportPDU(VarBind(oid, value))
-        return self.makeReply(message, report, engineID)
 
     def makeManager(self, securityLevel=noAuthNoPriv, engineID=None):
         return SNMPv3Manager3(
@@ -212,13 +209,120 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             message.securityName,
         )
 
+    def report(self, message, varbind, securityLevel):
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(securityLevel),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ReportPDU(varbind, requestID=message.scopedPDU.pdu.requestID),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        self.incoming.send(reply)
+
+    def respond(self, message, varbind, securityLevel):
+        requestID = message.scopedPDU.pdu.requestID
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(securityLevel),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(varbind, requestID=requestID),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        self.incoming.send(reply)
+
+    def expectDiscovery(self, message):
+        self.assertFalse(message.header.flags.authFlag)
+        self.assertTrue(message.header.flags.reportableFlag)
+        self.assertEqual(message.scopedPDU.contextEngineID, b"")
+        self.assertEqual(message.securityEngineID, b"")
+        self.assertEqual(message.securityName.userName, b"")
+
+        pdu = message.scopedPDU.pdu
+        self.assertNotEqual(pdu.requestID, 0)
+        self.assertEqual(pdu.withRequestID(0), GetRequestPDU())
+
+        return message
+
+    def reportUnsupportedSecLevel(self, message, securityLevel):
+        self.unsupportedSecLevels += 1
+        oid = usmStatsUnsupportedSecLevelsInstance
+        value = Counter32(self.unsupportedSecLevels)
+        varbind = VarBind(oid, value)
+
+        self.report(message, varbind, securityLevel)
+
+    def reportNotInTimeWindows(self, message, auth):
+        self.notInTimeWindows += 1
+        oid = usmStatsNotInTimeWindowsInstance
+        value = Counter32(self.notInTimeWindows)
+        varbind = VarBind(oid, value)
+
+        engineID = message.securityEngineID
+        self.report(message, varbind, SecurityLevel(auth))
+
+    def reportUnknownEngineID(self, message, engineID):
+        self.unknownEngineIDs += 1
+        oid = usmStatsUnknownEngineIDsInstance
+        value = Counter32(self.unknownEngineIDs)
+        varbind = VarBind(oid, value)
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ReportPDU(varbind, requestID=message.scopedPDU.pdu.requestID),
+                engineID,
+                message.scopedPDU.contextName,
+            ),
+            engineID,
+            message.securityName,
+        )
+
+        self.incoming.send(reply)
+
+    def discover(self, manager, pcap, engineID, auth=False):
+        handle = manager.get("1.2.3.4.5.6", securityLevel=SecurityLevel(auth))
+        message = self.expectDiscovery(pcap.messages.pop())
+        self.reportUnknownEngineID(message, engineID)
+
+        message = pcap.messages.pop()
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, SecurityLevel(auth))
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 1)
+        self.assertEqual(vblist[0].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[0].value, Integer(123456))
+
     def test_request_is_not_sent_if_discovery_is_needed(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager()
-        handle = manager.get("1.3.6.1.2.1.1.1.0")
+        self.manager = self.makeManager()
+        handle = self.manager.get("1.3.6.1.2.1.1.1.0")
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
     def test_request_securityLevel_does_not_apply_to_discovery(self):
         pcap = self.connect(PacketCapture())
@@ -226,7 +330,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         handle = manager.get("1.3.6.1.2.1.1.1.0")
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
     def test_only_send_discovery_request_once_for_multiple_requests(self):
         pcap = self.connect(PacketCapture())
@@ -236,7 +340,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1")
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
     def test_discovery_request_uses_refreshPeriod_of_the_first_request(self):
         pcap = self.connect(PacketCapture())
@@ -245,21 +349,21 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         h2 = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
 
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
 
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
@@ -275,7 +379,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1", refreshPeriod=1.0)
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         # The discovery message outlives the first request
         self.wait(self.interrupt(1/2))
@@ -287,7 +391,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         # The new discovery message has the refreshPeriod of the second request
         self.wait(self.interrupt(5/16))
@@ -295,7 +399,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(5/16))
         self.assertEqual(len(pcap.messages), 0)
@@ -303,7 +407,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         # The second request has expired by now
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         # The new discovery message has the refreshPeriod of the third request
         self.wait(self.interrupt(15/16))
@@ -311,7 +415,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
     def test_if_all_requests_expire_stop_sending_discovery_messages(self):
         pcap = self.connect(PacketCapture())
@@ -320,14 +424,14 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         h2 = manager.get("1.2.3.4.5.6", timeout=1.75, refreshPeriod=1.0)
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(15/16))
         self.assertEqual(len(pcap.messages), 0)
 
         self.wait(self.interrupt(1/16))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(15/16))
         self.assertEqual(len(pcap.messages), 0)
@@ -343,14 +447,14 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(3.0))
         self.assertEqual(len(pcap.messages), 0)
 
         h2 = manager.get("1.2.3.4.5.6")
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
     def test_discovery_resets_when_restarted_before_old_disc_msg_expires(self):
         pcap = self.connect(PacketCapture())
@@ -358,14 +462,14 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         h1 = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2, refreshPeriod=1.0)
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(3/4))
         self.assertEqual(len(pcap.messages), 0)
 
         h2 = manager.get("1.2.3.4.5.6", timeout=3.0, refreshPeriod=1/2)
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         # Check that the message from the first request does not refresh
         self.wait(self.interrupt(1/4))
@@ -373,11 +477,11 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/4))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(1/2))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         # Check that the message from the first request still does not refresh
         self.wait(self.interrupt(1/4))
@@ -385,7 +489,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/4))
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
     def test_send_request_message_as_soon_as_discovery_is_complete(self):
         pcap = self.connect(PacketCapture())
@@ -394,12 +498,12 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         interrupt = self.interrupt(1/32)
         self.assertEqual(len(pcap.messages), 1)
-        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        message = self.expectDiscovery(pcap.messages.pop())
 
         self.wait(interrupt)
         self.assertEqual(len(pcap.messages), 0)
 
-        self.incoming.send(discoveryReply)
+        self.reportUnknownEngineID(message, b"remote")
         self.assertEqual(len(pcap.messages), 1)
 
         message = pcap.messages.pop()
@@ -429,12 +533,12 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         interrupt = self.interrupt(1/32)
         self.assertEqual(len(pcap.messages), 1)
-        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        message = self.expectDiscovery(pcap.messages.pop())
 
         self.wait(interrupt)
         self.assertEqual(len(pcap.messages), 0)
 
-        self.incoming.send(discoveryReply)
+        self.reportUnknownEngineID(message, b"remote")
         self.assertEqual(len(pcap.messages), 3)
 
         oids = {
@@ -473,17 +577,17 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         h3 = manager.get("1.3.6.1.2.1.2.2.1.2.1", timeout=3.0)
 
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(1.0))
         self.assertEqual(len(pcap.messages), 1)
-        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        message = self.expectDiscovery(pcap.messages.pop())
 
         # The first request has expired by now
         self.wait(self.interrupt(3/4))
         self.assertEqual(len(pcap.messages), 0)
 
-        self.incoming.send(discoveryReply)
+        self.reportUnknownEngineID(message, b"remote")
         self.assertEqual(len(pcap.messages), 2)
 
         oids = {
@@ -639,7 +743,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         manager = self.makeManager()
         h1 = manager.get("1.3.6.1.2.1.1.1.0")
         self.assertEqual(len(pcap.messages), 1)
-        _ = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        self.expectDiscovery(pcap.messages.pop())
         h2 = manager.get("1.3.6.1.2.1.1.1.0", timeout=0.0)
         self.assertEqual(len(pcap.messages), 0)
 
@@ -659,10 +763,10 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         handle = manager.get("1.3.6.1.2.1.1.1.0", timeout=1/2)
 
         self.assertEqual(len(pcap.messages), 1)
-        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        message = self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(1/4))
-        self.incoming.send(discoveryReply)
+        self.reportUnknownEngineID(message, b"remote")
 
         self.assertRaises(Timeout, handle.wait)
         self.assertEqual(self.time(), 1/2)
@@ -673,10 +777,10 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         handle = manager.get("1.2.3.4.5.6", timeout=3.0, refreshPeriod=1/2)
 
         self.assertEqual(len(pcap.messages), 1)
-        discoveryReply = self.expectDiscovery(pcap.messages.pop(), b"remote")
+        message = self.expectDiscovery(pcap.messages.pop())
 
         self.wait(self.interrupt(1/4))
-        self.incoming.send(discoveryReply)
+        self.reportUnknownEngineID(message, b"remote")
 
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
@@ -726,153 +830,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         vb = vblist[0]
         self.assertEqual(vb.name, OID(1,2,3,4,5,6))
         self.assertEqual(vb.value, Integer(123456))
-
-    def test_raise_UnsupportedSecLevel_on_next_refresh_if_reported(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authNoPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsUnsupportedSecLevelsInstance,
-                        Counter32(1),
-                    ),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.incoming.send(message)
-        self.assertRaises(UnsupportedSecLevel, handle.wait)
-        self.assertEqual(self.time(), 17/16)
-
-    def test_raise_UnsupportedSecLevel_immediately_if_reported_with_auth(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(authNoPriv),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsUnsupportedSecLevelsInstance,
-                        Counter32(1),
-                    ),
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(UnsupportedSecLevel, handle.wait)
-        self.assertEqual(self.time(), 1/4)
-
-    def test_resend_auth_message_after_notInTimeWindow_report(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authNoPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6")
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(usmStatsNotInTimeWindowsInstance, Counter32(1)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.incoming.send(message)
-        self.assertEqual(len(pcap.messages), 1)
-
-        message = pcap.messages.pop()
-        self.assertEqual(message.securityEngineID, b"remote")
-        self.assertEqual(message.securityName.userName, self.userName)
-        self.assertEqual(len(message.securityName.namespaces), 1)
-        self.assertIn(self.namespace, message.securityName.namespaces)
-
-        self.assertTrue(message.header.flags.authFlag)
-        self.assertFalse(message.header.flags.privFlag)
-        self.assertTrue(message.header.flags.reportableFlag)
-
-        scopedPDU = message.scopedPDU
-        self.assertEqual(scopedPDU.contextEngineID, b"remote")
-        #self.assertEqual(scopedPDU.contextName, b"???")
-
-        pdu = scopedPDU.pdu
-        self.assertEqual(pdu.requestID, handle.requestID)
-        self.assertEqual(len(pdu.variableBindings), 1)
-        self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
-
-    def test_notInTimeWindow_report_resets_refresh(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authNoPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(usmStatsNotInTimeWindowsInstance, Counter32(1)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertEqual(len(pcap.messages), 1)
-        pcap.messages.pop()
-
-        self.wait(self.interrupt(15/16))
-        self.assertEqual(len(pcap.messages), 0)
-
-        self.wait(self.interrupt(1/16))
-        self.assertEqual(len(pcap.messages), 1)
 
     def test_raise_UnknownUserName_immediately_if_auth_not_requested(self):
         pcap = self.connect(PacketCapture())
@@ -1107,229 +1064,763 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertRaises(Timeout, handle.wait)
         self.assertEqual(self.time(), 3.5)
 
-    def test_resend_noAuth_message_with_new_engine_after_UnknownEngineID(self):
+    def test_noAuth_request_unconfirmed_engineID_UnknownEngineID_resends_with_the_new_engineID(self):
         pcap = self.connect(PacketCapture())
-        manager = self.makeManager(engineID=b"remove")
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_noAuth_request_unconfirmed_engineID_UnknownEngineID_does_not_cancel_original_message(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(3/16))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"different")
+
+    def test_noAuth_request_unconfirmed_engineID_UnknownEngineID_containing_the_original_engineID_is_ignored(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"different")
+
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_noAuth_request_unconfirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_still_uses_the_old_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"different")
+
+    def test_noAuth_request_unconfirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_resends_after_the_first_message_receives_a_response(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        m1 = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.respond(m1, VarBind("1.2.3.4.5.6", Integer(123456)), noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.scopedPDU.pdu.requestID, h2.requestID)
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_noAuth_request_unconfirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_no_longer_refreshes_with_the_old_engineID_after_the_response_to_the_first_request(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.wait(self.interrupt(3/8))
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_noAuth_request_unconfirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_no_longer_refreshes_with_the_engineID_it_got_from_an_UnknownEngineID_report_after_the_response_to_the_first_request(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        m1 = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        m2 = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(m2, b"unheardOf")
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(m1, varbind, noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/8))
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_noAuth_request_unconfirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_still_refreshes_with_the_new_engineID_which_it_got_from_an_UnknownEngineID_report(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        m1 = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        m2 = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(m2, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(m1, varbind, noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(3/8))
+        self.assertEqual(len(pcap.messages), 1)
+
+    def test_noAuth_request_unconfirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_that_sent_with_a_new_engineID_will_not_resend_with_the_old_one(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"different")
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_noAuth_request_after_unconfirmed_rediscovery_uses_the_new_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, noAuthNoPriv)
+        vblist = handle.wait()
+
+        handle = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_auth_request_unconfirmed_engineID_UnknownEngineID_resends_with_the_new_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_auth_request_unconfirmed_engineID_UnknownEngineID_does_not_cancel_the_original_message(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(3/16))
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"different")
+
+    def test_auth_request_unconfirmed_engineID_a_second_UnknownEngineID_with_the_original_engineID_does_nothing(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"different")
+
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_auth_request_unconfirmed_engineID_a_new_request_after_UnknownEngineID_uses_the_old_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"different")
+
+    def test_auth_request_unconfirmed_engineID_a_new_request_after_UnknownEngineID_resends_with_the_new_engineID_after_response(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different")
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, authNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.scopedPDU.pdu.requestID, h2.requestID)
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_auth_request_unconfirmed_engineID_a_new_request_after_auth_response_uses_the_new_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, authNoPriv)
+        vblist = handle.wait()
+
+        handle = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_noAuth_request_confirmed_engineID_UnknownEngineID_resends_with_the_new_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"remote", True)
+
         handle = manager.get("1.2.3.4.5.6")
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(usmStatsUnknownEngineIDsInstance, Counter32(1)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.incoming.send(message)
-        self.assertEqual(len(pcap.messages), 1)
-        newMessage = pcap.messages.pop()
-
-        vblist = newMessage.scopedPDU.pdu.variableBindings
-        self.assertEqual(len(vblist), 1)
-        self.assertEqual(vblist[0].name, OID(1,2,3,4,5,6))
-        self.assertEqual(vblist[0].value, Null())
-
-        self.assertEqual(newMessage.scopedPDU.contextEngineID, b"remote")
-        self.assertEqual(newMessage.securityEngineID, b"remote")
-
-        self.assertEqual(newMessage.securityName.userName, self.userName)
-        self.assertEqual(len(newMessage.securityName.namespaces), 1)
-        self.assertIn(self.namespace, newMessage.securityName.namespaces)
-
-    def test_UnknownEngineID_report_overwrites_unauthenticated_engineID(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(engineID=b"remove")
-        handle = manager.get("1.2.3.4.5.6")
+        self.reportUnknownEngineID(message, b"different")
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(usmStatsUnknownEngineIDsInstance, Counter32(1)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
+        self.assertEqual(message.securityEngineID, b"different")
 
-        self.incoming.send(message)
+    def test_noAuth_request_confirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_still_uses_the_old_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"remote", True)
+
+        h1 = manager.get("1.2.3.4.5.6")
         self.assertEqual(len(pcap.messages), 1)
-        pcap.messages.pop()
+        message = pcap.messages.pop()
 
-        # Send a new request; this one should have the updated engine ID
+        self.reportUnknownEngineID(message, b"different")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", securityLevel=noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_noAuth_request_confirmed_engineID_other_requests_are_not_affected_when_a_response_with_a_different_engineID_is_accepted(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"remote", True)
+
+        h1 = manager.get("1.2.3.4.5.6", securityLevel=noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.reportUnknownEngineID(message, b"different")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", securityLevel=noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, noAuthNoPriv)
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_noAuth_request_confirmed_engineID_requests_send_after_a_response_with_a_different_engineID_is_accepted_use_the_old_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"remote", True)
+
+        h1 = manager.get("1.2.3.4.5.6")
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        self.reportUnknownEngineID(message, b"different")
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, noAuthNoPriv)
+        _ = h1.wait()
+
         manager.get("1.3.6.1.2.1.1.1.0")
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        vblist = message.scopedPDU.pdu.variableBindings
-        self.assertEqual(len(vblist), 1)
-        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
-
-        self.assertEqual(message.scopedPDU.contextEngineID, b"remote")
         self.assertEqual(message.securityEngineID, b"remote")
 
-    def test_UnknownEngineID_after_auth_has_no_effect_on_noAuth_request(self):
+    def test_auth_request_confirmed_engineID_UnknownEngineID_resends_with_the_new_engineID(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv)
-        handle = manager.get("1.2.3.4.5.6")
+        self.discover(manager, pcap, b"different", True)
 
-        self.assertEqual(len(pcap.messages), 1)
-        discovery = self.expectDiscovery(pcap.messages.pop(), b"remote")
-        self.incoming.send(discovery)
-
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(authNoPriv),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    VarBind("1.2.3.4.5.6", Integer(123456)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.incoming.send(message)
-        _ = handle.wait()
-
-        handle = manager.get("1.2.3.4.5.6", securityLevel=noAuthNoPriv)
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(noAuthNoPriv),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(usmStatsUnknownEngineIDsInstance, Counter32(1)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"different",
-            ),
-            b"different",
-            SecurityName(self.userName, self.namespace),
-        )
+        self.assertEqual(message.securityEngineID, b"remote")
 
-        self.incoming.send(message)
+    def test_auth_request_confirmed_engineID_UnknownEngineID_does_not_cancel_the_original_message(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different", True)
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(3/16))
         self.assertEqual(len(pcap.messages), 0)
-        # TODO: Maybe raise UnknownEngineID error on next refresh
 
-    def test_auth_response_confirms_preconfigured_engineID(self):
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"different")
+
+    def test_auth_request_confirmed_engineID_a_second_UnknownEngineID_with_the_original_engineID_does_nothing(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different", True)
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"different")
+
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_auth_request_confirmed_engineID_a_new_request_after_UnknownEngineID_uses_the_old_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different", True)
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"different")
+
+    def test_auth_request_confirmed_engineID_a_new_request_after_UnknownEngineID_resends_with_the_new_engineID_after_response(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different", True)
+
+        h1 = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        h2 = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, authNoPriv)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.scopedPDU.pdu.requestID, h2.requestID)
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_auth_request_confirmed_engineID_a_new_request_after_auth_response_uses_the_new_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        self.discover(manager, pcap, b"different", True)
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/8))
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, authNoPriv)
+        vblist = handle.wait()
+
+        handle = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityEngineID, b"remote")
+
+    def test_UnknownEngineID_with_the_same_engineID_is_ignored(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.reportUnknownEngineID(message, b"remote")
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_noAuth_request_ignores_NotInTimeWindows_report(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.reportNotInTimeWindows(message, False)
+        self.assertEqual(len(pcap.messages), 0)
+
+    def test_resend_auth_message_after_notInTimeWindow_report(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
         handle = manager.get("1.2.3.4.5.6")
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(authNoPriv),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    VarBind("1.2.3.4.5.6", Integer(123456)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
+        self.reportNotInTimeWindows(message, False)
+        self.assertEqual(len(pcap.messages), 1)
 
-        self.incoming.send(message)
-        _ = handle.wait()
+        message = pcap.messages.pop()
+        self.assertEqual(message.securityEngineID, b"remote")
+        self.assertEqual(message.securityName.userName, self.userName)
+        self.assertEqual(len(message.securityName.namespaces), 1)
+        self.assertIn(self.namespace, message.securityName.namespaces)
 
-        handle = manager.get("1.2.3.4.5.6", securityLevel=noAuthNoPriv)
+        self.assertTrue(message.header.flags.authFlag)
+        self.assertFalse(message.header.flags.privFlag)
+        self.assertTrue(message.header.flags.reportableFlag)
+
+        scopedPDU = message.scopedPDU
+        self.assertEqual(scopedPDU.contextEngineID, b"remote")
+        #self.assertEqual(scopedPDU.contextName, b"???")
+
+        pdu = scopedPDU.pdu
+        self.assertEqual(pdu.requestID, handle.requestID)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
+
+    def test_notInTimeWindow_report_resets_refresh(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(noAuthNoPriv),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(usmStatsUnknownEngineIDsInstance, Counter32(1)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"different",
-            ),
-            b"different",
-            SecurityName(self.userName, self.namespace),
-        )
+        self.wait(self.interrupt(1/4))
+        self.reportNotInTimeWindows(message, False)
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
 
-        self.incoming.send(message)
+        self.wait(self.interrupt(15/16))
         self.assertEqual(len(pcap.messages), 0)
 
-# noAuthNoPriv, engineID not authenticated
-# - overwrite engineID
-# authNoPriv, engineID not authenticated
-# - re-send only that message
-# authPriv, engineID not authenticated
-# - re-send only that message
-# noAuthNoPriv, engineID authenticated
-# - certainly don't overwrite engineID
-# - raise Exception on next refresh?
-# authNoPriv, engineID authenticated
-# - re-send only that message
-# authPriv, engineID authenticated
-# - re-send only that message
-# When engineID is updated, re-send all outstanding requests
+        self.wait(self.interrupt(1/16))
+        self.assertEqual(len(pcap.messages), 1)
 
-# TODO: Test all the possible cases when a discovery message could be used
-# - ???
-# - ???
-# TODO: Test with different security levels
-# TODO: Test with fraudulent messages (make sure it keeps sending with the original engineID)
-# TODO: Test overwriting the manager's engineID
-# TODO: Test cooldown period
+    def test_second_NotInTimeWindows_report_with_auth_raises_exception_immediately(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportNotInTimeWindows(message, True)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportNotInTimeWindows(message, True)
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.assertRaises(OutsideTimeWindow, handle.wait)
+        self.assertEqual(self.time(), 1/2)
+
+    def test_second_NotInTimeWindows_report_without_auth_raises_exception_on_next_refresh(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportNotInTimeWindows(message, False)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportNotInTimeWindows(message, False)
+        self.assertEqual(len(pcap.messages), 0)
+
+        self.assertRaises(OutsideTimeWindow, handle.wait)
+        self.assertEqual(self.time(), 5/4)
+
+    def test_noAuth_request_ignore_UnsupportedSecLevel_report(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.reportUnsupportedSecLevel(message, noAuthNoPriv)
+        self.assertRaises(Timeout, handle.wait)
+
+    def test_auth_request_noAuth_report_raise_UnsupportedSecLevel_on_next_refresh(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.reportUnsupportedSecLevel(message, noAuthNoPriv)
+        self.assertRaises(UnsupportedSecLevel, handle.wait)
+        self.assertEqual(self.time(), 17/16)
+
+    def test_auth_requst_auth_report_ignore_UnsupportedSecLevel_report(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.reportUnsupportedSecLevel(message, authNoPriv)
+        self.assertRaises(Timeout, handle.wait)
+
+    def test_authPriv_request_auth_report_raise_UnsupportedSecLevel_immediately(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnsupportedSecLevel(message, authNoPriv)
+        self.assertRaises(UnsupportedSecLevel, handle.wait)
+        self.assertEqual(self.time(), 1/4)
+
+    def test_authPriv_request_authPriv_report_raise_UnsupportedSecLevel_immediately(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=1.0)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.reportUnsupportedSecLevel(message, authPriv)
+        self.assertRaises(Timeout, handle.wait)
 
 # TODO: If you delete a manager, make sure it releases all message IDs
 # TODO: Test a valid messageID that is matched with the wrong request
 # TODO: contextName
-# TODO: Only handle NotInTimeWindow once, then raise the exception
 # TODO: Test that messages are cancelled as needed
 #       - this applies to UnknownEngineID and NotInTimeWindow, but also when self.engineID is updated
+# TODO: Make a superclass to notify the user of relevant reports, with a
+#   sub-type for each USM error, as well as a generic Unhandled Report error type
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
