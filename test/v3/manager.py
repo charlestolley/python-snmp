@@ -142,7 +142,10 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.unsupportedSecLevels = 0
         self.notInTimeWindows = 0
+        self.unknownUserNames = 0
         self.unknownEngineIDs = 0
+        self.wrongDigests = 0
+        self.decryptionErrors = 0
 
     def tearDown(self):
         prev = self.time()
@@ -266,7 +269,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         oid = usmStatsUnsupportedSecLevelsInstance
         value = Counter32(self.unsupportedSecLevels)
         varbind = VarBind(oid, value)
-
         self.report(message, varbind, securityLevel)
 
     def reportNotInTimeWindows(self, message, auth):
@@ -274,8 +276,13 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         oid = usmStatsNotInTimeWindowsInstance
         value = Counter32(self.notInTimeWindows)
         varbind = VarBind(oid, value)
+        self.report(message, varbind, SecurityLevel(auth))
 
-        engineID = message.securityEngineID
+    def reportUnknownUserName(self, message, auth=False):
+        self.unknownUserNames += 1
+        oid = usmStatsUnknownUserNamesInstance
+        value = Counter32(self.unknownUserNames)
+        varbind = VarBind(oid, value)
         self.report(message, varbind, SecurityLevel(auth))
 
     def reportUnknownEngineID(self, message, engineID):
@@ -301,6 +308,20 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         )
 
         self.incoming.send(reply)
+
+    def reportWrongDigest(self, message, auth=False):
+        self.wrongDigests += 1
+        oid = usmStatsWrongDigestsInstance
+        value = Counter32(self.wrongDigests)
+        varbind = VarBind(oid, value)
+        self.report(message, varbind, SecurityLevel(auth))
+
+    def reportDecryptionError(self, message, auth=False):
+        self.decryptionErrors += 1
+        oid = usmStatsDecryptionErrorsInstance
+        value = Counter32(self.decryptionErrors)
+        varbind = VarBind(oid, value)
+        self.report(message, varbind, SecurityLevel(auth))
 
     def discover(self, manager, pcap, engineID, auth=False):
         handle = manager.get("1.2.3.4.5.6", securityLevel=SecurityLevel(auth))
@@ -830,239 +851,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         vb = vblist[0]
         self.assertEqual(vb.name, OID(1,2,3,4,5,6))
         self.assertEqual(vb.value, Integer(123456))
-
-    def test_raise_UnknownUserName_immediately_if_auth_not_requested(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", userName=b"invalidUserName")
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsUnknownUserNamesInstance,
-                        Counter32(1),
-                    ),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(b"invalidUserName"),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(UnknownUserName, handle.wait)
-        self.assertEqual(self.time(), 1/4)
-
-    def test_raise_UnknownUserName_on_next_refresh_if_auth_requested(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authNoPriv, engineID=b"remote")
-        handle = manager.get(
-            "1.2.3.4.5.6",
-            userName=b"invalidUserName",
-            refreshPeriod=17/16,
-        )
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsUnknownUserNamesInstance,
-                        Counter32(1),
-                    ),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(b"invalidUserName"),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(UnknownUserName, handle.wait)
-        self.assertEqual(self.time(), 17/16)
-
-    def test_raise_WrongDigest_on_next_refresh_if_auth_requested(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authNoPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsWrongDigestsInstance,
-                        Counter32(1),
-                    ),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(WrongDigest, handle.wait)
-        self.assertEqual(self.time(), 17/16)
-
-    def test_ignore_WrongDigest_report_if_auth_not_requested(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", timeout=3.5)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsWrongDigestsInstance,
-                        Counter32(1),
-                    ),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(Timeout, handle.wait)
-        self.assertEqual(self.time(), 3.5)
-
-    def test_raise_DecryptionError_on_next_refresh_if_report_has_no_auth(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsDecryptionErrorsInstance,
-                        Counter32(1),
-                    ),
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(DecryptionError, handle.wait)
-        self.assertEqual(self.time(), 17/16)
-
-    def test_raise_DecryptionError_immediately_if_report_has_auth(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(authNoPriv),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsDecryptionErrorsInstance,
-                        Counter32(1),
-                    ),
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(DecryptionError, handle.wait)
-        self.assertEqual(self.time(), 1/4)
-
-    def test_ignore_DecryptionError_if_priv_not_requested(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authNoPriv, engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6", timeout=3.5)
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        message = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ReportPDU(
-                    VarBind(
-                        usmStatsDecryptionErrorsInstance,
-                        Counter32(1),
-                    ),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        )
-
-        self.wait(self.interrupt(1/4))
-        self.incoming.send(message)
-        self.assertRaises(Timeout, handle.wait)
-        self.assertEqual(self.time(), 3.5)
 
     def test_noAuth_request_unconfirmed_engineID_UnknownEngineID_resends_with_the_new_engineID(self):
         pcap = self.connect(PacketCapture())
@@ -1813,6 +1601,113 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.reportUnsupportedSecLevel(message, authPriv)
         self.assertRaises(Timeout, handle.wait)
+
+    def test_noAuth_request_raise_UnknownUserName_on_next_refresh(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", userName=b"???", refreshPeriod=9/8)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownUserName(message)
+        self.assertRaises(UnknownUserName, handle.wait)
+        self.assertEqual(self.time(), 9/8)
+
+    def test_auth_request_raise_UnknownUserName_on_nextRefresh(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", userName=b"???", refreshPeriod=9/8)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownUserName(message)
+        self.assertRaises(UnknownUserName, handle.wait)
+        self.assertEqual(self.time(), 9/8)
+
+    def test_auth_request_auth_report_ignore_UnknownUserName(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownUserName(message, True)
+        self.assertRaises(Timeout, handle.wait)
+
+    def test_raise_WrongDigest_on_next_refresh_if_auth_requested(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportWrongDigest(message)
+
+        self.assertRaises(WrongDigest, handle.wait)
+        self.assertEqual(self.time(), 17/16)
+
+    def test_ignore_WrongDigest_report_if_auth_not_requested(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6", timeout=3.5)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportWrongDigest(message)
+
+        self.assertRaises(Timeout, handle.wait)
+        self.assertEqual(self.time(), 3.5)
+
+    def test_raise_DecryptionError_on_next_refresh_if_report_has_no_auth(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportDecryptionError(message, False)
+
+        self.assertRaises(DecryptionError, handle.wait)
+        self.assertEqual(self.time(), 17/16)
+
+    def test_raise_DecryptionError_immediately_if_report_has_auth(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=17/16)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportDecryptionError(message, True)
+
+        self.assertRaises(DecryptionError, handle.wait)
+        self.assertEqual(self.time(), 1/4)
+
+    def test_ignore_DecryptionError_if_priv_not_requested(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", timeout=3.5)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportDecryptionError(message, False)
+
+        self.assertRaises(Timeout, handle.wait)
+        self.assertEqual(self.time(), 3.5)
 
 # TODO: If you delete a manager, make sure it releases all message IDs
 # TODO: Test a valid messageID that is matched with the wrong request

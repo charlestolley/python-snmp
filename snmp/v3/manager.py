@@ -767,19 +767,16 @@ class SNMPv3Manager3:
                     else:
                         requestState.expireOnRefresh(engineID)
             elif oid == usmStatsUnknownUserNamesInstance:
-                userName = requestMessage.securityName.userName
+                if not message.header.flags.authFlag:
+                    userName = requestMessage.securityName.userName
 
-                try:
-                    user = userName.decode()
-                except UnicodeDecodeError:
-                    user = None
+                    try:
+                        user = userName.decode()
+                    except UnicodeDecodeError:
+                        user = None
 
-                handle.report(UnknownUserName(user))
-
-                if requestMessage.header.flags.authFlag:
+                    handle.report(UnknownUserName(user))
                     requestState.expireOnRefresh(engineID)
-                else:
-                    handle.expire()
             elif oid == usmStatsWrongDigestsInstance:
                 if requestMessage.header.flags.authFlag:
                     userName = requestMessage.securityName.userName
