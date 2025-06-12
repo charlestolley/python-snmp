@@ -1,6 +1,7 @@
 __all__ = ["SNMPv3Manager"]
 
 import collections
+import re
 import weakref
 
 from snmp.exception import *
@@ -659,6 +660,21 @@ class SNMPv3Manager3:
         self.mapping = {}
         self.requests = {}
 
+    byteStringRegex = re.compile(r"b\'(.*)\'")
+    def decodeUserName(self, userName):
+        try:
+            return userName.decode()
+        except UnicodeDecodeError:
+            pass
+
+        representation = repr(userName)
+        match = re.match(self.byteStringRegex, representation)
+
+        if match is not None:
+            return match.group(1)
+        else:
+            return representation
+
     def openRequestNoTimeout(self, *callbacks):
         handle = SNMPv3RequestHandle(
             self.scheduler,
@@ -769,34 +785,19 @@ class SNMPv3Manager3:
             elif oid == usmStatsUnknownUserNamesInstance:
                 if not message.header.flags.authFlag:
                     userName = requestMessage.securityName.userName
-
-                    try:
-                        user = userName.decode()
-                    except UnicodeDecodeError:
-                        user = None
-
+                    user = self.decodeUserName(userName)
                     handle.report(UnknownUserName(user))
                     requestState.expireOnRefresh(engineID)
             elif oid == usmStatsWrongDigestsInstance:
                 if requestMessage.header.flags.authFlag:
                     userName = requestMessage.securityName.userName
-
-                    try:
-                        user = userName.decode()
-                    except UnicodeDecodeError:
-                        user = None
-
+                    user = self.decodeUserName(userName)
                     handle.report(WrongDigest(user))
                     requestState.expireOnRefresh(engineID)
             elif oid == usmStatsDecryptionErrorsInstance:
                 if requestMessage.header.flags.privFlag:
                     userName = requestMessage.securityName.userName
-
-                    try:
-                        user = userName.decode()
-                    except UnicodeDecodeError:
-                        user = None
-
+                    user = self.decodeUserName(userName)
                     handle.report(DecryptionError(user))
 
                     if message.header.flags.authFlag:
