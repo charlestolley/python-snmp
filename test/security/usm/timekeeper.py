@@ -2,7 +2,7 @@ __all__ = ["LocalEngineTimeTest", "RemoteEngineTimeTest", "TimeKeeperTest"]
 
 import unittest
 
-from snmp.exception import OutsideTimeWindow
+from snmp.exception import UsmNotInTimeWindow
 from snmp.security.usm.timekeeper import EngineTime, TimeKeeper
 
 class LocalEngineTimeTest(unittest.TestCase):
@@ -31,7 +31,7 @@ class LocalEngineTimeTest(unittest.TestCase):
 
     def test_wrong_snmpEngineBoots_is_OutsideTimeWindow(self):
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.et.verifyTimeliness,
             self.timestamp,
             self.engineBoots - 1,
@@ -46,7 +46,7 @@ class LocalEngineTimeTest(unittest.TestCase):
         timestamp = self.timestamp + 151
 
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.et.verifyTimeliness,
             timestamp,
             self.engineBoots,
@@ -60,7 +60,7 @@ class LocalEngineTimeTest(unittest.TestCase):
 
     def test_remote_engine_error_of_151_seconds_is_OutsideTimeWindow(self):
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.et.verifyTimeliness,
             self.timestamp,
             self.engineBoots,
@@ -77,7 +77,7 @@ class LocalEngineTimeTest(unittest.TestCase):
         et = EngineTime(self.timestamp, engineBoots, True)
 
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             et.verifyTimeliness,
             self.timestamp,
             engineBoots,
@@ -235,7 +235,7 @@ class TimeKeeperTest(unittest.TestCase):
 
     def test_a_message_is_invalid_if_it_is_151_seconds_old(self):
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.timekeeper.updateAndVerify,
             self.engineID,
             self.timestamp + 151.0,
@@ -253,7 +253,7 @@ class TimeKeeperTest(unittest.TestCase):
 
     def test_a_message_is_invalid_if_engineBoots_is_too_low(self):
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.timekeeper.updateAndVerify,
             self.engineID,
             self.timestamp + 3.0,
@@ -263,7 +263,7 @@ class TimeKeeperTest(unittest.TestCase):
 
     def test_a_message_is_invalid_if_engineBoots_has_the_max_value(self):
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.timekeeper.updateAndVerify,
             self.engineID,
             self.timestamp + 1.0,

@@ -892,7 +892,7 @@ class UnknownUserNameTest(unittest.TestCase):
 
         self.assertEqual(self.local.unknownUserNames, 0)
         self.assertRaises(
-            UnknownUserName,
+            UsmUnknownUserName,
             self.local.processIncoming,
             wireMessage
         )
@@ -908,7 +908,7 @@ class UnknownUserNameTest(unittest.TestCase):
 
         self.assertEqual(self.local.unknownUserNames, 0)
         self.assertRaises(
-            UnknownUserName,
+            UsmUnknownUserName,
             self.local.processIncoming,
             wireMessage,
         )
@@ -922,7 +922,7 @@ class UnknownUserNameTest(unittest.TestCase):
 
         self.assertEqual(self.local.unknownUserNames, 0)
         self.assertRaises(
-            UnknownUserName,
+            UsmUnknownUserName,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1031,7 +1031,7 @@ class UnsupportedSecLevelTest(unittest.TestCase):
 
         self.assertEqual(self.local.unsupportedSecLevels, 0)
         self.assertRaises(
-            UnsupportedSecLevel,
+            UsmUnsupportedSecLevel,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1049,7 +1049,7 @@ class UnsupportedSecLevelTest(unittest.TestCase):
 
         self.assertEqual(self.local.unsupportedSecLevels, 0)
         self.assertRaises(
-            UnsupportedSecLevel,
+            UsmUnsupportedSecLevel,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1066,7 +1066,7 @@ class UnsupportedSecLevelTest(unittest.TestCase):
 
         self.assertEqual(self.local.unsupportedSecLevels, 0)
         self.assertRaises(
-            UnsupportedSecLevel,
+            UsmUnsupportedSecLevel,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1154,7 +1154,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
 
         self.assertEqual(self.local.unsupportedSecLevels, 0)
         self.assertRaises(
-            UnsupportedSecLevel,
+            UsmUnsupportedSecLevel,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1182,7 +1182,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
 
         self.assertEqual(self.local.unsupportedSecLevels, 0)
         self.assertRaises(
-            UnsupportedSecLevel,
+            UsmUnsupportedSecLevel,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1204,7 +1204,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
 
         self.assertEqual(self.local.unsupportedSecLevels, 0)
         self.assertRaises(
-            UnsupportedSecLevel,
+            UsmUnsupportedSecLevel,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1299,7 +1299,11 @@ class WrongDigestsTest(unittest.TestCase):
         wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
 
         self.assertEqual(self.local.wrongDigests, 0)
-        self.assertRaises(WrongDigest, self.local.processIncoming, wireMessage)
+        self.assertRaises(
+            UsmWrongDigest,
+            self.local.processIncoming,
+            wireMessage,
+        )
         self.assertEqual(self.local.wrongDigests, 1)
 
     def test_if_one_namespace_supports_auth_then_disregard_the_rest(self):
@@ -1318,7 +1322,11 @@ class WrongDigestsTest(unittest.TestCase):
         wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
 
         self.assertEqual(self.local.wrongDigests, 0)
-        self.assertRaises(WrongDigest, self.local.processIncoming, wireMessage)
+        self.assertRaises(
+            UsmWrongDigest,
+            self.local.processIncoming,
+            wireMessage,
+        )
         self.assertEqual(self.local.wrongDigests, 1)
 
     def test_multiple_namespaces_that_compute_different_signatures(self):
@@ -1342,7 +1350,11 @@ class WrongDigestsTest(unittest.TestCase):
         wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
 
         self.assertEqual(self.local.wrongDigests, 0)
-        self.assertRaises(WrongDigest, self.local.processIncoming, wireMessage)
+        self.assertRaises(
+            UsmWrongDigest,
+            self.local.processIncoming,
+            wireMessage,
+        )
         self.assertEqual(self.local.wrongDigests, 1)
 
     def test_authoritative_engine_does_not_send_report_if_not_reportable(self):
@@ -1360,7 +1372,11 @@ class WrongDigestsTest(unittest.TestCase):
         wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
 
         self.assertEqual(self.local.wrongDigests, 0)
-        self.assertRaises(WrongDigest, self.local.processIncoming, wireMessage)
+        self.assertRaises(
+            UsmWrongDigest,
+            self.local.processIncoming,
+            wireMessage,
+        )
         self.assertEqual(self.local.wrongDigests, 1)
 
     def test_authoritative_engine_sends_report_if_reportable(self):
@@ -1465,7 +1481,7 @@ class DecryptionErrors(unittest.TestCase):
 
         self.assertEqual(self.local.decryptionErrors, 0)
         self.assertRaises(
-            DecryptionError,
+            UsmDecryptionError,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1494,7 +1510,7 @@ class DecryptionErrors(unittest.TestCase):
 
         self.assertEqual(self.local.decryptionErrors, 0)
         self.assertRaises(
-            DecryptionError,
+            UsmDecryptionError,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1525,7 +1541,7 @@ class DecryptionErrors(unittest.TestCase):
 
         self.assertEqual(self.local.decryptionErrors, 0)
         self.assertRaises(
-            DecryptionError,
+            UsmDecryptionError,
             self.local.processIncoming,
             wireMessage,
         )
@@ -1549,7 +1565,7 @@ class DecryptionErrors(unittest.TestCase):
 
         self.assertEqual(self.local.decryptionErrors, 0)
         self.assertRaises(
-            DecryptionError,
+            UsmDecryptionError,
             self.local.processIncoming,
             wireMessage,
         )
@@ -2185,7 +2201,7 @@ class TimeWindowTest(unittest.TestCase):
         wireMessage = self.makeResponse(authNoPriv, 2, 0)
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
         )
@@ -2217,7 +2233,7 @@ class TimeWindowTest(unittest.TestCase):
 
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
         )
@@ -2319,7 +2335,7 @@ class TimeWindowTest(unittest.TestCase):
 
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
         )
@@ -2391,7 +2407,7 @@ class TimeWindowTest(unittest.TestCase):
         wireMessage = self.makeResponse(authNoPriv, (1 << 31) - 1, 0)
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
         )
@@ -2427,7 +2443,7 @@ class TimeWindowTest(unittest.TestCase):
 
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
         )
@@ -2531,7 +2547,7 @@ class TimeWindowTest(unittest.TestCase):
 
         self.assertEqual(local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             local.processIncoming,
             wireMessage,
         )
@@ -2656,7 +2672,7 @@ class TimeWindowTest(unittest.TestCase):
         wireMessage = self.makeResponse(authNoPriv, 3, 2100)
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
         )
@@ -2689,7 +2705,7 @@ class TimeWindowTest(unittest.TestCase):
 
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
             timestamp = timestamp + 2679.0,
@@ -2854,7 +2870,7 @@ class TimeWindowTest(unittest.TestCase):
 
         self.assertEqual(self.local.notInTimeWindows, 0)
         self.assertRaises(
-            OutsideTimeWindow,
+            UsmNotInTimeWindow,
             self.local.processIncoming,
             wireMessage,
             timestamp = timestamp + 2840.0,

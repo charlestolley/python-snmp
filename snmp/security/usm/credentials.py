@@ -118,7 +118,7 @@ class LocalizedAuthPrivCredentials(LocalizedAuthCredentials):
         try:
             return SNMPv3WireMessage.decodePlaintext(plaintext)
         except Exception as err:
-            raise DecryptionError(err) from err
+            raise UsmDecryptionError(err) from err
 
     def encrypt(self,
         scopedPDU: ScopedPDU,

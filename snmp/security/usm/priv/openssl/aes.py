@@ -2,8 +2,9 @@ __all__ = ["AesCfb128"]
 
 import os
 
+from snmp.exception import UsmDecryptionError
 from snmp.smi import OID
-from snmp.security.usm import DecryptionError, PrivProtocol
+from snmp.security.usm import PrivProtocol
 from snmp.typing import *
 
 from . import *
@@ -51,7 +52,7 @@ class AesCfb128(PrivProtocol):
         try:
             iv = self.packIV(engineBoots, engineTime, salt)
         except ValueError as err:
-            raise DecryptionError(err) from err
+            raise UsmDecryptionError(err) from err
 
         return Decryptor(self.CIPHER).decrypt(data, self.key, iv)
 

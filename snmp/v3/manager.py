@@ -1,4 +1,8 @@
-__all__ = ["SNMPv3Manager"]
+__all__ = [
+    "SNMPv3Manager",
+    "RequestError", "AuthenticationFailure", "PrivacyFailure",
+    "TimeWindowFailure", "UnknownUserName", "UnsupportedSecurityLevel",
+]
 
 import collections
 import re
@@ -15,6 +19,45 @@ from snmp.requests import *
 from snmp.v3.message import *
 from snmp.v3.requests import MessageIDAuthority, SNMPv3RequestHandle
 from snmp.utils import typename
+
+class RequestError(SNMPException):
+    pass
+
+class AuthenticationFailure(RequestError):
+    def __init__(self, user):
+        errmsg = "The remote engine reports an invalid message signature." \
+            f" Check that user \"{user}\" is configured to use the right" \
+            " authentication protocol and secret."
+
+        super().__init__(errmsg)
+
+class PrivacyFailure(RequestError):
+    def __init__(self, user):
+        errmsg = "The remote engine was unable to decrypt this request." \
+            f" Check that user \"{user}\" is configured to use the right" \
+            " privacy protocol and secret."
+
+        super().__init__(errmsg)
+
+class TimeWindowFailure(RequestError):
+    def __init__(self):
+        errmsg = "The remote engine has replied with multiple" \
+            " NotInTimeWindow reports. It may be necessary to manually" \
+            " reconfigure the remote engine with a new engine ID."
+
+        super().__init__(errmsg)
+
+class UnknownUserName(RequestError):
+    def __init__(self, user):
+        errmsg = f"The remote engine does not recognize user \"{user}\"."
+        super().__init__(errmsg)
+
+class UnsupportedSecurityLevel(RequestError):
+    def __init__(self, user, securityLevel):
+        errmsg = "The remote engine reports that user" \
+            f" \"{user}\" does not support {securityLevel}."
+
+        super().__init__(errmsg)
 
 class UnhandledReport(IncomingMessageError):
     pass
@@ -758,7 +801,6 @@ class SNMPv3Manager3:
             elif message.securityEngineID != engineID:
                 raise IncomingMessageError("Engine ID does not match the request")
             elif oid == usmStatsNotInTimeWindowsInstance:
-                # TODO: Check authFlag of the incoming message
                 if requestMessage.header.flags.authFlag:
                     refreshPeriod = requestState.refreshPeriod
                     cancelled = requestState.cancel(engineID)
@@ -766,7 +808,7 @@ class SNMPv3Manager3:
                     if cancelled:
                         requestState.resend(engineID, self)
                     else:
-                        handle.report(OutsideTimeWindow())
+                        handle.report(TimeWindowFailure())
                         if message.header.flags.authFlag:
                             handle.expire()
                         else:
@@ -776,7 +818,10 @@ class SNMPv3Manager3:
                 reportSecLevel = message.header.flags.securityLevel
 
                 if reportSecLevel < requestSecLevel:
-                    handle.report(UnsupportedSecLevel(requestSecLevel))
+                    userName = requestMessage.securityName.userName
+                    user = self.decodeUserName(userName)
+                    error = UnsupportedSecurityLevel(user, requestSecLevel)
+                    handle.report(error)
 
                     if message.header.flags.authFlag:
                         handle.expire()
@@ -792,13 +837,13 @@ class SNMPv3Manager3:
                 if requestMessage.header.flags.authFlag:
                     userName = requestMessage.securityName.userName
                     user = self.decodeUserName(userName)
-                    handle.report(WrongDigest(user))
+                    handle.report(AuthenticationFailure(user))
                     requestState.expireOnRefresh(engineID)
             elif oid == usmStatsDecryptionErrorsInstance:
                 if requestMessage.header.flags.privFlag:
                     userName = requestMessage.securityName.userName
                     user = self.decodeUserName(userName)
-                    handle.report(DecryptionError(user))
+                    handle.report(PrivacyFailure(user))
 
                     if message.header.flags.authFlag:
                         handle.expire()

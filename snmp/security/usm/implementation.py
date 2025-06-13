@@ -181,7 +181,7 @@ class UserBasedSecurityModule(SecurityModule):
         authenticated = list()
 
         if not namespaces:
-            raise UnknownUserName(securityParameters.userName)
+            raise UsmUnknownUserName(securityParameters.userName)
 
         for namespace in namespaces:
             user = self.users.credentials(
@@ -206,9 +206,9 @@ class UserBasedSecurityModule(SecurityModule):
         if authenticated:
             return authenticated
         elif authEnabled:
-            raise WrongDigest(securityParameters.signature)
+            raise UsmWrongDigest(securityParameters.signature)
         else:
-            raise UnsupportedSecLevel(authNoPriv)
+            raise UsmUnsupportedSecLevel(authNoPriv)
 
     def decrypt(self,
         encryptedPDU: OctetString,
@@ -247,9 +247,9 @@ class UserBasedSecurityModule(SecurityModule):
         if successful:
             return scopedPDU, successful
         elif privEnabled:
-            raise DecryptionError(encryptedPDU)
+            raise UsmDecryptionError(encryptedPDU)
         else:
-            raise UnsupportedSecLevel(authPriv)
+            raise UsmUnsupportedSecLevel(authPriv)
 
     def verifyIncomingTime(self,
         message: SNMPv3WireMessage,
@@ -329,21 +329,21 @@ class UserBasedSecurityModule(SecurityModule):
 
             self.verifyIncomingTime(message, sp, timestamp)
 
-        except UnsupportedSecLevel as err:
+        except UsmUnsupportedSecLevel as err:
             self.unsupportedSecLevels += 1
             if reportable:
                 oid = usmStatsUnsupportedSecLevelsInstance
                 value = Counter32(self.unsupportedSecLevels)
             else:
                 raise
-        except OutsideTimeWindow as err:
+        except UsmNotInTimeWindow as err:
             self.notInTimeWindows += 1
             if reportable:
                 oid = usmStatsNotInTimeWindowsInstance
                 value = Counter32(self.notInTimeWindows)
             else:
                 raise
-        except UnknownUserName as err:
+        except UsmUnknownUserName as err:
             self.unknownUserNames += 1
             if reportable:
                 oid = usmStatsUnknownUserNamesInstance
@@ -357,14 +357,14 @@ class UserBasedSecurityModule(SecurityModule):
                 value = Counter32(self.unknownEngineIDs)
             else:
                 raise
-        except WrongDigest as err:
+        except UsmWrongDigest as err:
             self.wrongDigests += 1
             if reportable:
                 oid = usmStatsWrongDigestsInstance
                 value = Counter32(self.wrongDigests)
             else:
                 raise
-        except DecryptionError as err:
+        except UsmDecryptionError as err:
             self.decryptionErrors += 1
             if reportable:
                 oid = usmStatsDecryptionErrorsInstance

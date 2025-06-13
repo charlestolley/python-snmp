@@ -1285,7 +1285,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.respond(message, varbind, noAuthNoPriv)
         self.assertEqual(len(pcap.messages), 0)
 
-    def test_noAuth_request_confirmed_engineID_requests_send_after_a_response_with_a_different_engineID_is_accepted_use_the_old_engineID(self):
+    def test_noAuth_request_confirmed_engineID_requests_sent_after_a_response_with_a_different_engineID_is_accepted_use_the_old_engineID(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
         self.discover(manager, pcap, b"remote", True)
@@ -1521,8 +1521,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.wait(self.interrupt(1/4))
         self.reportNotInTimeWindows(message, True)
         self.assertEqual(len(pcap.messages), 0)
-
-        self.assertRaises(OutsideTimeWindow, handle.wait)
+        self.assertRaises(TimeWindowFailure, handle.wait)
         self.assertEqual(self.time(), 1/2)
 
     def test_second_NotInTimeWindows_report_without_auth_raises_exception_on_next_refresh(self):
@@ -1540,8 +1539,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.wait(self.interrupt(1/4))
         self.reportNotInTimeWindows(message, False)
         self.assertEqual(len(pcap.messages), 0)
-
-        self.assertRaises(OutsideTimeWindow, handle.wait)
+        self.assertRaises(TimeWindowFailure, handle.wait)
         self.assertEqual(self.time(), 5/4)
 
     def test_noAuth_request_ignore_UnsupportedSecLevel_report(self):
@@ -1555,7 +1553,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.reportUnsupportedSecLevel(message, noAuthNoPriv)
         self.assertRaises(Timeout, handle.wait)
 
-    def test_auth_request_noAuth_report_raise_UnsupportedSecLevel_on_next_refresh(self):
+    def test_auth_request_noAuth_report_raise_UnsupportedSecurityLevel_on_next_refresh(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1564,10 +1562,10 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         message = pcap.messages.pop()
 
         self.reportUnsupportedSecLevel(message, noAuthNoPriv)
-        self.assertRaises(UnsupportedSecLevel, handle.wait)
+        self.assertRaises(UnsupportedSecurityLevel, handle.wait)
         self.assertEqual(self.time(), 17/16)
 
-    def test_auth_requst_auth_report_ignore_UnsupportedSecLevel_report(self):
+    def test_auth_request_auth_report_ignore_UnsupportedSecLevel_report(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1578,7 +1576,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.reportUnsupportedSecLevel(message, authNoPriv)
         self.assertRaises(Timeout, handle.wait)
 
-    def test_authPriv_request_auth_report_raise_UnsupportedSecLevel_immediately(self):
+    def test_authPriv_request_auth_report_raise_UnsupportedSecurityLevel_immediately(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authPriv, engineID=b"remote")
 
@@ -1588,7 +1586,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/4))
         self.reportUnsupportedSecLevel(message, authNoPriv)
-        self.assertRaises(UnsupportedSecLevel, handle.wait)
+        self.assertRaises(UnsupportedSecurityLevel, handle.wait)
         self.assertEqual(self.time(), 1/4)
 
     def test_authPriv_request_authPriv_report_raise_UnsupportedSecLevel_immediately(self):
@@ -1650,8 +1648,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/4))
         self.reportWrongDigest(message)
-
-        self.assertRaises(WrongDigest, handle.wait)
+        self.assertRaises(AuthenticationFailure, handle.wait)
         self.assertEqual(self.time(), 17/16)
 
     def test_ignore_WrongDigest_report_if_auth_not_requested(self):
@@ -1677,8 +1674,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/4))
         self.reportDecryptionError(message, False)
-
-        self.assertRaises(DecryptionError, handle.wait)
+        self.assertRaises(PrivacyFailure, handle.wait)
         self.assertEqual(self.time(), 17/16)
 
     def test_raise_DecryptionError_immediately_if_report_has_auth(self):
@@ -1691,8 +1687,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.wait(self.interrupt(1/4))
         self.reportDecryptionError(message, True)
-
-        self.assertRaises(DecryptionError, handle.wait)
+        self.assertRaises(PrivacyFailure, handle.wait)
         self.assertEqual(self.time(), 1/4)
 
     def test_ignore_DecryptionError_if_priv_not_requested(self):

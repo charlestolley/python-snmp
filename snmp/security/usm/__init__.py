@@ -5,9 +5,6 @@ __all__ = [
 from snmp.exception import *
 from snmp.typing import *
 
-class DecryptionError(IncomingMessageError):
-    pass
-
 class AuthProtocol:
     def __init__(self, key: bytes) -> None:
         raise NotImplementedError()
