@@ -43,17 +43,7 @@ class InterruptTask(SchedulerTask):
         self.ready = True
 
 class Channel:
-    class HearTask(SchedulerTask):
-        def __init__(self, target, message, channel):
-            self.channel = channel
-            self.message = message
-            self.target = target
-
-        def run(self):
-            self.target.hear(self.message, self.channel)
-
-    def __init__(self, scheduler):
-        self.scheduler = scheduler
+    def __init__(self):
         self.partner = None
         self.target = None
 
@@ -63,8 +53,7 @@ class Channel:
 
     def send(self, message):
         if self.target is not None:
-            task = self.HearTask(self.target, message, self.partner)
-            self.scheduler.schedule(task)#, 1/64)
+            self.target.hear(message, self.partner)
 
 class Sender:
     def send(self, message, channel):
@@ -134,8 +123,8 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.sender = self.Sender()
         self.thingy = Thingy3()
 
-        self.incoming = Channel(self.scheduler)
-        self.outgoing = Channel(self.scheduler)
+        self.incoming = Channel()
+        self.outgoing = Channel()
 
         self.userName = b"chuck"
         self.namespace = ""
