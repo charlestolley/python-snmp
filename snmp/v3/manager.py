@@ -852,6 +852,19 @@ class SNMPv3Manager3:
         else:
             if pdu.requestID != requestID:
                 raise IncomingMessageError("Unhelpful message")
+            elif message.header.flags.securityLevel < requestMessage.header.flags.securityLevel:
+                raise IncomingMessageError("Security Level")
+            elif message.scopedPDU.contextEngineID != engineID:
+                raise IncomingMessageError("Context Engine ID")
+            elif message.scopedPDU.contextName != requestMessage.scopedPDU.contextName:
+                raise IncomingMessageError("Context Name")
+            elif message.securityEngineID != engineID:
+                raise IncomingMessageError("Security Engine ID")
+            elif message.securityName.userName != requestMessage.securityName.userName:
+                raise IncomingMessageError("Security Name")
+            elif (requestMessage.header.flags.authFlag
+            and self.namespace not in message.securityName.namespaces):
+                raise IncomingMessageError("Namespace")
 
             self.setEngineID(
                 message.securityEngineID,
@@ -860,7 +873,14 @@ class SNMPv3Manager3:
 
             handle.push(pdu)
 
-    def makeRequest(self, pdu, userName=None, securityLevel=None, timeout=10.0, refreshPeriod=1.0):
+    def makeRequest(self,
+        pdu,
+        userName=None,
+        securityLevel=None,
+        context=b"",
+        timeout=10.0,
+        refreshPeriod=1.0,
+    ):
         if securityLevel is None:
             securityLevel = self.defaultSecurityLevel
 
@@ -879,7 +899,7 @@ class SNMPv3Manager3:
                     MessageFlags(securityLevel, True),
                     SecurityModel.USM,
                 ),
-                ScopedPDU(pdu, b""),
+                ScopedPDU(pdu, b"", context),
                 b"",
                 SecurityName(userName, self.namespace),
             )

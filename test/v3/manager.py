@@ -1693,13 +1693,319 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertRaises(Timeout, handle.wait)
         self.assertEqual(self.time(), 3.5)
 
-# TODO: If you delete a manager, make sure it releases all message IDs
-# TODO: Test a valid messageID that is matched with the wrong request
-# TODO: contextName
-# TODO: Test that messages are cancelled as needed
-#       - this applies to UnknownEngineID and NotInTimeWindow, but also when self.engineID is updated
+    def test_IncomingMessageError_if_response_securityLevel_is_too_low(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        oid = OID.parse("1.2.3.4.5.6")
+        varbind = VarBind(oid, Integer(123456))
+
+        handle = manager.get(oid, securityLevel=authNoPriv)
+        # TODO: Change exception type
+        self.assertRaises(
+            IncomingMessageError,
+            self.respond,
+            pcap.messages.pop(),
+            varbind,
+            noAuthNoPriv,
+        )
+
+        handle = manager.get(oid, securityLevel=authPriv)
+        # TODO: Change exception type
+        self.assertRaises(
+            IncomingMessageError,
+            self.respond,
+            pcap.messages.pop(),
+            varbind,
+            noAuthNoPriv,
+        )
+
+        handle = manager.get(oid, securityLevel=authPriv)
+        # TODO: Change exception type
+        self.assertRaises(
+            IncomingMessageError,
+            self.respond,
+            pcap.messages.pop(),
+            varbind,
+            authNoPriv,
+        )
+
+    def test_IncomingMessageError_if_requestID_does_not_match(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        requestID = 1757
+        if requestID == message.scopedPDU.pdu.requestID:
+            requestID += 1
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=requestID,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        # TODO: Change exception type
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
+    def test_IncomingMessageError_if_contextEngineID_does_not_match(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                b"wrong",
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        # TODO: Change exception type
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
+    def test_context_argument_is_used_for_the_scopedPDU_contextName(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", context=b"test case")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.scopedPDU.contextName, b"test case")
+
+    def test_IncomingMessageError_if_incoming_contextName_does_not_match(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", context=b"A")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                b"remote",
+                b"B",
+            ),
+            b"remote",
+            SecurityName(self.userName, self.namespace),
+        )
+
+        # TODO: Change exception type
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+        self.assertRaises(Timeout, handle.wait)
+
+    def test_IncomingMessageError_if_securityEngineID_does_not_match(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            b"wrong",
+            message.securityName,
+        )
+
+        # TODO: Change exception type
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
+    def test_IncomingMessageError_if_securityName_does_not_match(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            SecurityName(b"wrong", self.namespace),
+        )
+
+        # TODO: Change exception type
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
+    def test_namespace_does_not_matter_for_noAuth_requests(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            SecurityName(self.userName, "wrong"),
+        )
+
+        self.incoming.send(reply)
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 1)
+
+    def test_IncomingMessageError_if_namespace_does_not_match_for_auth_request(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            SecurityName(self.userName, "wrong"),
+        )
+
+        # TODO: Change exception type
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
+    def test_namespace_does_not_matter_for_noAuth_request_even_if_response_has_auth(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=message.scopedPDU.pdu.requestID,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            SecurityName(self.userName, "wrong"),
+        )
+
+        self.incoming.send(reply)
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 1)
+
 # TODO: Make a superclass to notify the user of relevant reports, with a
 #   sub-type for each USM error, as well as a generic Unhandled Report error type
+# TODO: Track which functions call the scheduler & watch for pre-emption
+# TODO: Test noAuth request confirmed engineID still refreshes with old engineID
+# TODO: autowait parameter
+
+# Fields in a message:
+# msgID
+# msgMaxSize
+# securityLevel
+# reportable
+# securityModel
+# requestID
+# oid list
+# contextEngineID
+# contextName
+# securityEngineID
+# userName
+# namespace
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
