@@ -1,3 +1,4 @@
+__all__ = ["SNMPv3Manager3Tester"]
 # TODO: Remove the 1/64 second delay from the Channel implementation
 # TODO: Use a Thingy that sends the discovery reply from within the hear() method
 # TODO: Check line lengths
