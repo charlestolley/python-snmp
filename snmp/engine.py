@@ -15,6 +15,7 @@ from snmp.v2c.requests import *
 from snmp.v3.interpreter import *
 from snmp.v3.manager import *
 from snmp.v3.requests import *
+from snmp.v3.manager import Thingy, SNMPv3Manager3
 
 Address = Tuple[str, int]
 
@@ -52,12 +53,13 @@ class Engine:
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
 
+        self.thingy = Thingy()
         self.v3_sorter = MessageSorter(SNMPv3Interpreter(self.usm))
         self.v3_secretary = SNMPv3RequestSecretary(self.v3_sorter, self.scheduler)
         self.v3_director = SNMPv3RequestDirector(self.v3_secretary, self.scheduler)
         self.v3_secretary.reportTo(self.v3_director)
-        self.v3_sorter.register(ReportPDU, self.v3_secretary)
-        self.v3_sorter.register(ResponsePDU, self.v3_secretary)
+        self.v3_sorter.register(ReportPDU, self.thingy)
+        self.v3_sorter.register(ResponsePDU, self.thingy)
 
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder)
@@ -136,14 +138,14 @@ class Engine:
                 namespace,
             )
 
-        return SNMPv3Manager(
-            self.v3_director,
-            self.usm,
+        return SNMPv3Manager3(
+            self.scheduler,
+            self.thingy,
+            self.v3_sorter,
             channel,
             namespace,
-            defaultUserName,
+            defaultUserName.encode(),
             defaultSecurityLevel,
-            autowait,
             engineID=engineID,
         )
 
@@ -157,7 +159,7 @@ class Engine:
     ) -> Union[
         SNMPv1Manager,
         SNMPv2cManager,
-        SNMPv3Manager,
+        SNMPv3Manager3,
     ]:
         if domain is None:
             domain = self.defaultDomain
