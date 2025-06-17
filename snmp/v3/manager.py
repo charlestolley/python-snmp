@@ -1,6 +1,8 @@
 __all__ = [
-    "RequestError", "AuthenticationFailure", "PrivacyFailure",
-    "TimeWindowFailure", "UnknownUserName", "UnsupportedSecurityLevel",
+    "RequestError",
+    "AuthenticationFailure", "PrivacyFailure", "TimeWindowFailure",
+    "UnknownUserName", "UnsupportedSecurityLevel",
+    "UnhandledReport",
 ]
 
 import collections
@@ -57,6 +59,13 @@ class UnsupportedSecurityLevel(RequestError):
             f" \"{user}\" does not support {securityLevel}."
 
         super().__init__(errmsg)
+
+class UnhandledReport(RequestError):
+    def __init__(self, varbind):
+        self.report = varbind
+        errmsg = "The remote engine raised a report that the manager" \
+            f" does not know how to handle: {varbind}"
+        super().__init__()
 
 # What is a request?
 # - a request is the basic unit of communication between two engines
@@ -545,6 +554,13 @@ class SNMPv3Manager3:
                         handle.expire()
                     else:
                         requestState.expireOnRefresh(engineID)
+            else:
+                handle.report(UnhandledReport(pdu.variableBindings[0]))
+
+                if message.header.flags.authFlag:
+                    handle.expire()
+                else:
+                    requestState.expireOnRefresh(engineID)
         else:
             if pdu.requestID != requestID:
                 raise IncomingMessageError("Unhelpful message")

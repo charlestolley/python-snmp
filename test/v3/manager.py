@@ -1694,6 +1694,48 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         self.assertRaises(Timeout, handle.wait)
         self.assertEqual(self.time(), 3.5)
 
+    def test_raise_UnhandledReport_on_next_refresh_after_noAuth_report(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=3/4)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        varbind = VarBind(OID.parse("1.3.5.7.9"), Integer(24))
+        self.report(message, varbind, noAuthNoPriv)
+
+        try:
+            handle.wait()
+        except UnhandledReport as err:
+            self.assertEqual(err.report, varbind)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.time(), 3/4)
+
+    def test_raise_UnhandledReport_immediately_after_auth_report(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=3/4)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        varbind = VarBind(OID.parse("1.3.5.7.9"), Integer(24))
+        self.report(message, varbind, authNoPriv)
+
+        try:
+            handle.wait()
+        except UnhandledReport as err:
+            self.assertEqual(err.report, varbind)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(self.time(), 1/4)
+
     def test_IncomingMessageError_if_response_securityLevel_is_too_low(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")
@@ -1988,8 +2030,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
 
-# TODO: Make a superclass to notify the user of relevant reports, with a
-#   sub-type for each USM error, as well as a generic Unhandled Report error type
 # TODO: Track which functions call the scheduler & watch for pre-emption
 # TODO: Test noAuth request confirmed engineID still refreshes with old engineID
 # TODO: autowait parameter
