@@ -2021,23 +2021,10 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
 
-# TODO: Track which functions call the scheduler & watch for pre-emption
 # TODO: Test noAuth request confirmed engineID still refreshes with old engineID
 # TODO: autowait parameter
-
-# Fields in a message:
-# msgID
-# msgMaxSize
-# securityLevel
-# reportable
-# securityModel
-# requestID
-# oid list
-# contextEngineID
-# contextName
-# securityEngineID
-# userName
-# namespace
+# TODO: ErrorResponse
+# TODO: VarBindList OIDs don't match
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -86,35 +86,11 @@ class NamespaceMismatch(ResponseError):
             f" Matched namespace(s): {matched_string}"
         super().__init__(errmsg)
 
-# What is a request?
-# - a request is the basic unit of communication between two engines
-# - every request or notification should have a unique request ID
 # What is a message?
 # A message is active until it expires
 # - it's possible to receive multiple replies to a message (?)
-# - every message is part of a request
-# - when the request is fulfilled, then the messages should be dropped
-# - there should only be one active message per request at any one time
-# - for an incoming message, you should look up the request ID
 # - a report message might have a 0 requestID, but otherwise it should match
-# What is a request handle?
-# - a request handle is the way to report the result of a request to the application
-# - The user calls "wait()", which can return a VarBindList, raise a Timeout, an
-#   ErrorStatus, or some other kind of error, indicating problems with authentication,
-#   or a mismatch between the requested OIDs and the contents of the response
-# - the handle should not be used to track any other state of the request
 #
-# A standard request should have a task scheduled to expire the handle after the timeout
-# It should have a second task scheduled to periodically expire the message and send a new one
-# A discovery request should have a task scheduled to periodically expire the message and send a new one
-# - once the last request expires, this task should be cancelled
-# The Director and Secretary should probably be merged into one
-# The manager opens a request, which allocates a request ID and creates a handle
-# - the handle has a callback to release the request ID
-# The manager creates a message for the request, and asks for it to be sent
-# - the sender allocates a new messageID, and stores a reference to the manager so it can call back to it when a reply comes in
-
-# TODO: Add withMessageID to HeaderData and SNMPv3Message
 # TODO: Add withEngineID to ScopedPDU and SNMPv3Message
 
 # Requests: The order only matters for setting discovery message refresh periods, and that's really not all that important
@@ -482,7 +458,6 @@ class SNMPv3Manager3:
             request.select(engineID)
             request.send(engineID, self)
 
-    # TODO: Send all requests in setEngineID and get rid of this method
     def discoveryCallback(self, engineID):
         self.discovery = None
         self.setEngineID(engineID, False)
