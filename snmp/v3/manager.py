@@ -508,7 +508,7 @@ class SNMPv3Manager3:
             requestID, engineID = self.mapping[messageID]
         except KeyError as err:
             errmsg = f"RequestID not found for message {messageID}"
-            raise IncomingMessageError(errmsg) from err
+            raise SNMPLibraryBug(errmsg) from err
 
         requestState = self.requests[requestID]
         handle = requestState.handle
@@ -516,6 +516,11 @@ class SNMPv3Manager3:
 
         pdu = message.scopedPDU.pdu
         if pdu.INTERNAL_CLASS:
+            if pdu.requestID != 0 and pdu.requestID != requestID:
+                raise IncomingMessageError("ReportPDU has the wrong requestID")
+            elif message.scopedPDU.contextName != b"" and message.scopedPDU.contextName != requestMessage.scopedPDU.contextName:
+                raise IncomingMessageError("Report message has the wrong contextName")
+
             if len(pdu.variableBindings) < 1:
                 raise IncomingMessageError("No OIDs in report")
 
