@@ -1,8 +1,8 @@
 __all__ = [
-    "RequestError",
+    "RequestError", "ResponseError",
     "AuthenticationFailure", "PrivacyFailure", "TimeWindowFailure",
-    "UnknownUserName", "UnsupportedSecurityLevel",
-    "UnhandledReport",
+    "UnknownUserName", "UnsupportedSecurityLevel", "UnhandledReport",
+    "InvalidResponseField", "NamespaceMismatch",
 ]
 
 import collections
@@ -22,6 +22,9 @@ from snmp.v3.requests import MessageIDAuthority, SNMPv3RequestHandle
 from snmp.utils import typename
 
 class RequestError(SNMPException):
+    pass
+
+class ResponseError(SNMPException):
     pass
 
 class AuthenticationFailure(RequestError):
@@ -66,6 +69,22 @@ class UnhandledReport(RequestError):
         errmsg = "The remote engine raised a report that the manager" \
             f" does not know how to handle: {varbind}"
         super().__init__()
+
+class InvalidResponseField(ResponseError):
+    def __init__(self, field_name, response_value, request_value):
+        errmsg = f"The {field_name} of the response ({response_value})" \
+            f" did not match the request ({request_value})."
+        super().__init__(errmsg)
+
+class NamespaceMismatch(ResponseError):
+    def __init__(self, matched, expected):
+        # Use double quotes (default string formatting uses single quotes)
+        matched_string = "[\"" + "\", \"".join(matched) + "\"]"
+
+        errmsg = f"The response message was successfully authenticated," \
+            f" but not under the expected namespace (\"{expected}\")." \
+            f" Matched namespace(s): {matched_string}"
+        super().__init__(errmsg)
 
 # What is a request?
 # - a request is the basic unit of communication between two engines
@@ -563,20 +582,47 @@ class SNMPv3Manager3:
                     requestState.expireOnRefresh(engineID)
         else:
             if pdu.requestID != requestID:
-                raise IncomingMessageError("Unhelpful message")
+                raise InvalidResponseField(
+                    "requestID",
+                    pdu.requestID,
+                    requestID,
+                )
             elif message.header.flags.securityLevel < requestMessage.header.flags.securityLevel:
-                raise IncomingMessageError("Security Level")
+                raise InvalidResponseField(
+                    "securityLevel",
+                    message.header.flags.securityLevel,
+                    requestMessage.header.flags.securityLevel,
+                )
             elif message.scopedPDU.contextEngineID != engineID:
-                raise IncomingMessageError("Context Engine ID")
+                raise InvalidResponseField(
+                    "contextEngineID",
+                    message.scopedPDU.contextEngineID,
+                    engineID,
+                )
             elif message.scopedPDU.contextName != requestMessage.scopedPDU.contextName:
-                raise IncomingMessageError("Context Name")
+                raise InvalidResponseField(
+                    "contextName",
+                    message.scopedPDU.contextName,
+                    requestMessage.scopedPDU.contextName,
+                )
             elif message.securityEngineID != engineID:
-                raise IncomingMessageError("Security Engine ID")
+                raise InvalidResponseField(
+                    "securityEngineID",
+                    message.securityEngineID,
+                    engineID,
+                )
             elif message.securityName.userName != requestMessage.securityName.userName:
-                raise IncomingMessageError("Security Name")
+                raise InvalidResponseField(
+                    "securityName",
+                    message.securityName.userName,
+                    requestMessage.securityName.userName,
+                )
             elif (requestMessage.header.flags.authFlag
             and self.namespace not in message.securityName.namespaces):
-                raise IncomingMessageError("Namespace")
+                raise NamespaceMismatch(
+                    message.securityName.namespaces,
+                    self.namespace,
+                )
 
             self.setEngineID(
                 message.securityEngineID,
