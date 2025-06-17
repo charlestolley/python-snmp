@@ -55,9 +55,6 @@ class Engine:
 
         self.thingy = Thingy()
         self.v3_sorter = MessageSorter(SNMPv3Interpreter(self.usm))
-        self.v3_secretary = SNMPv3RequestSecretary(self.v3_sorter, self.scheduler)
-        self.v3_director = SNMPv3RequestDirector(self.v3_secretary, self.scheduler)
-        self.v3_secretary.reportTo(self.v3_director)
         self.v3_sorter.register(ReportPDU, self.thingy)
         self.v3_sorter.register(ResponsePDU, self.thingy)
 
