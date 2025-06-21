@@ -144,6 +144,7 @@ class Engine:
             defaultUserName.encode(),
             defaultSecurityLevel,
             engineID=engineID,
+            autowait=autowait,
         )
 
     def Manager(self,

@@ -380,6 +380,7 @@ class SNMPv3Manager3:
         defaultUserName,
         defaultSecurityLevel,
         engineID,
+        autowait,
     ):
         self.channel = channel
         self.sender = sender
@@ -389,6 +390,7 @@ class SNMPv3Manager3:
         self.engineID = engineID
         self.namespace = namespace
 
+        self.autowait = autowait
         self.defaultUserName = defaultUserName
         self.defaultSecurityLevel = defaultSecurityLevel
 
@@ -613,9 +615,13 @@ class SNMPv3Manager3:
         userName=None,
         securityLevel=None,
         context=b"",
+        wait=None,
         timeout=10.0,
         refreshPeriod=1.0,
     ):
+        if wait is None:
+            wait = self.autowait
+
         if securityLevel is None:
             securityLevel = self.defaultSecurityLevel
 
@@ -660,7 +666,10 @@ class SNMPv3Manager3:
 
             handle.addCallback(self.onRequestClosed)
 
-        return handle
+        if wait:
+            return handle.wait()
+        else:
+            return handle
 
 # Manager needs:
 # - hear

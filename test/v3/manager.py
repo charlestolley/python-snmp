@@ -1,4 +1,4 @@
-__all__ = ["SNMPv3Manager3Tester"]
+__all__ = ["SNMPv3Manager3Test"]
 # TODO: Remove the 1/64 second delay from the Channel implementation
 # TODO: Use a Thingy that sends the discovery reply from within the hear() method
 # TODO: Check line lengths
@@ -111,7 +111,18 @@ class PacketCapture:
     def hear(self, message, channel):
         self.messages.append(message)
 
-class SNMPv3Manager3Tester(unittest.TestCase):
+class RespondTask(SchedulerTask):
+    def __init__(self, test, pcap, varbind):
+        self.pcap = pcap
+        self.test = test
+        self.varbind = varbind
+
+    def run(self):
+        message = self.pcap.messages.pop()
+        securityLevel = message.header.flags.securityLevel
+        self.test.respond(message, self.varbind, securityLevel)
+
+class SNMPv3Manager3Test(unittest.TestCase):
     class Sender:
         def send(self, message, channel):
             channel.send(message)
@@ -170,7 +181,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
             prev = now
 
-    def makeManager(self, securityLevel=noAuthNoPriv, engineID=None):
+    def makeManager(self, securityLevel=noAuthNoPriv, engineID=None, autowait=False):
         return SNMPv3Manager3(
             self.scheduler,
             self.thingy,
@@ -180,6 +191,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             self.userName,
             securityLevel,
             engineID,
+            autowait,
         )
 
     def makeReply(self, message, pdu, engineID, securityLevel=None):
@@ -2040,7 +2052,38 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
 
-# TODO: autowait parameter
+    def test_request_with_wait_raises_Timeout_if_there_is_no_response(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+        self.assertRaises(Timeout, manager.get, "1.2.3.4.5.6", wait=True)
+
+    def test_request_with_wait_returns_the_result_of_handle_wait(self):
+        pcap = self.connect(PacketCapture())
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        respondTask = RespondTask(self, pcap, varbind)
+        self.scheduler.schedule(respondTask, 1/4)
+
+        manager = self.makeManager(engineID=b"remote")
+        vblist = manager.get("1.2.3.4.5.6", wait=True)
+        self.assertEqual(vblist[0], varbind)
+        self.assertEqual(self.time(), 1/4)
+
+    def test_request_with_autowait_raises_Timeout_if_there_is_no_response(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote", autowait=True)
+        self.assertRaises(Timeout, manager.get, "1.2.3.4.5.6")
+
+    def test_request_with_autowait_returns_the_result_of_handle_wait(self):
+        pcap = self.connect(PacketCapture())
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        respondTask = RespondTask(self, pcap, varbind)
+        self.scheduler.schedule(respondTask, 1/4)
+
+        manager = self.makeManager(engineID=b"remote", autowait=True)
+        vblist = manager.get("1.2.3.4.5.6")
+        self.assertEqual(vblist[0], varbind)
+        self.assertEqual(self.time(), 1/4)
+
 # TODO: ErrorResponse
 # TODO: VarBindList OIDs don't match
 
