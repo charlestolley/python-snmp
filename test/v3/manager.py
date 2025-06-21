@@ -1,6 +1,4 @@
 __all__ = ["SNMPv3Manager3Test"]
-# TODO: Remove the 1/64 second delay from the Channel implementation
-# TODO: Use a Thingy that sends the discovery reply from within the hear() method
 # TODO: Check line lengths
 
 import unittest
@@ -488,7 +486,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         scopedPDU = message.scopedPDU
         self.assertEqual(scopedPDU.contextEngineID, b"remote")
-        #self.assertEqual(scopedPDU.contextName, b"???")
+        self.assertEqual(scopedPDU.contextName, b"")
 
         pdu = scopedPDU.pdu
         self.assertNotEqual(pdu.requestID, 0)
@@ -530,7 +528,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
             scopedPDU = message.scopedPDU
             self.assertEqual(scopedPDU.contextEngineID, b"remote")
-            #self.assertEqual(scopedPDU.contextName, b"???")
+            self.assertEqual(scopedPDU.contextName, b"")
 
             pdu = scopedPDU.pdu
             self.assertNotEqual(pdu.requestID, 0)
@@ -578,7 +576,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
             scopedPDU = message.scopedPDU
             self.assertEqual(scopedPDU.contextEngineID, b"remote")
-            #self.assertEqual(scopedPDU.contextName, b"???")
+            self.assertEqual(scopedPDU.contextName, b"")
 
             pdu = scopedPDU.pdu
             self.assertNotEqual(pdu.requestID, 0)
@@ -1454,7 +1452,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         scopedPDU = message.scopedPDU
         self.assertEqual(scopedPDU.contextEngineID, b"remote")
-        #self.assertEqual(scopedPDU.contextName, b"???")
+        self.assertEqual(scopedPDU.contextName, b"")
 
         pdu = scopedPDU.pdu
         self.assertEqual(pdu.requestID, handle.requestID)
@@ -2058,6 +2056,8 @@ class SNMPv3Manager3Test(unittest.TestCase):
 # TODO: ErrorResponse
 # TODO: VarBindList OIDs don't match
 # TODO: Verify handle ownership
+# TODO: Test getNext, getBulk, and set
+# TODO: Add withEngineID to ScopedPDU and SNMPv3Message
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

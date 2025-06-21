@@ -83,56 +83,6 @@ class NamespaceMismatch(IncomingMessageError):
             f" Matched namespace(s): {matched_string}"
         super().__init__(errmsg)
 
-# What is a message?
-# A message is active until it expires
-# - it's possible to receive multiple replies to a message (?)
-# - a report message might have a 0 requestID, but otherwise it should match
-#
-# TODO: Add withEngineID to ScopedPDU and SNMPv3Message
-
-# Requests: The order only matters for setting discovery message refresh periods, and that's really not all that important
-# Perhaps the discovery request should just permanently use the refreshPeriod of the first request. Either way, it doesn't matter, as this is a nearly irrelevant use-case. Most people won't use the refreshPeriod argument, and they are not likely to care what refreshPeriod it uses if everything times out.
-# For each request, spawn a message dispatch task, with the right period. Each time a message is sent, it should expire the old message. There should not be a dedicated message expire task; the send task should probably expire the old message, somehow.
-# Is the discovery request just like any other request? Maybe, except it does not have a timeout. It expires when the last unsent request expires.
-
-# For a message, the following needs to match:
-# - message ID
-# For a report
-# - match it up using the message ID
-# For a response
-# - match it up using pdu.requestID
-# Reject the response if the following don't match
-# - securityModel
-# - header.flags.authFlag
-# - header.flags.privFlag
-# - securityEngineID
-# - securityName.userName
-# - namespace not in securityName.namespaces
-# Raise an exception in handle.wait() if
-# - errorStatus is non-zero
-# - the layout of the VarBindList does not match the request
-#   - you should be able to turn off this behavior
-#SNMPv3Message(
-#    HeaderData(
-#        msgID,
-#        maxSize,
-#        flags,
-#        securityModel,
-#    ),
-#    ScopedPDU(
-#        pdu,
-#        contextEngineID,
-#        contextName,
-#    ),
-#    securityEngineID,
-#    securityName,
-#)
-
-# Make something that handles messages, so it can correlate replies to their messages
-# It will have a task to refresh discovery
-# But the discovery message should be tied to a request handle for a real request
-# and if that request is expired, then the refresh task will need to trigger a new discovery request
-
 class Thingy:
     def __init__(self):
         self.authority = MessageIDAuthority()
@@ -246,17 +196,6 @@ class DiscoveryHandler:
 
     def onHandleDeactivate(self, requestID):
         self.stopDiscovery()
-
-# DiscoveryHandler just needs handles and refreshPeriods
-# RequestsHandler should have a save function, and then a way to send all
-# When an Unknown Engine ID report comes in, it needs to call back to the
-# manager to set the engineID, and then a way to cancel and re-send all
-# requests with the new requestID.
-# However, for now, it's easier if we just assume that an engineID can
-# never change after it's been initially configured.
-# In that case, we need to keep track of the messageID that carries each
-# request, and when a message comes in, we find the request handle using
-# the messageID, but then confirm that the requestID matches as well
 
 class SNMPv3Manager3:
     class ExpireTask(SchedulerTask):
@@ -460,11 +399,6 @@ class SNMPv3Manager3:
     def discoveryCallback(self, engineID):
         self.discovery = None
         self.setEngineID(engineID, False)
-
-# Each SendTask has one messageID at a time
-# The manager should have a cancel message function, which releases the messageID
-# The sendMessage should return the messageID, so the SendTask can store it
-# But we also need a way to find the SendTask for a messageID
 
     def allocateMessage(self, requestID, engineID):
         messageID = self.thingy.reserveMessageID(self)
@@ -676,19 +610,6 @@ class SNMPv3Manager3:
         else:
             return handle
 
-# Manager needs:
-# - hear
-# - onRequestClosed
-#   - call releaseMessageID
-# - sendRequest
-#   - call reserveMessageID
-# - RefreshTask(handle, manager)
-#   - call sendRequest (if handle is active)
-#   - return self
-# Thingy needs:
-# - reserveMessageID(manager)
-# - releaseMessageID(messageID)
-
     def get(self, *oids, **kwargs):
         pdu = GetRequestPDU(*oids)
         return self.makeRequest(pdu, **kwargs)
@@ -704,38 +625,3 @@ class SNMPv3Manager3:
     def set(self, *varbinds, **kwargs):
         pdu = SetRequestPDU(*(VarBind(*vb) for vb in varbinds))
         return self.makeRequest(pdu, **kwargs)
-
-# Problems:
-# The thingy needs to know what messages are outstanding
-# When a message expires, its messageID needs to be deallocated
-# Options:
-# The manager creates a recurring task to send the message
-# - every period, it calls sendMessage, which allocates a requestID, and sends the message over the channel
-# A message should be closed when the request that owns it is closed
-# A message should be closed as the next message of the same request is opened
-# The manager holds the channel, so maybe the manager should send it
-# The thingy is the point where all replies are received
-# openMessage(message)
-# - return a copy with the newly reserved message ID
-# renewMessage(message)
-# - release the old message ID and reserve a new one
-# - return a copy with the new message ID
-# closeMessage(message)
-# - release the message ID
-# The task would
-# - Call the manger to service the request with the given requestID
-# - all it needs is the handle (weakref) and the manager
-# The manager would have a method like, "sendRequest(requestID)"
-# - perhaps the open and renew message methods are the same, but with a special case for
-#   when the message ID is zero
-# Add a callback to the request handle to close the message for its request ID
-# - this callback would be to the manager
-# Manager needs a dict of requestID -> message
-# Thingy needs a dict of messageID -> manager
-# RefreshTask needs a requestHandle (weak reference) and a manger (strong reference)
-# Manager has a thingy reference
-# Thingy has a weak manager reference (WeakValueDictionary)
-# The request handle keeps the manager alive, the manager keeps the thingy alive,
-# but if the request handle and the manager are dropped, the thingy drops the manager
-# - if that happens, how does the message ID get released?
-# - the request handle has a callback to the manager, which closes the active message
