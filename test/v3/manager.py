@@ -1719,6 +1719,39 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.assertEqual(self.time(), 1/4)
 
+    def test_IncomingMessageError_if_requestID_does_not_match(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        requestID = 1757
+        if requestID == message.scopedPDU.pdu.requestID:
+            requestID += 1
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(authNoPriv),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    VarBind("1.2.3.4.5.6", Integer(123456)),
+                    requestID=requestID,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
     def test_IncomingMessageError_if_response_securityLevel_is_too_low(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")
@@ -1752,39 +1785,6 @@ class SNMPv3Manager3Test(unittest.TestCase):
             varbind,
             authNoPriv,
         )
-
-    def test_IncomingMessageError_if_requestID_does_not_match(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(authNoPriv, engineID=b"remote")
-
-        handle = manager.get("1.2.3.4.5.6")
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        requestID = 1757
-        if requestID == message.scopedPDU.pdu.requestID:
-            requestID += 1
-
-        reply = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(authNoPriv),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    VarBind("1.2.3.4.5.6", Integer(123456)),
-                    requestID=requestID,
-                ),
-                message.scopedPDU.contextEngineID,
-                message.scopedPDU.contextName,
-            ),
-            message.securityEngineID,
-            message.securityName,
-        )
-
-        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
 
     def test_IncomingMessageError_if_contextEngineID_does_not_match(self):
         pcap = self.connect(PacketCapture())
@@ -2036,8 +2036,28 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(vblist[0], varbind)
         self.assertEqual(self.time(), 1/4)
 
+    def test_IncomingMessageError_if_request_handle_has_been_deactivated(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind, noAuthNoPriv)
+
+        self.assertRaisesRegex(
+            IncomingMessageError,
+            "[Rr]equest",
+            self.respond,
+            message,
+            varbind,
+            noAuthNoPriv,
+        )
+
 # TODO: ErrorResponse
 # TODO: VarBindList OIDs don't match
+# TODO: Verify handle ownership
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -484,7 +484,12 @@ class SNMPv3Manager3:
             errmsg = f"RequestID not found for message {messageID}"
             raise SNMPLibraryBug(errmsg) from err
 
-        requestState = self.requests[requestID]
+        try:
+            requestState = self.requests[requestID]
+        except KeyError as err:
+            errmsg = f"Request {requestID} is no longer active"
+            raise IncomingMessageError(errmsg) from err
+
         handle = requestState.handle
         requestMessage = requestState.message
 
