@@ -56,54 +56,6 @@ class Channel:
         if self.target is not None:
             self.target.hear(message, self.partner)
 
-class Sender:
-    def send(self, message, channel):
-        channel.send(message)
-
-class ThingyTemplate:
-    def __init__(self, test, engineID):
-        self.engineID = engineID
-        self.test = test
-        self.passed = False
-
-    def makeReply(self, message, pdu, securityLevel=None):
-        if securityLevel is None:
-            securityLevel = message.header.flags.securityLevel
-
-        return SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(securityLevel),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                pdu.withRequestID(message.scopedPDU.pdu.requestID),
-                self.engineID,
-                message.scopedPDU.contextName,
-            ),
-            self.engineID,
-            message.securityName,
-        )
-
-    def expectDiscovery(self, message):
-        self.test.assertFalse(message.header.flags.authFlag)
-        self.test.assertTrue(message.header.flags.reportableFlag)
-        self.test.assertEqual(message.scopedPDU.contextEngineID, b"")
-        self.test.assertEqual(message.securityEngineID, b"")
-        self.test.assertEqual(message.securityName.userName, b"")
-
-        pdu = message.scopedPDU.pdu
-        self.test.assertNotEqual(pdu.requestID, 0)
-        self.test.assertEqual(pdu.withRequestID(0), GetRequestPDU())
-
-        oid = "1.3.6.1.6.3.15.1.1.4.0"
-        value = Counter32(1)
-        return self.makeReply(message, ReportPDU(VarBind(oid, value)))
-
-    def hear(self, message, channel):
-        raise NotImplemented()
-
 class PacketCapture:
     def __init__(self):
         self.messages = []
