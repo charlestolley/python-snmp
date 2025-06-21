@@ -1736,7 +1736,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.assertEqual(self.time(), 1/4)
 
-    def test_InvalidResponseField_if_response_securityLevel_is_too_low(self):
+    def test_IncomingMessageError_if_response_securityLevel_is_too_low(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")
 
@@ -1745,7 +1745,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         handle = manager.get(oid, securityLevel=authNoPriv)
         self.assertRaises(
-            InvalidResponseField,
+            IncomingMessageError,
             self.respond,
             pcap.messages.pop(),
             varbind,
@@ -1754,7 +1754,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         handle = manager.get(oid, securityLevel=authPriv)
         self.assertRaises(
-            InvalidResponseField,
+            IncomingMessageError,
             self.respond,
             pcap.messages.pop(),
             varbind,
@@ -1763,14 +1763,14 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         handle = manager.get(oid, securityLevel=authPriv)
         self.assertRaises(
-            InvalidResponseField,
+            IncomingMessageError,
             self.respond,
             pcap.messages.pop(),
             varbind,
             authNoPriv,
         )
 
-    def test_InvalidResponseField_if_requestID_does_not_match(self):
+    def test_IncomingMessageError_if_requestID_does_not_match(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1801,9 +1801,9 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             message.securityName,
         )
 
-        self.assertRaises(InvalidResponseField, self.incoming.send, reply)
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
 
-    def test_InvalidResponseField_if_contextEngineID_does_not_match(self):
+    def test_IncomingMessageError_if_contextEngineID_does_not_match(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1830,7 +1830,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             message.securityName,
         )
 
-        self.assertRaises(InvalidResponseField, self.incoming.send, reply)
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
 
     def test_context_argument_is_used_for_the_scopedPDU_contextName(self):
         pcap = self.connect(PacketCapture())
@@ -1842,7 +1842,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.assertEqual(message.scopedPDU.contextName, b"test case")
 
-    def test_InvalidResponseField_if_incoming_contextName_does_not_match(self):
+    def test_IncomingMessageError_if_incoming_contextName_does_not_match(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1869,10 +1869,10 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             SecurityName(self.userName, self.namespace),
         )
 
-        self.assertRaises(InvalidResponseField, self.incoming.send, reply)
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
         self.assertRaises(Timeout, handle.wait)
 
-    def test_InvalidResponseField_if_securityEngineID_does_not_match(self):
+    def test_IncomingMessageError_if_securityEngineID_does_not_match(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1899,9 +1899,9 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             message.securityName,
         )
 
-        self.assertRaises(InvalidResponseField, self.incoming.send, reply)
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
 
-    def test_InvalidResponseField_if_securityName_does_not_match(self):
+    def test_IncomingMessageError_if_securityName_does_not_match(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1928,7 +1928,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             SecurityName(b"wrong", self.namespace),
         )
 
-        self.assertRaises(InvalidResponseField, self.incoming.send, reply)
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
 
     def test_namespace_does_not_matter_for_noAuth_requests(self):
         pcap = self.connect(PacketCapture())
@@ -1961,7 +1961,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
 
-    def test_NamespaceMismatch_if_namespace_does_not_match_for_auth_request(self):
+    def test_IncomingMessageError_if_namespace_does_not_match_for_auth_request(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
@@ -1988,7 +1988,7 @@ class SNMPv3Manager3Tester(unittest.TestCase):
             SecurityName(self.userName, "wrong"),
         )
 
-        self.assertRaises(NamespaceMismatch, self.incoming.send, reply)
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
 
     def test_namespace_does_not_matter_for_noAuth_request_even_if_response_has_auth(self):
         pcap = self.connect(PacketCapture())

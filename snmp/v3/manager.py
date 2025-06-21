@@ -1,5 +1,5 @@
 __all__ = [
-    "RequestError", "ResponseError",
+    "RequestError",
     "AuthenticationFailure", "PrivacyFailure", "TimeWindowFailure",
     "UnknownUserName", "UnsupportedSecurityLevel", "UnhandledReport",
     "InvalidResponseField", "NamespaceMismatch",
@@ -22,9 +22,6 @@ from snmp.v3.requests import MessageIDAuthority, SNMPv3RequestHandle
 from snmp.utils import typename
 
 class RequestError(SNMPException):
-    pass
-
-class ResponseError(SNMPException):
     pass
 
 class AuthenticationFailure(RequestError):
@@ -70,13 +67,13 @@ class UnhandledReport(RequestError):
             f" does not know how to handle: {varbind}"
         super().__init__()
 
-class InvalidResponseField(ResponseError):
+class InvalidResponseField(IncomingMessageError):
     def __init__(self, field_name, response_value, request_value):
         errmsg = f"The {field_name} of the response ({response_value})" \
             f" did not match the request ({request_value})."
         super().__init__(errmsg)
 
-class NamespaceMismatch(ResponseError):
+class NamespaceMismatch(IncomingMessageError):
     def __init__(self, matched, expected):
         # Use double quotes (default string formatting uses single quotes)
         matched_string = "[\"" + "\", \"".join(matched) + "\"]"
