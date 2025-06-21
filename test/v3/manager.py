@@ -1235,6 +1235,25 @@ class SNMPv3Manager3Tester(unittest.TestCase):
 
         self.assertEqual(message.securityEngineID, b"different")
 
+    def test_noAuth_request_confirmed_engineID_still_refreshes_with_old_engineID_after_UnknownEngineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        self.discover(manager, pcap, b"remote", True)
+
+        handle = manager.get("1.2.3.4.5.6", refreshPeriod=3/4)
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/4))
+        self.reportUnknownEngineID(message, b"different")
+        self.assertEqual(len(pcap.messages), 1)
+        _ = pcap.messages.pop()
+
+        self.wait(self.interrupt(1/2))
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        self.assertEqual(message.securityEngineID, b"remote")
+
     def test_noAuth_request_confirmed_engineID_a_new_request_sent_after_receiving_an_UnknownEngineID_still_uses_the_old_engineID(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager()
@@ -2021,7 +2040,6 @@ class SNMPv3Manager3Tester(unittest.TestCase):
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
 
-# TODO: Test noAuth request confirmed engineID still refreshes with old engineID
 # TODO: autowait parameter
 # TODO: ErrorResponse
 # TODO: VarBindList OIDs don't match
