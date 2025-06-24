@@ -244,6 +244,9 @@ class ScopedPDU(Sequence):
             f"{self.pdu.toString(depth=depth+1, tab=tab)}"
         ))
 
+    def withContextEngineID(self, engineID: bytes) -> "ScopedPDU":
+        return ScopedPDU(self.pdu, engineID, self.contextName)
+
     @classmethod
     def deserialize(cls, data: Union[bytes, subbytes]) -> "ScopedPDU":
         contextEngineID, data   = OctetString.decode(data)
@@ -308,6 +311,14 @@ class SNMPv3Message:
             f"{subindent}Security Name: {self.securityName.userName}",
             self.scopedPDU.toString(depth+1, tab),
         ))
+
+    def withEngineID(self, engineID) -> "SNMPv3Message":
+        return SNMPv3Message(
+            self.header,
+            self.scopedPDU.withContextEngineID(engineID),
+            engineID,
+            self.securityName,
+        )
 
     def withMessageID(self, messageID) -> "SNMPv3Message":
         return SNMPv3Message(
