@@ -244,18 +244,9 @@ class SNMPv3Manager3:
 
                 self.messageID = self.manager.allocateMessage(handle.requestID, self.engineID)
 
-                message = self.manager.requests[handle.requestID].message
-
-                message = SNMPv3Message(
-                    message.header.withMessageID(self.messageID),
-                    ScopedPDU(
-                        message.scopedPDU.pdu,
-                        self.engineID,
-                        message.scopedPDU.contextName,
-                    ),
-                    self.engineID,
-                    message.securityName,
-                )
+                message = self.manager.requests[handle.requestID].message \
+                    .withMessageID(self.messageID) \
+                    .withEngineID(self.engineID)
 
                 self.manager.sender.send(message, self.manager.channel)
                 return self
