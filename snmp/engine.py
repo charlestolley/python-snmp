@@ -15,7 +15,6 @@ from snmp.v2c.requests import *
 from snmp.v3.interpreter import *
 from snmp.v3.manager import *
 from snmp.v3.requests import *
-from snmp.v3.manager import Thingy, SNMPv3Manager3
 
 Address = Tuple[str, int]
 
@@ -135,7 +134,7 @@ class Engine:
                 namespace,
             )
 
-        return SNMPv3Manager3(
+        return SNMPv3Manager(
             self.scheduler,
             self.thingy,
             self.v3_sorter,
@@ -157,7 +156,7 @@ class Engine:
     ) -> Union[
         SNMPv1Manager,
         SNMPv2cManager,
-        SNMPv3Manager3,
+        SNMPv3Manager,
     ]:
         if domain is None:
             domain = self.defaultDomain

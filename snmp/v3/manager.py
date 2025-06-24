@@ -3,6 +3,7 @@ __all__ = [
     "AuthenticationFailure", "PrivacyFailure", "TimeWindowFailure",
     "UnknownUserName", "UnsupportedSecurityLevel", "UnhandledReport",
     "InvalidResponseField", "NamespaceMismatch",
+    "SNMPv3Manager", "Thingy",
 ]
 
 import collections
@@ -197,7 +198,7 @@ class DiscoveryHandler:
     def onHandleDeactivate(self, requestID):
         self.stopDiscovery()
 
-class SNMPv3Manager3:
+class SNMPv3Manager:
     class ExpireTask(SchedulerTask):
         def __init__(self, handle):
             self.handle_ref = weakref.ref(handle)

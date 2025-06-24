@@ -14,7 +14,6 @@ from snmp.scheduler import *
 from snmp.v3.manager import *
 from snmp.v3.message import *
 from snmp.v3.requests import *
-from snmp.v3.manager import Thingy, SNMPv3Manager3
 
 class TimeFunction:
     def __init__(self):
@@ -132,7 +131,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
             prev = now
 
     def makeManager(self, securityLevel=noAuthNoPriv, engineID=None, autowait=False):
-        return SNMPv3Manager3(
+        return SNMPv3Manager(
             self.scheduler,
             self.thingy,
             self.sender,
