@@ -352,7 +352,7 @@ class HeaderDataTest(unittest.TestCase):
     def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         self.assertEqual(eval(repr(self.header)), self.header)
 
-    def test_withMessageID_returns_the_same_header_with_msgID_changed(self):
+    def test_withMessageID_returns_identical_header_with_msgID_changed(self):
         maxSize = 1492
         flags = MessageFlags(authNoPriv, True)
         model = SecurityModel.USM
@@ -360,6 +360,7 @@ class HeaderDataTest(unittest.TestCase):
         header = HeaderData(0, maxSize, flags, model)
         newHeader = header.withMessageID(2319)
 
+        self.assertEqual(header.msgID, 0)
         self.assertEqual(newHeader.msgID, 2319)
         self.assertEqual(newHeader.maxSize, maxSize)
         self.assertEqual(newHeader.flags, flags)
@@ -721,7 +722,7 @@ class SNMPv3WireMessageTest(unittest.TestCase):
             self.encryptedMessage,
         )
 
-    def test_withMessageID_returns_the_same_message_with_msgID_changed(self):
+    def test_withMessageID_returns_identical_message_with_msgID_changed(self):
         header = HeaderData(
             0,
             1492,
@@ -747,8 +748,26 @@ class SNMPv3WireMessageTest(unittest.TestCase):
         message = SNMPv3Message(header, scopedPDU, engineID, securityName)
         newMessage = message.withMessageID(2418)
 
-        self.assertEqual(newMessage.header, header.withMessageID(2418))
-        self.assertEqual(newMessage.scopedPDU, scopedPDU)
+        self.assertEqual(message.header.msgID, 0)
+        self.assertEqual(newMessage.header.msgID, 2418)
+        self.assertEqual(newMessage.header.maxSize, 1492)
+        self.assertEqual(newMessage.header.flags, MessageFlags(reportable=True))
+        self.assertEqual(newMessage.header.securityModel, SecurityModel.USM)
+
+        self.assertEqual(
+            newMessage.scopedPDU.pdu,
+            GetBulkRequestPDU(
+                "1.3.6.1.2.1.1.1",
+                "1.3.6.1.2.1.2.2.1.2",
+                nonRepeaters=1,
+                maxRepetitions=5,
+                requestID=64,
+            ),
+        )
+
+        self.assertEqual(newMessage.scopedPDU.contextEngineID, engineID)
+        self.assertEqual(newMessage.scopedPDU.contextName, b"context")
+
         self.assertEqual(newMessage.securityEngineID, engineID)
         self.assertEqual(newMessage.securityName, securityName)
 
