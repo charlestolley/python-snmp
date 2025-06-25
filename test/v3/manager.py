@@ -68,8 +68,7 @@ class RespondTask(SchedulerTask):
 
     def run(self):
         message = self.pcap.messages.pop()
-        securityLevel = message.header.flags.securityLevel
-        self.test.respond(message, self.varbind, securityLevel)
+        self.test.respond(message, self.varbind)
 
 class SNMPv3Manager3Test(unittest.TestCase):
     class Sender:
@@ -182,8 +181,12 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.incoming.send(reply)
 
-    def respond(self, message, varbind, securityLevel):
-        requestID = message.scopedPDU.pdu.requestID
+    def respond(self, message, *varbinds, securityLevel=None, **kwargs):
+        if securityLevel is None:
+            securityLevel = message.header.flags.securityLevel
+
+        kwargs.setdefault("requestID", message.scopedPDU.pdu.requestID)
+
         reply = SNMPv3Message(
             HeaderData(
                 message.header.msgID,
@@ -192,7 +195,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
                 message.header.securityModel,
             ),
             ScopedPDU(
-                ResponsePDU(varbind, requestID=requestID),
+                ResponsePDU(*varbinds, **kwargs),
                 message.scopedPDU.contextEngineID,
                 message.scopedPDU.contextName,
             ),
@@ -281,7 +284,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         message = pcap.messages.pop()
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, SecurityLevel(auth))
+        self.respond(message, varbind, securityLevel=SecurityLevel(auth))
 
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
@@ -778,23 +781,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        self.incoming.send(SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                1472,
-                MessageFlags(message.header.flags.securityLevel),
-                SecurityModel.USM,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    VarBind("1.2.3.4.5.6", Integer(123456)),
-                    requestID=message.scopedPDU.pdu.requestID,
-                ),
-                b"remote",
-            ),
-            b"remote",
-            SecurityName(self.userName, self.namespace),
-        ))
+        self.respond(message, VarBind("1.2.3.4.5.6", Integer(123456)))
 
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
@@ -899,7 +886,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(len(pcap.messages), 1)
         _ = pcap.messages.pop()
 
-        self.respond(m1, VarBind("1.2.3.4.5.6", Integer(123456)), noAuthNoPriv)
+        self.respond(m1, VarBind("1.2.3.4.5.6", Integer(123456)))
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
@@ -926,7 +913,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.wait(self.interrupt(1/8))
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, noAuthNoPriv)
+        self.respond(message, varbind)
         self.assertEqual(len(pcap.messages), 1)
         _ = pcap.messages.pop()
 
@@ -958,7 +945,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.wait(self.interrupt(1/8))
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(m1, varbind, noAuthNoPriv)
+        self.respond(m1, varbind)
         self.assertEqual(len(pcap.messages), 1)
         _ = pcap.messages.pop()
 
@@ -993,7 +980,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.wait(self.interrupt(1/8))
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(m1, varbind, noAuthNoPriv)
+        self.respond(m1, varbind)
         self.assertEqual(len(pcap.messages), 0)
 
         self.wait(self.interrupt(3/8))
@@ -1019,7 +1006,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.wait(self.interrupt(1/8))
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, noAuthNoPriv)
+        self.respond(message, varbind)
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
@@ -1043,7 +1030,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.wait(self.interrupt(1/8))
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, noAuthNoPriv)
+        self.respond(message, varbind)
         vblist = handle.wait()
 
         handle = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
@@ -1149,7 +1136,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         _ = pcap.messages.pop()
 
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, authNoPriv)
+        self.respond(message, varbind)
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
@@ -1172,7 +1159,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.wait(self.interrupt(1/8))
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, authNoPriv)
+        self.respond(message, varbind)
         vblist = handle.wait()
 
         handle = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
@@ -1252,7 +1239,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         _ = pcap.messages.pop()
 
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, noAuthNoPriv)
+        self.respond(message, varbind)
         self.assertEqual(len(pcap.messages), 0)
 
     def test_noAuth_request_confirmed_engineID_requests_sent_after_a_response_with_a_different_engineID_is_accepted_use_the_old_engineID(self):
@@ -1269,7 +1256,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, noAuthNoPriv)
+        self.respond(message, varbind)
         _ = h1.wait()
 
         manager.get("1.3.6.1.2.1.1.1.0")
@@ -1375,7 +1362,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         _ = pcap.messages.pop()
 
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, authNoPriv)
+        self.respond(message, varbind)
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
@@ -1398,7 +1385,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.wait(self.interrupt(1/8))
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, authNoPriv)
+        self.respond(message, varbind)
         vblist = handle.wait()
 
         handle = manager.get("1.3.6.1.2.1.1.1.0", refreshPeriod=1/2)
@@ -1728,26 +1715,13 @@ class SNMPv3Manager3Test(unittest.TestCase):
         if requestID == message.scopedPDU.pdu.requestID:
             requestID += 1
 
-        reply = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(authNoPriv),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    VarBind("1.2.3.4.5.6", Integer(123456)),
-                    requestID=requestID,
-                ),
-                message.scopedPDU.contextEngineID,
-                message.scopedPDU.contextName,
-            ),
-            message.securityEngineID,
-            message.securityName,
+        self.assertRaises(
+            IncomingMessageError,
+            self.respond,
+            message,
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            requestID=requestID,
         )
-
-        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
 
     def test_IncomingMessageError_if_response_securityLevel_is_too_low(self):
         pcap = self.connect(PacketCapture())
@@ -1762,7 +1736,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
             self.respond,
             pcap.messages.pop(),
             varbind,
-            noAuthNoPriv,
+            securityLevel=noAuthNoPriv,
         )
 
         handle = manager.get(oid, securityLevel=authPriv)
@@ -1771,7 +1745,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
             self.respond,
             pcap.messages.pop(),
             varbind,
-            noAuthNoPriv,
+            securityLevel=noAuthNoPriv,
         )
 
         handle = manager.get(oid, securityLevel=authPriv)
@@ -1780,7 +1754,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
             self.respond,
             pcap.messages.pop(),
             varbind,
-            authNoPriv,
+            securityLevel=authNoPriv,
         )
 
     def test_IncomingMessageError_if_contextEngineID_does_not_match(self):
@@ -2041,7 +2015,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         message = pcap.messages.pop()
 
         varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind, noAuthNoPriv)
+        self.respond(message, varbind)
 
         self.assertRaisesRegex(
             IncomingMessageError,
@@ -2049,7 +2023,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
             self.respond,
             message,
             varbind,
-            noAuthNoPriv,
+            securityLevel=noAuthNoPriv,
         )
 
     def test_handle_raises_ErrorResponse_if_errorStatus_is_nonzero(self):
@@ -2059,28 +2033,12 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        reply = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(message.header.flags.securityLevel),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    errorStatus=ErrorStatus.noAccess,
-                    errorIndex=1,
-                    requestID=message.scopedPDU.pdu.requestID,
-                    variableBindings=message.scopedPDU.pdu.variableBindings,
-                ),
-                message.scopedPDU.contextEngineID,
-                message.scopedPDU.contextName,
-            ),
-            message.securityEngineID,
-            message.securityName,
+        self.respond(
+            message,
+            message.scopedPDU.pdu.variableBindings[0],
+            errorStatus=ErrorStatus.noAccess,
+            errorIndex=1,
         )
-
-        self.incoming.send(reply)
 
         try:
             handle.wait()
@@ -2097,28 +2055,12 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        reply = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(message.header.flags.securityLevel),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    errorStatus=ErrorStatus.tooBig,
-                    errorIndex=0,
-                    requestID=message.scopedPDU.pdu.requestID,
-                    variableBindings=message.scopedPDU.pdu.variableBindings,
-                ),
-                message.scopedPDU.contextEngineID,
-                message.scopedPDU.contextName,
-            ),
-            message.securityEngineID,
-            message.securityName,
+        self.respond(
+            message,
+            message.scopedPDU.pdu.variableBindings[0],
+            errorStatus=ErrorStatus.tooBig,
+            errorIndex=0,
         )
-
-        self.incoming.send(reply)
 
         try:
             handle.wait()
@@ -2134,28 +2076,12 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
-        reply = SNMPv3Message(
-            HeaderData(
-                message.header.msgID,
-                message.header.maxSize,
-                MessageFlags(message.header.flags.securityLevel),
-                message.header.securityModel,
-            ),
-            ScopedPDU(
-                ResponsePDU(
-                    errorStatus=ErrorStatus.noAccess,
-                    errorIndex=2,
-                    requestID=message.scopedPDU.pdu.requestID,
-                    variableBindings=message.scopedPDU.pdu.variableBindings,
-                ),
-                message.scopedPDU.contextEngineID,
-                message.scopedPDU.contextName,
-            ),
-            message.securityEngineID,
-            message.securityName,
+        self.respond(
+            message,
+            message.scopedPDU.pdu.variableBindings[0],
+            errorStatus=ErrorStatus.noAccess,
+            errorIndex=2,
         )
-
-        self.incoming.send(reply)
 
         try:
             handle.wait()
