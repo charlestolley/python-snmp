@@ -198,110 +198,110 @@ class DiscoveryHandler:
     def onHandleDeactivate(self, requestID):
         self.stopDiscovery()
 
+class ExpireTask(SchedulerTask):
+    def __init__(self, handle):
+        self.handle_ref = weakref.ref(handle)
+
+    def run(self):
+        handle = self.handle_ref()
+
+        if handle is not None:
+            handle.expire()
+
+class SendTask(SchedulerTask):
+    def __init__(self, handle, engineID, manager):
+        self.cancelled = False
+        self.exception = False
+        self.messageID = 0
+
+        self.engineID = engineID
+        self.handle_ref = weakref.ref(handle)
+        self.manager = manager
+
+    def cancel(self):
+        self.cancelled = True
+
+    def raiseException(self):
+        self.exception = True
+
+    def run(self):
+        if self.messageID != 0:
+            self.manager.deallocateMessage(self.messageID)
+            self.messageID = 0
+
+        if self.cancelled:
+            return None
+
+        handle = self.handle_ref()
+
+        if handle is None or not handle.active():
+            return None
+
+        if self.exception:
+            handle.expire()
+            return None
+
+        self.messageID = self.manager.allocateMessage(handle.requestID, self.engineID)
+
+        message = self.manager.requests[handle.requestID].message \
+            .withMessageID(self.messageID) \
+            .withEngineID(self.engineID)
+
+        self.manager.sender.send(message, self.manager.channel)
+        return self
+
+class RequestState:
+    def __init__(self, handle, message, refreshPeriod):
+        self.handle_ref = weakref.ref(handle)
+        self.message = message
+        self.refreshPeriod = refreshPeriod
+
+        self.cancelled = {}
+        self.tasks = {}
+
+    @property
+    def handle(self):
+        handle = self.handle_ref()
+
+        if handle is None:
+            raise SNMPLibraryBug("Request State was not dropped"
+                " when the request handle deactivated")
+
+        return handle
+
+    def cancel(self, engineID):
+        if engineID in self.cancelled:
+            return False
+
+        task = self.tasks.pop(engineID)
+        task.cancel()
+        self.cancelled[engineID] = task
+        return True
+
+    def expireOnRefresh(self, engineID):
+        self.tasks[engineID].raiseException()
+
+    def resend(self, engineID, manager):
+        if engineID in self.tasks:
+            self.tasks[engineID].cancel()
+            del self.tasks[engineID]
+
+        self.send(engineID, manager)
+
+    def select(self, engineID):
+        for taskEngineID, task in self.tasks.items():
+            if taskEngineID != engineID:
+                task.cancel()
+
+    def send(self, engineID, manager):
+        if engineID in self.tasks:
+            return
+
+        sendTask = SendTask(self.handle, engineID, manager)
+        manager.scheduler.schedule(sendTask, period=self.refreshPeriod)
+        self.tasks[engineID] = sendTask
+
 class SNMPv3Manager:
-    class ExpireTask(SchedulerTask):
-        def __init__(self, handle):
-            self.handle_ref = weakref.ref(handle)
-
-        def run(self):
-            handle = self.handle_ref()
-
-            if handle is not None:
-                handle.expire()
-
-    class RequestState:
-        class SendTask(SchedulerTask):
-            def __init__(self, handle, engineID, manager):
-                self.cancelled = False
-                self.exception = False
-                self.messageID = 0
-
-                self.engineID = engineID
-                self.handle_ref = weakref.ref(handle)
-                self.manager = manager
-
-            def cancel(self):
-                self.cancelled = True
-
-            def raiseException(self):
-                self.exception = True
-
-            def run(self):
-                if self.messageID != 0:
-                    self.manager.deallocateMessage(self.messageID)
-                    self.messageID = 0
-
-                if self.cancelled:
-                    return None
-
-                handle = self.handle_ref()
-
-                if handle is None or not handle.active():
-                    return None
-
-                if self.exception:
-                    handle.expire()
-                    return None
-
-                self.messageID = self.manager.allocateMessage(handle.requestID, self.engineID)
-
-                message = self.manager.requests[handle.requestID].message \
-                    .withMessageID(self.messageID) \
-                    .withEngineID(self.engineID)
-
-                self.manager.sender.send(message, self.manager.channel)
-                return self
-
-        def __init__(self, handle, message, refreshPeriod):
-            self.handle_ref = weakref.ref(handle)
-            self.message = message
-            self.refreshPeriod = refreshPeriod
-
-            self.cancelled = {}
-            self.tasks = {}
-
-        @property
-        def handle(self):
-            handle = self.handle_ref()
-
-            if handle is None:
-                raise SNMPLibraryBug("Request State was not dropped"
-                    " when the request handle deactivated")
-
-            return handle
-
-        def cancel(self, engineID):
-            if engineID in self.cancelled:
-                return False
-
-            task = self.tasks.pop(engineID)
-            task.cancel()
-            self.cancelled[engineID] = task
-            return True
-
-        def expireOnRefresh(self, engineID):
-            self.tasks[engineID].raiseException()
-
-        def resend(self, engineID, manager):
-            if engineID in self.tasks:
-                self.tasks[engineID].cancel()
-                del self.tasks[engineID]
-
-            self.send(engineID, manager)
-
-        def select(self, engineID):
-            for taskEngineID, task in self.tasks.items():
-                if taskEngineID != engineID:
-                    task.cancel()
-
-        def send(self, engineID, manager):
-            if engineID in self.tasks:
-                return
-
-            sendTask = self.SendTask(self.handle, engineID, manager)
-            manager.scheduler.schedule(sendTask, period=self.refreshPeriod)
-            self.tasks[engineID] = sendTask
-
     def __init__(self,
         scheduler,
         router,
@@ -360,8 +360,7 @@ class SNMPv3Manager:
 
     def openRequest(self, timeout, *callbacks):
         handle = self.openRequestNoTimeout(*callbacks)
-        expireTask = self.ExpireTask(handle)
-        self.scheduler.schedule(expireTask, timeout)
+        self.scheduler.schedule(ExpireTask(handle), timeout)
         return handle
 
     def onRequestClosed(self, requestID):
@@ -576,7 +575,7 @@ class SNMPv3Manager:
                 SecurityName(userName, self.namespace),
             )
 
-            requestState = self.RequestState(handle, message, refreshPeriod)
+            requestState = RequestState(handle, message, refreshPeriod)
             self.requests[handle.requestID] = requestState
 
             if self.engineID is None:
