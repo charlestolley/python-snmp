@@ -2090,9 +2090,634 @@ class SNMPv3Manager3Test(unittest.TestCase):
         else:
             self.assertTrue(False)
 
-# TODO: VarBindList OIDs don't match
+    def test_get_handle_raises_ImproperResponse_for_too_few_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.3.6.1.2.1.1.1.0", "1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(message, VarBind("1.2.3.4.5.6", Integer(123456)))
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_get_handle_raises_ImproperResponse_for_too_many_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.3.6.1.2.1.1.1.0", "1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_get_handle_raises_ImproperResponse_for_wrong_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.3.6.1.2.1.1.1.0", "1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_get_request_ImproperResponse_contains_variableBindings(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.3.6.1.2.1.1.1.0", "1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        try:
+            handle.wait()
+        except ImproperResponse as err:
+            vblist = err.variableBindings
+            self.assertEqual(len(vblist), 3)
+            self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+            self.assertEqual(vblist[0].value, OctetString(b"Test case"))
+            self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+            self.assertEqual(vblist[1].value, Integer(123456))
+            self.assertEqual(vblist[2].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+            self.assertEqual(vblist[2].value, OctetString(b"Interface 1"))
+        else:
+            self.assertTrue(False)
+
+    def test_getNext_handle_raises_ImproperResponse_for_too_few_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.3.6.1.2.1.1.1", "1.2.3.4.5.5")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(message, VarBind("1.2.3.4.5.6", Integer(123456)))
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getNext_handle_raises_ImproperResponse_for_too_many_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.3.6.1.2.1.1.1", "1.2.3.4.5.5")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getNext_handle_raises_ImproperResponse_for_matched_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.3.6.1.2.1.1.1.0", "1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getNext_handle_raises_ImproperResponse_for_decreasing_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.3.6.1.2.1.1.2.0", "1.2.3.4.5.7")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getNext_ImproperResponse_contains_variableBindings(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.3.6.1.2.1.1.1", "1.2.3.4.5.5")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        try:
+            handle.wait()
+        except ImproperResponse as err:
+            vblist = err.variableBindings
+            self.assertEqual(len(vblist), 3)
+            self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+            self.assertEqual(vblist[0].value, OctetString(b"Test case"))
+            self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+            self.assertEqual(vblist[1].value, Integer(123456))
+            self.assertEqual(vblist[2].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+            self.assertEqual(vblist[2].value, OctetString(b"Interface 1"))
+        else:
+            self.assertTrue(False)
+
+    def test_getNext_request_returns_variableBindings_on_success(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.3.6.1.2.1.1.1", "1.2.3.4.5.5")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 2)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+        self.assertEqual(vblist[0].value, OctetString(b"Test case"))
+        self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[1].value, Integer(123456))
+
+    def test_set_handle_raises_ImproperResponse_for_too_few_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.set(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(message, VarBind("1.2.3.4.5.6", Integer(654321)))
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_set_handle_raises_ImproperResponse_for_too_many_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.set(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_set_handle_raises_ImproperResponse_for_wrong_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.set(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_set_request_ImproperResponse_contains_variableBindings(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.set(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        try:
+            handle.wait()
+        except ImproperResponse as err:
+            vblist = err.variableBindings
+            self.assertEqual(len(vblist), 3)
+            self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+            self.assertEqual(vblist[0].value, OctetString(b"new description"))
+            self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+            self.assertEqual(vblist[1].value, Integer(654321))
+            self.assertEqual(vblist[2].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+            self.assertEqual(vblist[2].value, OctetString(b"Interface 1"))
+        else:
+            self.assertTrue(False)
+
+    def test_set_request_returns_variableBindings_on_success(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.set(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"new description")),
+            VarBind("1.2.3.4.5.6", Integer(654321)),
+        )
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 2)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+        self.assertEqual(vblist[0].value, OctetString(b"new description"))
+        self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[1].value, Integer(654321))
+
+    def test_getBulk_handle_ImproperResponse_for_too_few_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_handle_ImproperResponse_for_incomplete_repetition(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.2", OctetString(b"Interface 2")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_handle_ImproperResponse_for_too_many_repetitions(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.2", OctetString(b"Interface 2")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.2", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.2", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.3", OctetString(b"Interface 3")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.3", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.3", Integer(1)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_handle_ImproperResponse_for_equal_nonRepeater(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.6",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.2", OctetString(b"Interface 2")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.2", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.2", Integer(1)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_handle_ImproperResponse_for_decreasing_nonRepeater(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.7",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.2", OctetString(b"Interface 2")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.2", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.2", Integer(1)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_ImproperResponse_for_equal_repeater(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2.1",
+            "1.3.6.1.2.1.2.2.1.7.1",
+            "1.3.6.1.2.1.2.2.1.8.1",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_ImproperResponse_for_equal_repetition(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_ImproperResponse_for_decreasing_repeater(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2.2",
+            "1.3.6.1.2.1.2.2.1.7.2",
+            "1.3.6.1.2.1.2.2.1.8.2",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_ImproperResponse_for_decreasing_repetition(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2.1",
+            "1.3.6.1.2.1.2.2.1.7.1",
+            "1.3.6.1.2.1.2.2.1.8.1",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.2", OctetString(b"Interface 2")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.2", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.2", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_ImproperResponse_contains_variableBindings(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+        )
+
+        try:
+            handle.wait()
+        except ImproperResponse as err:
+            vblist = err.variableBindings
+            self.assertEqual(len(vblist), 3)
+            self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+            self.assertEqual(vblist[0].value, OctetString(b"Test case"))
+            self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+            self.assertEqual(vblist[1].value, Integer(123456))
+            self.assertEqual(vblist[2].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+            self.assertEqual(vblist[2].value, OctetString(b"Interface 1"))
+        else:
+            self.assertTrue(False)
+
+    def test_getBulk_returns_variableBindings_on_success(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.2", OctetString(b"Interface 2")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.2", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.2", Integer(1)),
+        )
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 8)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+        self.assertEqual(vblist[0].value, OctetString(b"Test case"))
+        self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[1].value, Integer(123456))
+        self.assertEqual(vblist[2].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+        self.assertEqual(vblist[2].value, OctetString(b"Interface 1"))
+        self.assertEqual(vblist[3].name, OID(1,3,6,1,2,1,2,2,1,7,1))
+        self.assertEqual(vblist[3].value, Integer(2))
+        self.assertEqual(vblist[4].name, OID(1,3,6,1,2,1,2,2,1,8,1))
+        self.assertEqual(vblist[4].value, Integer(1))
+        self.assertEqual(vblist[5].name, OID(1,3,6,1,2,1,2,2,1,2,2))
+        self.assertEqual(vblist[5].value, OctetString(b"Interface 2"))
+        self.assertEqual(vblist[6].name, OID(1,3,6,1,2,1,2,2,1,7,2))
+        self.assertEqual(vblist[6].value, Integer(1))
+        self.assertEqual(vblist[7].name, OID(1,3,6,1,2,1,2,2,1,8,2))
+        self.assertEqual(vblist[7].value, Integer(1))
+
 # TODO: Verify handle ownership
-# TODO: Test getNext, getBulk, and set
 # TODO: Add withEngineID to ScopedPDU and SNMPv3Message
 
 if __name__ == "__main__":

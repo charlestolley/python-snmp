@@ -1,4 +1,4 @@
-__all__ = []
+__all__ = ["ImproperResponse", "MessageIDAuthority", "SNMPv3RequestHandle"]
 
 import weakref
 
@@ -6,6 +6,10 @@ from snmp.exception import *
 from snmp.numbers import *
 from snmp.pdu import *
 from snmp.requests import *
+
+class ImproperResponse(SNMPException):
+    def __init__(self, variableBindings):
+        self.variableBindings = variableBindings
 
 class MessageIDAuthority(NumberAuthority):
     def newGenerator(self):
@@ -81,8 +85,13 @@ class SNMPv3RequestHandle:
                     self.response.errorIndex,
                     self.pdu,
                 )
+
+            vblist = self.response.variableBindings
+
+            if not self.pdu.validResponse(vblist):
+                raise ImproperResponse(vblist)
             else:
-                return self.response.variableBindings
+                return vblist
         elif self.exception is not None:
             raise self.exception
         else:

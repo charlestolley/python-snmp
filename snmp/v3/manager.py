@@ -19,7 +19,7 @@ from snmp.security.usm.stats import *
 from snmp.smi import *
 from snmp.requests import *
 from snmp.v3.message import *
-from snmp.v3.requests import MessageIDAuthority, SNMPv3RequestHandle
+from snmp.v3.requests import *
 from snmp.utils import typename
 
 class RequestError(SNMPException):
@@ -602,7 +602,12 @@ class SNMPv3Manager:
         return self.makeRequest(pdu, **kwargs)
 
     def getBulk(self, *oids, nonRepeaters=0, maxRepetitions=0, **kwargs):
-        pdu = GetBulkRequestPDU(*oids)
+        pdu = GetBulkRequestPDU(
+            *oids,
+            nonRepeaters=nonRepeaters,
+            maxRepetitions=maxRepetitions,
+        )
+
         return self.makeRequest(pdu, **kwargs)
 
     def getNext(self, *oids, **kwargs):
