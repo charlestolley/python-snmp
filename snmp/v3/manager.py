@@ -364,8 +364,9 @@ class SNMPv3Manager:
         return handle
 
     def onRequestClosed(self, requestID):
-        if self.engineID is None and self.discovery is not None:
-            if self.discovery.dropRequest(requestID):
+        if self.engineID is None:
+            if (self.discovery is not None
+            and self.discovery.dropRequest(requestID)):
                 self.discovery = None
         else:
             del self.requests[requestID]
@@ -563,26 +564,19 @@ class SNMPv3Manager:
         if handle.active():
             pdu = pdu.withRequestID(handle.requestID)
 
-            message = SNMPv3Message(
-                HeaderData(
-                    0,
-                    1472,
-                    MessageFlags(securityLevel, True),
-                    SecurityModel.USM,
-                ),
-                ScopedPDU(pdu, b"", context),
-                b"",
-                SecurityName(userName, self.namespace),
-            )
+            flags = MessageFlags(securityLevel, True)
+            header = HeaderData(0, 1472, flags, SecurityModel.USM)
+            scopedPDU = ScopedPDU(pdu, b"", context)
+            securityName = SecurityName(userName, self.namespace)
+            message = SNMPv3Message(header, scopedPDU, b"", securityName)
 
             requestState = RequestState(handle, message, refreshPeriod)
             self.requests[handle.requestID] = requestState
 
             if self.engineID is None:
                 if self.discovery is None:
-                    discoveryHandle = self.openRequestNoTimeout()
                     self.discovery = DiscoveryHandler(
-                        discoveryHandle,
+                        self.openRequestNoTimeout(),
                         self.discoveryCallback,
                         self.scheduler,
                         self.router,

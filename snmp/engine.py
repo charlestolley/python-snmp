@@ -52,8 +52,8 @@ class Engine:
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
 
-        self.v3_router = SNMPv3MessageRouter()
         self.v3_sorter = MessageSorter(SNMPv3Interpreter(self.usm))
+        self.v3_router = SNMPv3MessageRouter()
         self.v3_sorter.register(ReportPDU, self.v3_router)
         self.v3_sorter.register(ResponsePDU, self.v3_router)
 
