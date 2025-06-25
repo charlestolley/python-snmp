@@ -52,10 +52,10 @@ class Engine:
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
 
-        self.thingy = Thingy()
+        self.v3_router = SNMPv3MessageRouter()
         self.v3_sorter = MessageSorter(SNMPv3Interpreter(self.usm))
-        self.v3_sorter.register(ReportPDU, self.thingy)
-        self.v3_sorter.register(ResponsePDU, self.thingy)
+        self.v3_sorter.register(ReportPDU, self.v3_router)
+        self.v3_sorter.register(ResponsePDU, self.v3_router)
 
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder)
@@ -136,7 +136,7 @@ class Engine:
 
         return SNMPv3Manager(
             self.scheduler,
-            self.thingy,
+            self.v3_router,
             self.v3_sorter,
             channel,
             namespace,

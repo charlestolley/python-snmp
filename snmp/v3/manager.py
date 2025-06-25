@@ -3,7 +3,7 @@ __all__ = [
     "AuthenticationFailure", "PrivacyFailure", "TimeWindowFailure",
     "UnknownUserName", "UnsupportedSecurityLevel", "UnhandledReport",
     "InvalidResponseField", "NamespaceMismatch",
-    "SNMPv3Manager", "Thingy",
+    "SNMPv3Manager", "SNMPv3MessageRouter",
 ]
 
 import collections
@@ -84,16 +84,16 @@ class NamespaceMismatch(IncomingMessageError):
             f" Matched namespace(s): {matched_string}"
         super().__init__(errmsg)
 
-class Thingy:
+class SNMPv3MessageRouter:
     def __init__(self):
         self.authority = MessageIDAuthority()
-        self.handlers = {}
+        self.listeners = {}
 
     def hear(self, message, channel):
         messageID = message.header.msgID
 
         try:
-            listener = self.handlers[messageID]
+            listener = self.listeners[messageID]
         except KeyError:
             raise IncomingMessageError(f"Unknown message ID: {messageID}")
 
@@ -101,12 +101,12 @@ class Thingy:
 
     def reserveMessageID(self, listener):
         messageID = self.authority.reserve()
-        self.handlers[messageID] = listener
+        self.listeners[messageID] = listener
         return messageID
 
     def releaseMessageID(self, messageID):
         try:
-            del self.handlers[messageID]
+            del self.listeners[messageID]
         except KeyError:
             pass
 
@@ -127,11 +127,11 @@ class DiscoveryHandler:
                 self.handler.sendNewMessage()
                 self.handler.scheduleRefresh()
 
-    def __init__(self, handle, callback, scheduler, thingy, sender, channel):
+    def __init__(self, handle, callback, scheduler, router, sender, channel):
         self.channel = channel
         self.sender = sender
         self.scheduler = scheduler
-        self.thingy = thingy
+        self.router = router
 
         self.messageID = 0
         self.refreshTask = None
@@ -147,10 +147,10 @@ class DiscoveryHandler:
         self.callback(message.securityEngineID)
 
     def expireMessage(self):
-        self.thingy.releaseMessageID(self.messageID)
+        self.router.releaseMessageID(self.messageID)
 
     def sendNewMessage(self):
-        self.messageID = self.thingy.reserveMessageID(self)
+        self.messageID = self.router.reserveMessageID(self)
 
         message = SNMPv3Message(
             HeaderData(
@@ -304,7 +304,7 @@ class SNMPv3Manager:
 
     def __init__(self,
         scheduler,
-        thingy,
+        router,
         sender,
         channel,
         namespace,
@@ -315,7 +315,7 @@ class SNMPv3Manager:
     ):
         self.channel = channel
         self.sender = sender
-        self.thingy = thingy
+        self.router = router
 
         self.engineIDAuthenticated = False
         self.engineID = engineID
@@ -393,13 +393,13 @@ class SNMPv3Manager:
         self.setEngineID(engineID, False)
 
     def allocateMessage(self, requestID, engineID):
-        messageID = self.thingy.reserveMessageID(self)
+        messageID = self.router.reserveMessageID(self)
         self.mapping[messageID] = requestID, engineID
         return messageID
 
     def deallocateMessage(self, messageID):
         del self.mapping[messageID]
-        self.thingy.releaseMessageID(messageID)
+        self.router.releaseMessageID(messageID)
 
     def hear(self, message):
         messageID = message.header.msgID
@@ -586,7 +586,7 @@ class SNMPv3Manager:
                         discoveryHandle,
                         self.discoveryCallback,
                         self.scheduler,
-                        self.thingy,
+                        self.router,
                         self.sender,
                         self.channel,
                     )
