@@ -18,9 +18,9 @@ class MessageIDAuthority(NumberAuthority):
     DeallocationFailure = MessageIDDeallocationFailure
 
 class SNMPv3RequestHandle:
-    def __init__(self, scheduler, requestID, *callbacks):
+    def __init__(self, scheduler, pdu, *callbacks):
         self.callbacks = list(callbacks)
-        self.requestID = requestID
+        self.pdu = pdu
         self.scheduler = scheduler
 
         self.response = None
@@ -30,6 +30,10 @@ class SNMPv3RequestHandle:
     def __del__(self):
         if self.active():
             self.onDeactivate()
+
+    @property
+    def requestID(self) -> int:
+        return self.pdu.requestID
 
     def addCallback(self, callback):
         if self.active():
@@ -75,7 +79,7 @@ class SNMPv3RequestHandle:
                 raise ErrorResponse(
                     self.response.errorStatus,
                     self.response.errorIndex,
-                    self.response.variableBindings,
+                    self.pdu,
                 )
             else:
                 return self.response.variableBindings

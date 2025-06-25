@@ -159,7 +159,7 @@ class DiscoveryHandler:
                 MessageFlags(reportable=True),
                 SecurityModel.USM,
             ),
-            ScopedPDU(GetRequestPDU(requestID=self.handle.requestID), b""),
+            ScopedPDU(self.handle.pdu, b""),
             b"",
             SecurityName(b""),
         )
@@ -350,18 +350,20 @@ class SNMPv3Manager:
         else:
             return representation
 
-    def openRequestNoTimeout(self, *callbacks):
+    def openRequestNoTimeout(self, pdu, *callbacks):
+        requestID = self.requestIDAuthority.reserve()
         handle = SNMPv3RequestHandle(
             self.scheduler,
-            self.requestIDAuthority.reserve(),
+            pdu.withRequestID(requestID),
+            # Callbacks
             self.requestIDAuthority.release,
             *callbacks,
         )
 
         return handle
 
-    def openRequest(self, timeout, *callbacks):
-        handle = self.openRequestNoTimeout(*callbacks)
+    def openRequest(self, pdu, timeout, *callbacks):
+        handle = self.openRequestNoTimeout(pdu, *callbacks)
         self.scheduler.schedule(ExpireTask(handle), timeout)
         return handle
 
@@ -561,14 +563,12 @@ class SNMPv3Manager:
         if userName is None:
             userName = self.defaultUserName
 
-        handle = self.openRequest(timeout)
+        handle = self.openRequest(pdu, timeout)
 
         if handle.active():
-            pdu = pdu.withRequestID(handle.requestID)
-
             flags = MessageFlags(securityLevel, True)
             header = HeaderData(0, 1472, flags, SecurityModel.USM)
-            scopedPDU = ScopedPDU(pdu, b"", context)
+            scopedPDU = ScopedPDU(handle.pdu, b"", context)
             securityName = SecurityName(userName, self.namespace)
             message = SNMPv3Message(header, scopedPDU, b"", securityName)
 
@@ -578,7 +578,7 @@ class SNMPv3Manager:
             if self.engineID is None:
                 if self.discovery is None:
                     self.discovery = DiscoveryHandler(
-                        self.openRequestNoTimeout(),
+                        self.openRequestNoTimeout(GetRequestPDU()),
                         self.discoveryCallback,
                         self.scheduler,
                         self.router,

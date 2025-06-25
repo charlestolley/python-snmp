@@ -2052,7 +2052,118 @@ class SNMPv3Manager3Test(unittest.TestCase):
             noAuthNoPriv,
         )
 
-# TODO: ErrorResponse
+    def test_handle_raises_ErrorResponse_if_errorStatus_is_nonzero(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(message.header.flags.securityLevel),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    errorStatus=ErrorStatus.noAccess,
+                    errorIndex=1,
+                    requestID=message.scopedPDU.pdu.requestID,
+                    variableBindings=message.scopedPDU.pdu.variableBindings,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        self.incoming.send(reply)
+
+        try:
+            handle.wait()
+        except ErrorResponse as err:
+            varbind = message.scopedPDU.pdu.variableBindings[0]
+            self.assertEqual(err.cause, varbind)
+        else:
+            self.assertTrue(False)
+
+    def test_ErrorResponse_cause_is_request_pdu_if_errorIndex_is_zero(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(message.header.flags.securityLevel),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    errorStatus=ErrorStatus.tooBig,
+                    errorIndex=0,
+                    requestID=message.scopedPDU.pdu.requestID,
+                    variableBindings=message.scopedPDU.pdu.variableBindings,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        self.incoming.send(reply)
+
+        try:
+            handle.wait()
+        except ErrorResponse as err:
+            self.assertEqual(err.cause, message.scopedPDU.pdu)
+        else:
+            self.assertTrue(False)
+
+    def test_ErrorResponse_cause_is_errorIndex_if_out_of_range(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(message.header.flags.securityLevel),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ResponsePDU(
+                    errorStatus=ErrorStatus.noAccess,
+                    errorIndex=2,
+                    requestID=message.scopedPDU.pdu.requestID,
+                    variableBindings=message.scopedPDU.pdu.variableBindings,
+                ),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            message.securityEngineID,
+            message.securityName,
+        )
+
+        self.incoming.send(reply)
+
+        try:
+            handle.wait()
+        except ErrorResponse as err:
+            self.assertEqual(err.cause, 2)
+        else:
+            self.assertTrue(False)
+
 # TODO: VarBindList OIDs don't match
 # TODO: Verify handle ownership
 # TODO: Test getNext, getBulk, and set
