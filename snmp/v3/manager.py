@@ -209,12 +209,14 @@ class ExpireTask(SchedulerTask):
             handle.expire()
 
 class SendTask(SchedulerTask):
-    def __init__(self, handle, engineID, manager):
+    def __init__(self, handle, message, engineID, manager):
         self.cancelled = False
         self.exception = False
-        self.messageID = 0
 
+        self.message = message
+        self.messageID = 0
         self.engineID = engineID
+
         self.handle_ref = weakref.ref(handle)
         self.manager = manager
 
@@ -243,7 +245,7 @@ class SendTask(SchedulerTask):
 
         self.messageID = self.manager.allocateMessage(handle.requestID, self.engineID)
 
-        message = self.manager.requests[handle.requestID].message \
+        message = self.message \
             .withMessageID(self.messageID) \
             .withEngineID(self.engineID)
 
@@ -297,7 +299,7 @@ class RequestState:
         if engineID in self.tasks:
             return
 
-        sendTask = SendTask(self.handle, engineID, manager)
+        sendTask = SendTask(self.handle, self.message, engineID, manager)
         manager.scheduler.schedule(sendTask, period=self.refreshPeriod)
         self.tasks[engineID] = sendTask
 
