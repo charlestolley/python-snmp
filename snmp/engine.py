@@ -1,9 +1,9 @@
-from snmp.exception import *
-from snmp.message import *
-from snmp.pdu import *
+from snmp.exception import SNMPException
+from snmp.message import ProtocolVersion
+from snmp.pdu import ReportPDU, ResponsePDU
 from snmp.pipeline import *
-from snmp.scheduler import *
-from snmp.security import *
+from snmp.scheduler import Scheduler
+from snmp.security import SecurityLevel
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
@@ -14,7 +14,6 @@ from snmp.v2c.manager import *
 from snmp.v2c.requests import *
 from snmp.v3.interpreter import *
 from snmp.v3.manager import *
-from snmp.v3.requests import *
 
 Address = Tuple[str, int]
 
