@@ -372,11 +372,31 @@ class GetRequestPDU(PDU):
     READ_CLASS = True
     TAG = Tag(0, True, Tag.Class.CONTEXT_SPECIFIC)
 
+    def validResponse(self, vblist):
+        if len(vblist) != len(self.variableBindings):
+            return False
+
+        for request_vb, response_vb in zip(self.variableBindings, vblist):
+            if request_vb.name != response_vb.name:
+                return False
+
+        return True
+
 @final
 class GetNextRequestPDU(PDU):
     CONFIRMED_CLASS = True
     READ_CLASS = True
     TAG = Tag(1, True, Tag.Class.CONTEXT_SPECIFIC)
+
+    def validResponse(self, vblist):
+        if len(vblist) != len(self.variableBindings):
+            return False
+
+        for request_vb, response_vb in zip(self.variableBindings, vblist):
+            if not request_vb.name < response_vb.name:
+                return False
+
+        return True
 
 @final
 class ResponsePDU(PDU):
@@ -389,11 +409,51 @@ class SetRequestPDU(PDU):
     WRITE_CLASS = True
     TAG = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
 
+    def validResponse(self, vblist):
+        if len(vblist) != len(self.variableBindings):
+            return False
+
+        for request_vb, response_vb in zip(self.variableBindings, vblist):
+            if request_vb.name != response_vb.name:
+                return False
+
+        return True
+
 @final
 class GetBulkRequestPDU(BulkPDU):
     CONFIRMED_CLASS = True
     READ_CLASS = True
     TAG = Tag(5, True, Tag.Class.CONTEXT_SPECIFIC)
+
+    def validResponse(self, vblist):
+        if len(vblist) < len(self.variableBindings):
+            return False
+
+        for i in range(self.nonRepeaters):
+            if not self.variableBindings[i].name < vblist[i].name:
+                return False
+
+        repeaters = self.variableBindings[self.nonRepeaters:]
+        n = len(repeaters)
+
+        repetitions, leftovers = divmod(len(vblist) - self.nonRepeaters, n)
+
+        if repetitions > self.maxRepetitions or leftovers != 0:
+            return False
+
+        prev = repeaters
+        for r in range(repetitions):
+            start = r * n + self.nonRepeaters
+            stop = start + n
+            group = vblist[start:stop]
+
+            for i in range(n):
+                if not prev[i].name < group[i].name:
+                    return False
+
+            prev = group
+
+        return True
 
 @final
 class InformRequestPDU(PDU):

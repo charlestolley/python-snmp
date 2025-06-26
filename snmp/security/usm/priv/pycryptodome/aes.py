@@ -5,8 +5,9 @@ import os
 from Crypto.Cipher import AES
 from Crypto.Cipher._mode_cfb import CfbMode
 
+from snmp.exception import UsmDecryptionError
 from snmp.smi import OID
-from snmp.security.usm import DecryptionError, PrivProtocol
+from snmp.security.usm import PrivProtocol
 from snmp.typing import *
 
 class AesCfb128(PrivProtocol):
@@ -62,7 +63,7 @@ class AesCfb128(PrivProtocol):
         try:
             iv = self.packIV(engineBoots, engineTime, salt)
         except ValueError as err:
-            raise DecryptionError(err) from err
+            raise UsmDecryptionError(err) from err
 
         return self.newCipher(iv).decrypt(data)
 

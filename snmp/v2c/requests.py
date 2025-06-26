@@ -33,10 +33,9 @@ class SNMPv2cRequestHandle:
         self._expired = False
 
     def __del__(self):
-        if self.active:
+        if self.active():
             self.close()
 
-    @property
     def active(self):
         return self.response is None and not self.expired
 
@@ -56,18 +55,18 @@ class SNMPv2cRequestHandle:
             callback(requestID)
 
     def addCallback(self, callback, requestID):
-        if self.active:
+        if self.active():
             self.callbacks.append((callback, requestID))
         else:
             callback(requestID)
 
     def push(self, message):
-        if self.active:
+        if self.active():
             self.response = message.pdu
             self.close()
 
     def wait(self):
-        while self.active:
+        while self.active():
             self.scheduler.wait()
 
         if self.response is not None:
@@ -107,7 +106,7 @@ class SNMPv2cRequestAdmin:
 
         def run(self):
             handle = self.handle_ref()
-            if handle is not None and handle.active:
+            if handle is not None and handle.active():
                 self.channel.send(self.msg)
                 return self
 

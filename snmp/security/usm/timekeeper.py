@@ -1,22 +1,22 @@
 __all__ = ["EngineTime", "TimeKeeper"]
 
-from snmp.exception import OutsideTimeWindow
+from snmp.exception import UsmNotInTimeWindow
 from snmp.typing import *
 
 class EngineTime:
     class NegativeEngineBoots(ValueError):
         pass
 
-    class PriorToReboot(OutsideTimeWindow):
+    class PriorToReboot(UsmNotInTimeWindow):
         pass
 
-    class ReconfigRequired(OutsideTimeWindow):
+    class ReconfigRequired(UsmNotInTimeWindow):
         pass
 
-    class TooEarly(OutsideTimeWindow):
+    class TooEarly(UsmNotInTimeWindow):
         pass
 
-    class TooOld(OutsideTimeWindow):
+    class TooOld(UsmNotInTimeWindow):
         pass
 
     MAX_ENGINE_BOOTS: ClassVar[int] = (1 << 31) - 1

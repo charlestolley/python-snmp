@@ -33,6 +33,17 @@ class SecurityName:
         self.userName = userName
         self.namespaces = set(namespaces)
 
+    def __eq__(self, other: object) -> bool:
+        try:
+            return (self.userName == other.userName
+            and self.namespaces == other.namespaces)
+        except AttributeError:
+            return NotImplemented
+
+    def __repr__(self) -> str:
+        args = (repr(self.userName), *map(repr, self.namespaces))
+        return f"{typename(self)}({', '.join(args)})"
+
 class MessageFlags(OctetString):
     AUTH_FLAG: ClassVar[int]        = (1 << 0)
     PRIV_FLAG: ClassVar[int]        = (1 << 1)
@@ -244,6 +255,9 @@ class ScopedPDU(Sequence):
             f"{self.pdu.toString(depth=depth+1, tab=tab)}"
         ))
 
+    def withContextEngineID(self, engineID: bytes) -> "ScopedPDU":
+        return ScopedPDU(self.pdu, engineID, self.contextName)
+
     @classmethod
     def deserialize(cls, data: Union[bytes, subbytes]) -> "ScopedPDU":
         contextEngineID, data   = OctetString.decode(data)
@@ -308,6 +322,14 @@ class SNMPv3Message:
             f"{subindent}Security Name: {self.securityName.userName}",
             self.scopedPDU.toString(depth+1, tab),
         ))
+
+    def withEngineID(self, engineID) -> "SNMPv3Message":
+        return SNMPv3Message(
+            self.header,
+            self.scopedPDU.withContextEngineID(engineID),
+            engineID,
+            self.securityName,
+        )
 
     def withMessageID(self, messageID) -> "SNMPv3Message":
         return SNMPv3Message(

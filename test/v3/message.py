@@ -1,6 +1,6 @@
 __all__ = [
     "HeaderDataTest", "MessageFlagsTest", "ScopedPDUTest",
-    "SNMPv3WireMessageTest",
+    "SecurityNameTest", "SNMPv3WireMessageTest",
 ]
 
 import unittest
@@ -12,6 +12,56 @@ from snmp.security import *
 from snmp.security.levels import *
 from snmp.utils import subbytes
 from snmp.v3.message import *
+
+class SecurityNameTest(unittest.TestCase):
+    def test_two_objects_with_the_same_contents_are_equal(self):
+        a = SecurityName(b"archibald")
+        b = SecurityName(b"archibald")
+        self.assertEqual(a, b)
+
+        a = SecurityName(b"bartholomew", "apostles")
+        b = SecurityName(b"bartholomew", "apostles")
+        self.assertEqual(a, b)
+
+        a = SecurityName(b"caligula", "", "romans", "tyrants")
+        b = SecurityName(b"caligula", "", "romans", "tyrants")
+        self.assertEqual(a, b)
+
+    def test_two_objects_with_different_userNames_are_not_equal(self):
+        a = SecurityName(b"arthur")
+        b = SecurityName(b"lancelot")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"bon jovi", "")
+        b = SecurityName(b"aerosmith", "")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"casper", "", "ghosts", "mattresses")
+        b = SecurityName(b"another ghost/mattress", "", "ghosts", "mattresses")
+        self.assertNotEqual(a, b)
+
+    def test_two_objects_with_different_namespaces_are_not_equal(self):
+        a = SecurityName(b"antonio")
+        b = SecurityName(b"antonio", "")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"babe", "baseball")
+        b = SecurityName(b"babe", "pigs")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"cassius", "romans")
+        b = SecurityName(b"cassius", "romans", "traitors")
+        self.assertNotEqual(a, b)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        securityName = SecurityName(b"albert")
+        self.assertEqual(eval(repr(securityName)), securityName)
+
+        securityName = SecurityName(b"bart", "simpsons")
+        self.assertEqual(eval(repr(securityName)), securityName)
+
+        securityName = SecurityName(b"chuck", "", "localhost", "private")
+        self.assertEqual(eval(repr(securityName)), securityName)
 
 class MessageFlagsTest(unittest.TestCase):
     def test_auth_priv_and_reportable_flags_are_off_by_default(self):
@@ -352,7 +402,7 @@ class HeaderDataTest(unittest.TestCase):
     def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         self.assertEqual(eval(repr(self.header)), self.header)
 
-    def test_withMessageID_returns_the_same_header_with_msgID_changed(self):
+    def test_withMessageID_returns_identical_header_with_msgID_changed(self):
         maxSize = 1492
         flags = MessageFlags(authNoPriv, True)
         model = SecurityModel.USM
@@ -360,6 +410,7 @@ class HeaderDataTest(unittest.TestCase):
         header = HeaderData(0, maxSize, flags, model)
         newHeader = header.withMessageID(2319)
 
+        self.assertEqual(header.msgID, 0)
         self.assertEqual(newHeader.msgID, 2319)
         self.assertEqual(newHeader.maxSize, maxSize)
         self.assertEqual(newHeader.flags, flags)
@@ -444,6 +495,33 @@ class ScopedPDUTest(unittest.TestCase):
 
     def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         self.assertEqual(eval(repr(self.scopedPDU)), self.scopedPDU)
+
+    def test_withContextEngineID_identical_object_except_engineID(self):
+        pdu = ResponsePDU(
+            requestID=-110363965,
+            variableBindings=VarBindList(
+                VarBind(
+                    "1.3.6.1.2.1.1.1.0",
+                    OctetString(b"This string describes my system"),
+                )
+            )
+        )
+
+        scopedPDU = ScopedPDU(pdu, b"someEngineID", b"someContext")
+        newScopedPDU = scopedPDU.withContextEngineID(b"newEngineID")
+
+        self.assertEqual(newScopedPDU.pdu.requestID, -110363965)
+        self.assertEqual(newScopedPDU.pdu.errorStatus, ErrorStatus.noError)
+        self.assertEqual(newScopedPDU.pdu.errorIndex, 0)
+        self.assertEqual(len(newScopedPDU.pdu.variableBindings), 1)
+
+        vb = newScopedPDU.pdu.variableBindings[0]
+        self.assertEqual(vb.name, OID(1,3,6,1,2,1,1,1,0))
+        self.assertEqual(vb.value, OctetString(b"This string describes my system"))
+
+        self.assertEqual(scopedPDU.contextEngineID, b"someEngineID")
+        self.assertEqual(newScopedPDU.contextEngineID, b"newEngineID")
+        self.assertEqual(newScopedPDU.contextName, b"someContext")
 
 class SNMPv3WireMessageTest(unittest.TestCase):
     def setUp(self):
@@ -721,7 +799,7 @@ class SNMPv3WireMessageTest(unittest.TestCase):
             self.encryptedMessage,
         )
 
-    def test_withMessageID_returns_the_same_message_with_msgID_changed(self):
+    def test_withMessageID_returns_identical_message_with_msgID_changed(self):
         header = HeaderData(
             0,
             1492,
@@ -747,9 +825,77 @@ class SNMPv3WireMessageTest(unittest.TestCase):
         message = SNMPv3Message(header, scopedPDU, engineID, securityName)
         newMessage = message.withMessageID(2418)
 
-        self.assertEqual(newMessage.header, header.withMessageID(2418))
-        self.assertEqual(newMessage.scopedPDU, scopedPDU)
+        self.assertEqual(message.header.msgID, 0)
+        self.assertEqual(newMessage.header.msgID, 2418)
+        self.assertEqual(newMessage.header.maxSize, 1492)
+        self.assertEqual(newMessage.header.flags, MessageFlags(reportable=True))
+        self.assertEqual(newMessage.header.securityModel, SecurityModel.USM)
+
+        self.assertEqual(
+            newMessage.scopedPDU.pdu,
+            GetBulkRequestPDU(
+                "1.3.6.1.2.1.1.1",
+                "1.3.6.1.2.1.2.2.1.2",
+                nonRepeaters=1,
+                maxRepetitions=5,
+                requestID=64,
+            ),
+        )
+
+        self.assertEqual(newMessage.scopedPDU.contextEngineID, engineID)
+        self.assertEqual(newMessage.scopedPDU.contextName, b"context")
+
         self.assertEqual(newMessage.securityEngineID, engineID)
+        self.assertEqual(newMessage.securityName, securityName)
+
+    def test_withEngineID_returns_identical_message_except_engineIDs(self):
+        header = HeaderData(
+            803,
+            1492,
+            MessageFlags(authNoPriv, True),
+            SecurityModel.USM,
+        )
+
+        oldEngineID = b"oldEngineID"
+        scopedPDU = ScopedPDU(
+            GetBulkRequestPDU(
+                "1.3.6.1.2.1.1.1",
+                "1.3.6.1.2.1.2.2.1.2",
+                nonRepeaters=1,
+                maxRepetitions=5,
+                requestID=816,
+            ),
+            oldEngineID,
+            b"context",
+        )
+
+        securityName = SecurityName(b"user", "namespace")
+
+        message = SNMPv3Message(header, scopedPDU, oldEngineID, securityName)
+        newMessage = message.withEngineID(b"newEngineID")
+
+        self.assertEqual(newMessage.header.msgID, 803)
+        self.assertEqual(newMessage.header.maxSize, 1492)
+        self.assertEqual(newMessage.header.flags, MessageFlags(authNoPriv, True))
+        self.assertEqual(newMessage.header.securityModel, SecurityModel.USM)
+
+        self.assertEqual(
+            newMessage.scopedPDU.pdu,
+            GetBulkRequestPDU(
+                "1.3.6.1.2.1.1.1",
+                "1.3.6.1.2.1.2.2.1.2",
+                nonRepeaters=1,
+                maxRepetitions=5,
+                requestID=816,
+            ),
+        )
+
+        self.assertEqual(message.scopedPDU.contextEngineID, oldEngineID)
+        self.assertEqual(newMessage.scopedPDU.contextEngineID, b"newEngineID")
+        self.assertEqual(newMessage.scopedPDU.contextName, b"context")
+
+        self.assertEqual(message.securityEngineID, oldEngineID)
+        self.assertEqual(newMessage.securityEngineID, b"newEngineID")
         self.assertEqual(newMessage.securityName, securityName)
 
 if __name__ == "__main__":

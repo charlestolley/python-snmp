@@ -34,7 +34,7 @@ class InvalidSignature(IncomingMessageError):
 
 # USM Stats Errors
 
-class UnsupportedSecLevel(IncomingMessageError):
+class UsmUnsupportedSecLevel(IncomingMessageError):
     def __init__(self, level=None):
         if level is None:
             errmsg = f"The remote engine does not support" \
@@ -44,10 +44,10 @@ class UnsupportedSecLevel(IncomingMessageError):
 
         super().__init__(errmsg)
 
-class OutsideTimeWindow(IncomingMessageError):
+class UsmNotInTimeWindow(IncomingMessageError):
     pass
 
-class UnknownUserName(IncomingMessageError):
+class UsmUnknownUserName(IncomingMessageError):
     def __init__(self, username=None):
         if username is None:
             errmsg = "The remote engine does not recognize the requested user"
@@ -59,7 +59,7 @@ class UnknownUserName(IncomingMessageError):
 class UnknownEngineID(IncomingMessageError):
     pass
 
-class WrongDigest(IncomingMessageError):
+class UsmWrongDigest(IncomingMessageError):
     def __init__(self, username=None):
         errmsg = "The remote engine reported an incorrect message signature"
 
@@ -69,7 +69,7 @@ class WrongDigest(IncomingMessageError):
 
         super().__init__(errmsg)
 
-class DecryptionError(IncomingMessageError):
+class UsmDecryptionError(IncomingMessageError):
     def __init__(self, username=None):
         errmsg = "The remote engine was not able to decrypt the message"
 

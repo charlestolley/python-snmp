@@ -53,11 +53,9 @@ class Engine:
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
 
         self.v3_sorter = MessageSorter(SNMPv3Interpreter(self.usm))
-        self.v3_secretary = SNMPv3RequestSecretary(self.v3_sorter, self.scheduler)
-        self.v3_director = SNMPv3RequestDirector(self.v3_secretary, self.scheduler)
-        self.v3_secretary.reportTo(self.v3_director)
-        self.v3_sorter.register(ReportPDU, self.v3_secretary)
-        self.v3_sorter.register(ResponsePDU, self.v3_secretary)
+        self.v3_router = SNMPv3MessageRouter()
+        self.v3_sorter.register(ReportPDU, self.v3_router)
+        self.v3_sorter.register(ResponsePDU, self.v3_router)
 
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder)
@@ -78,6 +76,29 @@ class Engine:
 
     def shutdown(self) -> None:
         pass
+
+    def addUser(self,
+        user: str,
+        namespace: str = "",
+        default: Optional[bool] = None,
+        authProtocol: Optional[Type[AuthProtocol]] = None,
+        privProtocol: Optional[Type[PrivProtocol]] = None,
+        authSecret: Optional[bytes] = None,
+        privSecret: Optional[bytes] = None,
+        secret: Optional[bytes] = None,
+        defaultSecurityLevel: Optional[SecurityLevel] = None,
+    ) -> None:
+        self.usm.addUser(
+            user.encode(),
+            namespace,
+            default,
+            authProtocol,
+            privProtocol,
+            authSecret,
+            privSecret,
+            secret,
+            defaultSecurityLevel,
+        )
 
     def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
         self.multiplexor.register(transport, self.pipeline)
@@ -117,34 +138,37 @@ class Engine:
         autowait: bool,
         engineID: Optional[bytes] = None,
         defaultSecurityLevel: Optional[SecurityLevel] = None,
+        defaultUser: Optional[str] = None,
         **kwargs: Any,
     ):
-        defaultUserName = kwargs.get("defaultUserName")
         namespace = kwargs.get("namespace", "")
 
-        if defaultUserName is None:
-            defaultUserName = self.usm.getDefaultUser(namespace)
+        if defaultUser is None:
+            defaultUserName = self.usm.defaultUserName(namespace)
 
             if defaultUserName is None:
                 errmsg = "You must add at least one user before" \
                     " you can create an SNMPv3 Manager"
                 raise NoDefaultUser(errmsg)
+        else:
+            defaultUserName = defaultUser.encode()
 
         if defaultSecurityLevel is None:
-            defaultSecurityLevel = self.usm.getDefaultSecurityLevel(
+            defaultSecurityLevel = self.usm.defaultSecurityLevel(
                 defaultUserName,
                 namespace,
             )
 
         return SNMPv3Manager(
-            self.v3_director,
-            self.usm,
+            self.scheduler,
+            self.v3_router,
+            self.v3_sorter,
             channel,
             namespace,
             defaultUserName,
             defaultSecurityLevel,
-            autowait,
             engineID=engineID,
+            autowait=autowait,
         )
 
     def Manager(self,
