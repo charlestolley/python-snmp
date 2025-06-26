@@ -593,6 +593,22 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.assertEqual(len(oids), 0)
 
+    def test_all_requestIDs_released_after_discovery(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv)
+        handle = manager.get("1.2.3.4.5.6")
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = self.expectDiscovery(pcap.messages.pop())
+        self.reportUnknownEngineID(message, b"remote")
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+        self.respond(message, VarBind("1.2.3.4.5.6", Integer(123456)))
+
+        vblist = handle.wait()
+        self.assertEqual(len(manager.requestIDAuthority.reserved), 0)
+
     def test_request_messages_refresh_every_refreshPeriod(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")

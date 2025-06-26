@@ -115,14 +115,13 @@ class SNMPv3MessageRouter:
 class DiscoveryHandler:
     class RefreshTask(SchedulerTask):
         def __init__(self, handler):
-            self.cancelled = False
             self.handler = handler
 
         def cancel(self):
-            self.cancelled = True
+            self.handler = None
 
         def run(self):
-            if not self.cancelled:
+            if self.handler is not None:
                 self.handler.expireMessage()
                 self.handler.sendNewMessage()
                 self.handler.scheduleRefresh()
@@ -138,9 +137,7 @@ class DiscoveryHandler:
         self.unsent = collections.OrderedDict()
 
         self.callback = callback
-
         self.handle = handle
-        self.handle.addCallback(self.onHandleDeactivate)
 
     def hear(self, message):
         self.stopDiscovery()
@@ -194,9 +191,6 @@ class DiscoveryHandler:
             self.refreshTask.cancel()
             self.refreshTask = None
             self.expireMessage()
-
-    def onHandleDeactivate(self, requestID):
-        self.stopDiscovery()
 
 class ExpireTask(SchedulerTask):
     def __init__(self, handle):
