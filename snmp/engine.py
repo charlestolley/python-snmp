@@ -32,24 +32,22 @@ class Engine:
     def __init__(self,
         defaultVersion: ProtocolVersion = ProtocolVersion.SNMPv3,
         defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
-        defaultSecurityModel: SecurityModel = SecurityModel.USM,
         defaultCommunity: bytes = b"",
         autowait: bool = True,
     ):
         # Read-only variables
         self.defaultVersion         = defaultVersion
         self.defaultDomain          = defaultDomain
-        self.defaultSecurityModel   = defaultSecurityModel
         self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
         self.multiplexor = UdpMultiplexor()
         self.scheduler = Scheduler(self.multiplexor.poll)
-        self.usm = UserBasedSecurityModule()
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
 
+        self.usm = UserBasedSecurityModule()
         self.v3_sorter = MessageSorter(SNMPv3Interpreter(self.usm))
         self.v3_router = SNMPv3MessageRouter()
         self.v3_sorter.register(ReportPDU, self.v3_router)
@@ -65,15 +63,6 @@ class Engine:
             TransportDomain,
             Dict[Address, Transport[Address]]
         ] = {}
-
-    def __enter__(self) -> "Engine":
-        return self
-
-    def __exit__(self, *args: Any) -> None:
-        self.shutdown()
-
-    def shutdown(self) -> None:
-        pass
 
     def addUser(self,
         user: str,
@@ -167,10 +156,8 @@ class Engine:
         engineID: Optional[bytes] = None,
         defaultSecurityLevel: Optional[SecurityLevel] = None,
         defaultUser: Optional[str] = None,
-        **kwargs: Any,
+        namespace: str = "",
     ):
-        namespace = kwargs.get("namespace", "")
-
         if defaultUser is None:
             defaultUserName = self.usm.defaultUserName(namespace)
 
