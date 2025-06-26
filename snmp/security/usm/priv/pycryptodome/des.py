@@ -3,7 +3,6 @@ __all__ = ["DesCbc"]
 import os
 
 from Crypto.Cipher import DES
-from Crypto.Cipher._mode_cbc import CbcMode
 
 from snmp.exception import UsmDecryptionError
 from snmp.smi import OID
@@ -39,8 +38,8 @@ class DesCbc(PrivProtocol):
     def computeIV(self, salt: bytes) -> bytes:
         return bytes(a ^ b for a, b in zip(self.preIV, salt))
 
-    def newCipher(self, iv: bytes) -> CbcMode:
-        return cast(CbcMode, DES.new(self.key, DES.MODE_CBC, iv=iv))
+    def newCipher(self, iv: bytes):
+        return DES.new(self.key, DES.MODE_CBC, iv=iv)
 
     def pad(self, data: bytes) -> bytes:
         n = self.BLOCKLEN - (len(data) % self.BLOCKLEN)

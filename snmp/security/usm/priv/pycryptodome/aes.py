@@ -3,7 +3,6 @@ __all__ = ["AesCfb128"]
 import os
 
 from Crypto.Cipher import AES
-from Crypto.Cipher._mode_cfb import CfbMode
 
 from snmp.exception import UsmDecryptionError
 from snmp.smi import OID
@@ -36,7 +35,7 @@ class AesCfb128(PrivProtocol):
         except AttributeError:
             return NotImplemented
 
-    def newCipher(self, iv: bytes) -> CfbMode:
+    def newCipher(self, iv: bytes):
         return AES.new(
             self.key,
             AES.MODE_CFB,

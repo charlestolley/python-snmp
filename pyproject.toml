@@ -10,7 +10,7 @@ authors = [
     {name = "Charles C. D. Tolley", email = "charlescdtolley@protonmail.com"},
 ]
 dependencies = [
-    "pycryptodome>=3.4",
+    "pycryptodome>=3.4,<4.0",
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
