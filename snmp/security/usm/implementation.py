@@ -49,14 +49,14 @@ class UserBasedSecurityModule(SecurityModule):
 
     def addUser(self,
         userName: bytes,
+        namespace: str,
+        default: Optional[bool] = None,
         authProtocol: Optional[Type[AuthProtocol]] = None,
-        authSecret: Optional[bytes] = None,
         privProtocol: Optional[Type[PrivProtocol]] = None,
+        authSecret: Optional[bytes] = None,
         privSecret: Optional[bytes] = None,
         secret: Optional[bytes] = None,
-        default: Optional[bool] = None,
         defaultSecurityLevel: Optional[SecurityLevel] = None,
-        namespace: str = "",
     ) -> None:
         self.users.addUser(
             userName,
@@ -70,13 +70,13 @@ class UserBasedSecurityModule(SecurityModule):
             defaultSecurityLevel,
         )
 
-    def getDefaultSecurityLevel(self,
+    def defaultSecurityLevel(self,
         userName: bytes,
-        namespace: str = "",
+        namespace: str,
     ) -> SecurityLevel:
         return self.users.defaultSecurityLevel(userName, namespace)
 
-    def getDefaultUserName(self, namespace: str = "") -> Optional[bytes]:
+    def defaultUserName(self, namespace: str) -> Optional[bytes]:
         return self.users.defaultUserName(namespace)
 
     ### Methods for outgoing messages

@@ -90,14 +90,14 @@ class Engine:
     ) -> None:
         self.usm.addUser(
             user.encode(),
+            namespace,
+            default,
             authProtocol,
-            authSecret,
             privProtocol,
+            authSecret,
             privSecret,
             secret,
-            default,
             defaultSecurityLevel,
-            namespace,
         )
 
     def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
@@ -144,7 +144,7 @@ class Engine:
         namespace = kwargs.get("namespace", "")
 
         if defaultUser is None:
-            defaultUserName = self.usm.getDefaultUserName(namespace)
+            defaultUserName = self.usm.defaultUserName(namespace)
 
             if defaultUserName is None:
                 errmsg = "You must add at least one user before" \
@@ -154,7 +154,7 @@ class Engine:
             defaultUserName = defaultUser.encode()
 
         if defaultSecurityLevel is None:
-            defaultSecurityLevel = self.usm.getDefaultSecurityLevel(
+            defaultSecurityLevel = self.usm.defaultSecurityLevel(
                 defaultUserName,
                 namespace,
             )
