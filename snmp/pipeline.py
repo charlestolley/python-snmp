@@ -10,7 +10,7 @@ from snmp.message import *
 class Catcher:
     def __init__(self, listener, verbose=False):
         self.listener = listener
-        self.logger = logging.getLogger(__name__).parent
+        self.logger = logging.getLogger(__name__.split(".")[0])
         self.verbose = verbose
 
         self.packets = 0

@@ -32,6 +32,7 @@ class Engine:
         defaultVersion: ProtocolVersion = ProtocolVersion.SNMPv3,
         defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
         defaultCommunity: bytes = b"",
+        verboseLogging: bool = False,
         autowait: bool = True,
     ):
         # Read-only variables
@@ -53,7 +54,7 @@ class Engine:
         self.v3_sorter.register(ResponsePDU, self.v3_router)
 
         self.decoder = VersionDecoder()
-        self.pipeline = Catcher(self.decoder)
+        self.pipeline = Catcher(self.decoder, verbose=verboseLogging)
         self.decoder.register(ProtocolVersion.SNMPv1, self.v1_admin)
         self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
         self.decoder.register(ProtocolVersion.SNMPv3, self.v3_sorter)
