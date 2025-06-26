@@ -1,6 +1,6 @@
 __all__ = [
     "HeaderDataTest", "MessageFlagsTest", "ScopedPDUTest",
-    "SNMPv3WireMessageTest",
+    "SecurityNameTest", "SNMPv3WireMessageTest",
 ]
 
 import unittest
@@ -12,6 +12,56 @@ from snmp.security import *
 from snmp.security.levels import *
 from snmp.utils import subbytes
 from snmp.v3.message import *
+
+class SecurityNameTest(unittest.TestCase):
+    def test_two_objects_with_the_same_contents_are_equal(self):
+        a = SecurityName(b"archibald")
+        b = SecurityName(b"archibald")
+        self.assertEqual(a, b)
+
+        a = SecurityName(b"bartholomew", "apostles")
+        b = SecurityName(b"bartholomew", "apostles")
+        self.assertEqual(a, b)
+
+        a = SecurityName(b"caligula", "", "romans", "tyrants")
+        b = SecurityName(b"caligula", "", "romans", "tyrants")
+        self.assertEqual(a, b)
+
+    def test_two_objects_with_different_userNames_are_not_equal(self):
+        a = SecurityName(b"arthur")
+        b = SecurityName(b"lancelot")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"bon jovi", "")
+        b = SecurityName(b"aerosmith", "")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"casper", "", "ghosts", "mattresses")
+        b = SecurityName(b"another ghost/mattress", "", "ghosts", "mattresses")
+        self.assertNotEqual(a, b)
+
+    def test_two_objects_with_different_namespaces_are_not_equal(self):
+        a = SecurityName(b"antonio")
+        b = SecurityName(b"antonio", "")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"babe", "baseball")
+        b = SecurityName(b"babe", "pigs")
+        self.assertNotEqual(a, b)
+
+        a = SecurityName(b"cassius", "romans")
+        b = SecurityName(b"cassius", "romans", "traitors")
+        self.assertNotEqual(a, b)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        securityName = SecurityName(b"albert")
+        self.assertEqual(eval(repr(securityName)), securityName)
+
+        securityName = SecurityName(b"bart", "simpsons")
+        self.assertEqual(eval(repr(securityName)), securityName)
+
+        securityName = SecurityName(b"chuck", "", "localhost", "private")
+        self.assertEqual(eval(repr(securityName)), securityName)
 
 class MessageFlagsTest(unittest.TestCase):
     def test_auth_priv_and_reportable_flags_are_off_by_default(self):

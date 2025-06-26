@@ -33,6 +33,17 @@ class SecurityName:
         self.userName = userName
         self.namespaces = set(namespaces)
 
+    def __eq__(self, other: object) -> bool:
+        try:
+            return (self.userName == other.userName
+            and self.namespaces == other.namespaces)
+        except AttributeError:
+            return NotImplemented
+
+    def __repr__(self) -> str:
+        args = (repr(self.userName), *map(repr, self.namespaces))
+        return f"{typename(self)}({', '.join(args)})"
+
 class MessageFlags(OctetString):
     AUTH_FLAG: ClassVar[int]        = (1 << 0)
     PRIV_FLAG: ClassVar[int]        = (1 << 1)
