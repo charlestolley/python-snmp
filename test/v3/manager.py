@@ -2,6 +2,7 @@ __all__ = ["SNMPv3Manager3Test"]
 # TODO: Check line lengths
 
 import unittest
+import weakref
 
 from snmp.exception import *
 from snmp.smi import *
@@ -1703,6 +1704,25 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.assertEqual(self.time(), 1/4)
 
+    def test_IncomingMessageError_if_request_handle_has_been_deactivated(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
+        self.respond(message, varbind)
+
+        self.assertRaisesRegex(
+            IncomingMessageError,
+            "[Rr]equest",
+            self.respond,
+            message,
+            varbind,
+            securityLevel=noAuthNoPriv,
+        )
+
     def test_IncomingMessageError_if_requestID_does_not_match(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
@@ -1975,6 +1995,52 @@ class SNMPv3Manager3Test(unittest.TestCase):
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
 
+    def test_request_closes_when_the_handle_is_dropped(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        handle = manager.get("1.2.3.4.5.6")
+        handle_ref = weakref.ref(handle)
+
+        canary = self.makeManager()
+        canary_ref = weakref.ref(canary)
+
+        del canary
+        if canary_ref() is not None:
+            self.skipTest("Canary object was not immediately destroyed")
+
+        del handle
+        self.assertIsNone(handle_ref())
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = self.expectDiscovery(pcap.messages.pop())
+
+        self.assertRaises(
+            IncomingMessageError,
+            self.reportUnknownEngineID,
+            message,
+            b"remote",
+        )
+
+    def test_dropped_request_before_discovery_response_is_cleaned_up(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager()
+        manager.get("1.2.3.4.5.6")
+        _ = pcap.messages.pop()
+
+        handle = manager.get("1.3.6.1.2.1.1.1.0")
+
+        # This test was created to reproduce a bug; at the time it was written,
+        # this call resulted in an SNMPLibraryBug.
+        #
+        # The problem was that the first request handle was closed during
+        # discovery, but the SNMPv3Manager failed to drop the RequestState.
+        # When discovery was completed successfully, in response to the second
+        # request, it attempted to re-send all outstanding requests, including
+        # the request for which the handle was no longer available. This
+        # violated the assumption that the RequestState's weak reference to the
+        # request handle would always be valid, triggering an exception.
+        self.reportUnknownEngineID(pcap.messages.pop(), b"remote")
+
     def test_request_with_wait_raises_Timeout_if_there_is_no_response(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")
@@ -2006,25 +2072,6 @@ class SNMPv3Manager3Test(unittest.TestCase):
         vblist = manager.get("1.2.3.4.5.6")
         self.assertEqual(vblist[0], varbind)
         self.assertEqual(self.time(), 1/4)
-
-    def test_IncomingMessageError_if_request_handle_has_been_deactivated(self):
-        pcap = self.connect(PacketCapture())
-        manager = self.makeManager(engineID=b"remote")
-        handle = manager.get("1.2.3.4.5.6")
-        self.assertEqual(len(pcap.messages), 1)
-        message = pcap.messages.pop()
-
-        varbind = VarBind("1.2.3.4.5.6", Integer(123456))
-        self.respond(message, varbind)
-
-        self.assertRaisesRegex(
-            IncomingMessageError,
-            "[Rr]equest",
-            self.respond,
-            message,
-            varbind,
-            securityLevel=noAuthNoPriv,
-        )
 
     def test_handle_raises_ErrorResponse_if_errorStatus_is_nonzero(self):
         pcap = self.connect(PacketCapture())

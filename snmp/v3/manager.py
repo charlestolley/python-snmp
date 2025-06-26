@@ -372,8 +372,8 @@ class SNMPv3Manager:
             if (self.discovery is not None
             and self.discovery.dropRequest(requestID)):
                 self.discovery = None
-        else:
-            del self.requests[requestID]
+
+        del self.requests[requestID]
 
     def setEngineID(self, engineID, auth):
         if self.engineIDAuthenticated and not auth:
