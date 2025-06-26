@@ -9,8 +9,7 @@ from snmp.transport.udp import UdpListener, UdpSocket
 from snmp.typing import *
 
 class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
-    def __init__(self, recvSize: int = 1472) -> None:
-        self.recvSize = recvSize
+    def __init__(self) -> None:
         self.r, self.w = os.pipe()
         self.sockets: Dict[int, Tuple[UdpSocket, UdpListener]] = {}
 
@@ -35,7 +34,7 @@ class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
                     os.read(fd, 1)
                     interrupted = True
             else:
-                addr, data = sock.receive(self.recvSize)
+                addr, data = sock.receive()
                 listener.hear(data, TransportChannel(sock, addr))
 
         return interrupted

@@ -45,6 +45,10 @@ class Channel:
         self.partner = None
         self.target = None
 
+    @property
+    def msgMaxSize(self) -> int:
+        return 12345
+
     def connect(self, target, channel):
         self.partner = channel
         self.target = target

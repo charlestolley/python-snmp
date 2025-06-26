@@ -10,8 +10,7 @@ from snmp.typing import *
 STOPMSG = bytes(1)
 
 class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
-    def __init__(self, recvSize: int = 1472) -> None:
-        self.recvSize = recvSize
+    def __init__(self) -> None:
         self.sockets: Dict[int, Tuple[UdpSocket, UdpListener]] = {}
 
         domain = TransportDomain.UDP_IPv4
@@ -42,7 +41,7 @@ class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
                         if addr == self.w.getsockname() and data == STOPMSG:
                             interrupted = True
                 else:
-                    addr, data = sock.receive(self.recvSize)
+                    addr, data = sock.receive()
                     listener.hear(data, TransportChannel(sock, addr))
 
         return interrupted

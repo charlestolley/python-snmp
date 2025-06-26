@@ -34,7 +34,6 @@ class Engine:
         defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
         defaultSecurityModel: SecurityModel = SecurityModel.USM,
         defaultCommunity: bytes = b"",
-        msgMaxSize: int = 1472,
         autowait: bool = True,
     ):
         # Read-only variables
@@ -44,8 +43,7 @@ class Engine:
         self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
-        self.msgMaxSize = msgMaxSize
-        self.multiplexor = UdpMultiplexor(self.msgMaxSize)
+        self.multiplexor = UdpMultiplexor()
         self.scheduler = Scheduler(self.multiplexor.poll)
         self.usm = UserBasedSecurityModule()
 
@@ -100,8 +98,38 @@ class Engine:
             defaultSecurityLevel,
         )
 
-    def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
-        self.multiplexor.register(transport, self.pipeline)
+    def createChannel(self, domain, address, localAddress, mtu):
+        try:
+            transportClass = self.TRANSPORTS[domain]
+        except KeyError as err:
+            errmsg = f"Unsupported transport domain: {transportClass.DOMAIN}"
+            raise ValueError(errmsg) from err
+
+        address = transportClass.normalizeAddress(
+            address,
+            AddressUsage.LISTENER,
+        )
+
+        localAddress = transportClass.normalizeAddress(localAddress)
+
+        try:
+            transports = self.transports[domain]
+        except KeyError:
+            transports = {}
+            self.transports[domain] = transports
+
+        try:
+            transport = transports[localAddress]
+        except KeyError:
+            if mtu is None:
+                transport = transportClass(*localAddress)
+            else:
+                transport = transportClass(*localAddress, mtu=mtu)
+
+            self.multiplexor.register(transport, self.pipeline)
+            transports[localAddress] = transport
+
+        return TransportChannel(transport, address)
 
     def v1Manager(self,
         channel: TransportChannel[Address],
@@ -176,6 +204,7 @@ class Engine:
         version: Optional[ProtocolVersion] = None,
         domain: Optional[TransportDomain] = None,
         localAddress: Any = None,
+        mtu: Optional[int] = None,
         autowait: Optional[bool] = None,
         **kwargs: Any,
     ) -> Union[
@@ -183,47 +212,18 @@ class Engine:
         SNMPv2cManager,
         SNMPv3Manager,
     ]:
-        if domain is None:
-            domain = self.defaultDomain
-
-        if autowait is None:
-            autowait = self.autowaitDefault
-
-        try:
-            transportClass = self.TRANSPORTS[domain]
-        except KeyError as err:
-            errmsg = f"Unsupported transport domain: {transportClass.DOMAIN}"
-            raise ValueError(errmsg) from err
-
-        address = transportClass.normalizeAddress(
-            address,
-            AddressUsage.LISTENER,
-        )
-
-        localAddress = transportClass.normalizeAddress(
-            localAddress,
-            AddressUsage.SENDER,
-        )
-
-        try:
-            transports = self.transports[domain]
-        except KeyError:
-            transports = {}
-            self.transports[domain] = transports
-
-        try:
-            transport = transports[localAddress]
-        except KeyError:
-            transport = transportClass(*localAddress)
-            self.multiplexor.register(transport, self.pipeline)
-            transports[localAddress] = transport
-
-        channel = TransportChannel(transport, address)
-
         if version is None:
             version = self.defaultVersion
         elif not isinstance(version, ProtocolVersion):
             version = ProtocolVersion(version)
+
+        if domain is None:
+            domain = self.defaultDomain
+
+        channel = self.createChannel(domain, address, localAddress, mtu)
+
+        if autowait is None:
+            autowait = self.autowaitDefault
 
         if version == ProtocolVersion.SNMPv3:
             return self.v3Manager(channel, autowait, **kwargs)

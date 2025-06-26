@@ -152,7 +152,7 @@ class DiscoveryHandler:
         message = SNMPv3Message(
             HeaderData(
                 self.messageID,
-                1472,
+                self.channel.msgMaxSize,
                 MessageFlags(reportable=True),
                 SecurityModel.USM,
             ),
@@ -570,7 +570,7 @@ class SNMPv3Manager:
 
         if handle.active():
             flags = MessageFlags(securityLevel, True)
-            header = HeaderData(0, 1472, flags, SecurityModel.USM)
+            header = HeaderData(0, self.channel.msgMaxSize, flags, SecurityModel.USM)
             scopedPDU = ScopedPDU(handle.pdu, b"", context)
             securityName = SecurityName(userName, self.namespace)
             message = SNMPv3Message(header, scopedPDU, b"", securityName)

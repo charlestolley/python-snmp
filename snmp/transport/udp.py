@@ -23,7 +23,7 @@ class UdpSocket(Transport[Tuple[str, int]]):
     @classmethod
     def normalizeAddress(cls,
         address: Any = None,
-        usage: Optional[AddressUsage] = None,
+        usage: AddressUsage = AddressUsage.SENDER,
     ) -> Tuple[str, int]:
         if isinstance(address, tuple):
             addr, port = address
@@ -33,10 +33,7 @@ class UdpSocket(Transport[Tuple[str, int]]):
             else:
                 addr = address
 
-            if usage is None:
-                port = 0
-            else:
-                port = cls.DEFAULT_PORT[usage]
+            port = cls.DEFAULT_PORT[usage]
 
         permissive = usage not in (
             AddressUsage.LISTENER,
@@ -69,13 +66,15 @@ class UdpSocket(Transport[Tuple[str, int]]):
     def port(self) -> int:
         return cast(int, self.socket.getsockname()[1])
 
-    def __init__(self, host: str = "", port: int = 0) -> None:
+    def __init__(self, recvSize: int, host: str = "", port: int = 0) -> None:
+        self.recvSize = recvSize
+
         self.socket = socket(self.DOMAIN.address_family, SOCK_DGRAM)
         self.socket.setblocking(False)
         self.socket.bind((host, port))
 
-    def receive(self, size: int) -> Tuple[Tuple[str, int], bytes]:
-        data, addr = self.socket.recvfrom(size)
+    def receive(self) -> Tuple[Tuple[str, int], bytes]:
+        data, addr = self.socket.recvfrom(self.recvSize)
         return addr, data
 
     def send(self, data: bytes, address: Tuple[str, int]) -> None:
@@ -87,8 +86,14 @@ class UdpSocket(Transport[Tuple[str, int]]):
 class UdpIPv4Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv4
 
+    def __init__(self, *args, mtu: int = 1500, **kwargs):
+        super().__init__(mtu - 28, *args, **kwargs)
+
 class UdpIPv6Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv6
+
+    def __init__(self, *args, mtu: int = 1500, **kwargs):
+        super().__init__(mtu - 48, *args, **kwargs)
 
 module = importlib.import_module(".udp", package=package)
 UdpMultiplexor = module.UdpMultiplexor

@@ -53,6 +53,10 @@ class TransportChannel(Generic[T]):
     def domain(self) -> TransportDomain:
         return self.transport.DOMAIN
 
+    @property
+    def msgMaxSize(self) -> int:
+        return self.transport.recvSize
+
     def send(self, data: bytes) -> None:
         self.transport.send(data, self.address)
 
