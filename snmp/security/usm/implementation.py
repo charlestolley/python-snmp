@@ -48,7 +48,7 @@ class UserBasedSecurityModule(SecurityModule):
         self.decryptionErrors       = 0
 
     def addUser(self,
-        userName: str,
+        userName: bytes,
         authProtocol: Optional[Type[AuthProtocol]] = None,
         authSecret: Optional[bytes] = None,
         privProtocol: Optional[Type[PrivProtocol]] = None,
@@ -59,7 +59,7 @@ class UserBasedSecurityModule(SecurityModule):
         namespace: str = "",
     ) -> None:
         self.users.addUser(
-            userName.encode(),
+            userName,
             namespace,
             default,
             authProtocol,
@@ -71,17 +71,13 @@ class UserBasedSecurityModule(SecurityModule):
         )
 
     def getDefaultSecurityLevel(self,
-        userName: str,
+        userName: bytes,
         namespace: str = "",
     ) -> SecurityLevel:
-        return self.users.defaultSecurityLevel(
-            userName.encode(),
-            namespace,
-        )
+        return self.users.defaultSecurityLevel(userName, namespace)
 
-    def getDefaultUser(self, namespace: str = "") -> Optional[str]:
-        user = self.users.defaultUser(namespace)
-        return user.decode() if user is not None else None
+    def getDefaultUserName(self, namespace: str = "") -> Optional[bytes]:
+        return self.users.defaultUserName(namespace)
 
     ### Methods for outgoing messages
 

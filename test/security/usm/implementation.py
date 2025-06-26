@@ -58,7 +58,7 @@ class UsmOutgoingTest(unittest.TestCase):
 
         self.usm = UserBasedSecurityModule()
         self.usm.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace=self.namespace,
             authProtocol=DummyAuthProtocol,
             authSecret=b"authSecret",
@@ -110,7 +110,7 @@ class UsmOutgoingNoAuthTest(unittest.TestCase):
         self.engineID = b"engineID"
 
         self.usm = UserBasedSecurityModule()
-        self.usm.addUser(self.userName.decode(), namespace=self.namespace)
+        self.usm.addUser(self.userName, namespace=self.namespace)
 
         self.message = SNMPv3Message(
             HeaderData(
@@ -157,7 +157,7 @@ class UsmOutgoingNoAuthNonAuthoritativeTest(unittest.TestCase):
         self.engineID = b"engineID"
 
         self.usm = UserBasedSecurityModule()
-        self.usm.addUser(self.userName.decode(), namespace=self.namespace)
+        self.usm.addUser(self.userName, namespace=self.namespace)
 
         self.message = SNMPv3Message(
             HeaderData(
@@ -236,7 +236,7 @@ class UsmOutgoingNoAuthAuthoritativeTest(unittest.TestCase):
         )
 
         self.timestamp = time.time()
-        self.usm.addUser(self.userName.decode(), namespace=self.namespace)
+        self.usm.addUser(self.userName, namespace=self.namespace)
 
         self.message = SNMPv3Message(
             HeaderData(
@@ -269,7 +269,7 @@ class UsmOutgoingAuthTest(unittest.TestCase):
 
         self.usm = UserBasedSecurityModule()
         self.usm.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace=self.namespace,
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -308,7 +308,7 @@ class UsmOutgoingAuthTest(unittest.TestCase):
         self.assertRaises(TypeError, self.usm.prepareOutgoing, message)
 
     def test_AuthenticationNotEnabled_if_user_does_not_support_auth(self):
-        self.usm.addUser("noAuthUser", namespace=self.namespace)
+        self.usm.addUser(b"noAuthUser", namespace=self.namespace)
         message = SNMPv3Message(
             self.message.header,
             self.message.scopedPDU,
@@ -324,7 +324,7 @@ class UsmOutgoingAuthTest(unittest.TestCase):
 
     def test_signed_using_the_credentials_for_the_given_namespace(self):
         self.usm.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="a second namespace",
             authProtocol=HmacMd5,
             authSecret=b"secret #2",
@@ -349,7 +349,7 @@ class UsmOutgoingAuthTest(unittest.TestCase):
 
     def test_securityName_may_reference_multiple_namespaces(self):
         self.usm.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="a second namespace",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -384,7 +384,7 @@ class UsmOutgoingAuthNonAuthoritativeTest(unittest.TestCase):
 
         self.usm = UserBasedSecurityModule()
         self.usm.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace=self.namespace,
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -498,7 +498,7 @@ class UsmOutgoingAuthAuthoritativeTest(unittest.TestCase):
         )
 
         self.usm.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace=self.namespace,
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -531,7 +531,7 @@ class UsmOutgoingAuthPrivTest(unittest.TestCase):
 
         self.usm = UserBasedSecurityModule()
         self.usm.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace=self.namespace,
             authProtocol=DummyAuthProtocol,
             privProtocol=DummyPrivProtocol,
@@ -555,7 +555,7 @@ class UsmOutgoingAuthPrivTest(unittest.TestCase):
         namespace = "default namespace"
 
         usm = UserBasedSecurityModule()
-        usm.addUser(userName.decode(), namespace=namespace)
+        usm.addUser(userName, namespace=namespace)
 
         message = SNMPv3Message(
             HeaderData(
@@ -582,7 +582,7 @@ class UsmOutgoingAuthPrivTest(unittest.TestCase):
 
         usm = UserBasedSecurityModule()
         usm.addUser(
-            userName.decode(),
+            userName,
             namespace=namespace,
             authProtocol=DummyAuthProtocol,
             authSecret=b"don't tell anyone"
@@ -652,7 +652,7 @@ class UnknownEngineIDTest(unittest.TestCase):
         self.remote = UserBasedSecurityModule(engineID=b"remote", namespace="")
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -661,7 +661,7 @@ class UnknownEngineIDTest(unittest.TestCase):
         )
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -686,7 +686,7 @@ class UnknownEngineIDTest(unittest.TestCase):
     def test_usm_with_no_engineID_does_not_report_unknownEngineID(self):
         local = UserBasedSecurityModule()
         local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -747,7 +747,7 @@ class UnknownEngineIDTest(unittest.TestCase):
         # Use the wrong authSecret to make sure it reports the unknown
         # engine ID before attempting to verify the signature
         remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret + b"\0",
@@ -863,7 +863,7 @@ class UnknownUserNameTest(unittest.TestCase):
         self.userName = b"unknown"
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=DummyAuthProtocol,
             privProtocol=DummyPrivProtocol,
@@ -899,7 +899,7 @@ class UnknownUserNameTest(unittest.TestCase):
         self.assertEqual(self.local.unknownUserNames, 1)
 
     def test_authoritative_ignores_right_userName_in_wrong_namespace(self):
-        self.local.addUser(self.userName.decode(), namespace="anything")
+        self.local.addUser(self.userName, namespace="anything")
 
         header = self.makeHeader(MessageFlags(authNoPriv))
         message = self.makeMessage(header, SNMPv2TrapPDU(), b"local")
@@ -1004,7 +1004,7 @@ class UnsupportedSecLevelTest(unittest.TestCase):
         self.requestID = 0x58b9793e
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=DummyAuthProtocol,
             authSecret=b"very secret",
@@ -1022,7 +1022,7 @@ class UnsupportedSecLevelTest(unittest.TestCase):
         )
 
     def test_auth_is_not_enabled_for_user(self):
-        self.local.addUser(self.userName.decode(), namespace="")
+        self.local.addUser(self.userName, namespace="")
 
         header = self.makeHeader(MessageFlags(authNoPriv))
         message = self.makeMessage(header, ResponsePDU(), b"remote")
@@ -1038,9 +1038,9 @@ class UnsupportedSecLevelTest(unittest.TestCase):
         self.assertEqual(self.local.unsupportedSecLevels, 1)
 
     def test_user_defined_in_multiple_namespaces_but_none_support_auth(self):
-        self.local.addUser(self.userName.decode(), namespace="A")
-        self.local.addUser(self.userName.decode(), namespace="B")
-        self.local.addUser(self.userName.decode(), namespace="C")
+        self.local.addUser(self.userName, namespace="A")
+        self.local.addUser(self.userName, namespace="B")
+        self.local.addUser(self.userName, namespace="C")
 
         header = self.makeHeader(MessageFlags(authNoPriv))
         message = self.makeMessage(header, ResponsePDU(), b"remote")
@@ -1056,7 +1056,7 @@ class UnsupportedSecLevelTest(unittest.TestCase):
         self.assertEqual(self.local.unsupportedSecLevels, 1)
 
     def test_authoritative_engine_does_not_send_report_if_not_reportable(self):
-        self.local.addUser(self.userName.decode(), namespace="")
+        self.local.addUser(self.userName, namespace="")
 
         pdu = SNMPv2TrapPDU()
         header = self.makeHeader(MessageFlags(authNoPriv))
@@ -1073,7 +1073,7 @@ class UnsupportedSecLevelTest(unittest.TestCase):
         self.assertEqual(self.local.unsupportedSecLevels, 1)
 
     def test_authoritative_engine_sends_report_if_reportable(self):
-        self.local.addUser(self.userName.decode(), namespace="")
+        self.local.addUser(self.userName, namespace="")
 
         pdu = GetRequestPDU()
         header = self.makeHeader(MessageFlags(authNoPriv, True))
@@ -1117,7 +1117,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
         self.authSecret = b"authentic"
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=DummyPrivProtocol,
@@ -1141,7 +1141,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
 
     def test_priv_is_not_enabled_for_user(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1162,14 +1162,14 @@ class UnsupportedPrivacyTest(unittest.TestCase):
 
     def test_user_supports_auth_in_multiple_namespaces_but_not_priv(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="A",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             secret=self.authSecret,
@@ -1190,7 +1190,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
 
     def test_authoritative_engine_does_not_send_report_if_not_reportable(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1212,7 +1212,7 @@ class UnsupportedPrivacyTest(unittest.TestCase):
 
     def test_authoritative_engine_sends_report_if_reportable(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1265,7 +1265,7 @@ class WrongDigestsTest(unittest.TestCase):
         self.authSecret = b"this one is right"
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1287,7 +1287,7 @@ class WrongDigestsTest(unittest.TestCase):
 
     def test_WrongDigest_if_computed_signature_does_not_match(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=b"this one is wrong",
@@ -1307,10 +1307,10 @@ class WrongDigestsTest(unittest.TestCase):
         self.assertEqual(self.local.wrongDigests, 1)
 
     def test_if_one_namespace_supports_auth_then_disregard_the_rest(self):
-        self.local.addUser(self.userName.decode(), namespace="A")
+        self.local.addUser(self.userName, namespace="A")
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             authSecret=b"this one is wrong",
@@ -1331,14 +1331,14 @@ class WrongDigestsTest(unittest.TestCase):
 
     def test_multiple_namespaces_that_compute_different_signatures(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="wrong algorithm",
             authProtocol=HmacSha384,
             authSecret=self.authSecret,
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="wrong secret",
             authProtocol=self.authProtocol,
             authSecret=b"this one is wrong",
@@ -1359,7 +1359,7 @@ class WrongDigestsTest(unittest.TestCase):
 
     def test_authoritative_engine_does_not_send_report_if_not_reportable(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=b"this one is wrong",
@@ -1381,7 +1381,7 @@ class WrongDigestsTest(unittest.TestCase):
 
     def test_authoritative_engine_sends_report_if_reportable(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=b"this one is wrong",
@@ -1435,7 +1435,7 @@ class DecryptionErrors(unittest.TestCase):
         self.privSecret = b"private"
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1459,14 +1459,14 @@ class DecryptionErrors(unittest.TestCase):
 
     def test_DecryptionError_if_signature_matches_but_decryption_fails(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="incorrect",
             authProtocol=self.authProtocol,
             authSecret=b"inauthentic",
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="correct",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1489,14 +1489,14 @@ class DecryptionErrors(unittest.TestCase):
 
     def test_if_one_namesace_supports_priv_then_disregard_the_rest(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="A",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1518,7 +1518,7 @@ class DecryptionErrors(unittest.TestCase):
 
     def test_multiple_namespaces_valid_signature_but_failed_decryption(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="A",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1527,7 +1527,7 @@ class DecryptionErrors(unittest.TestCase):
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1549,7 +1549,7 @@ class DecryptionErrors(unittest.TestCase):
 
     def test_authoritative_engine_does_not_send_report_if_not_reportable(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1573,7 +1573,7 @@ class DecryptionErrors(unittest.TestCase):
 
     def test_authoritative_engine_sends_report_if_reportable(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1628,7 +1628,7 @@ class SuccessfulIncomingMessageTest(unittest.TestCase):
         self.authSecret = b"success!"
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1659,7 +1659,7 @@ class SuccessfulIncomingMessageTest(unittest.TestCase):
 
     def test_authenticated_namespace_included_in_securityName(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1675,10 +1675,10 @@ class SuccessfulIncomingMessageTest(unittest.TestCase):
         self.assertIn("", message.securityName.namespaces)
 
     def test_namespace_with_auth_disabled_not_included_in_securityName(self):
-        self.local.addUser(self.userName.decode(), namespace="A")
+        self.local.addUser(self.userName, namespace="A")
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1695,14 +1695,14 @@ class SuccessfulIncomingMessageTest(unittest.TestCase):
 
     def test_failing_namespace_not_included_in_securityName(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="correct",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="incorrect",
             authProtocol=self.authProtocol,
             authSecret=b"failure...",
@@ -1719,14 +1719,14 @@ class SuccessfulIncomingMessageTest(unittest.TestCase):
 
     def test_all_authenticated_namespaces_included_in_securityName(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="A",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1744,7 +1744,7 @@ class SuccessfulIncomingMessageTest(unittest.TestCase):
 
     def test_authoritative_engine_accepts_message_with_a_valid_signature(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -1777,7 +1777,7 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
         self.privSecret = b"private"
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1801,14 +1801,14 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
 
     def test_inauthentic_namespace_not_included_in_securityName(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="incorrect",
             authProtocol=self.authProtocol,
             authSecret=b"inauthentic",
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="correct",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1828,14 +1828,14 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
 
     def test_ignore_namespace_that_does_not_support_priv(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="A",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1854,7 +1854,7 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
 
     def test_failed_namespace_not_included_in_securityName(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="A",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1863,7 +1863,7 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1881,7 +1881,7 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
 
     def test_multiple_successful_namespaces_included_in_securityName(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="A",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1890,7 +1890,7 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="B",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1910,7 +1910,7 @@ class SuccessfulIncomingPrivateMessageTest(unittest.TestCase):
 
     def test_authoritative_engine_accepts_valid_message(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1945,7 +1945,7 @@ class ScopedPduPaddingTest(unittest.TestCase):
         self.privSecret = b"hide the key"
 
         self.remote.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -1977,7 +1977,7 @@ class ScopedPduPaddingTest(unittest.TestCase):
 
     def test_no_error_if_encrypted_ScopedPDU_has_padding(self):
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -2022,7 +2022,7 @@ class TimeWindowTest(unittest.TestCase):
         )
 
         self.local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             privProtocol=self.privProtocol,
@@ -2516,7 +2516,7 @@ class TimeWindowTest(unittest.TestCase):
         )
 
         local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,
@@ -2561,7 +2561,7 @@ class TimeWindowTest(unittest.TestCase):
         )
 
         local.addUser(
-            self.userName.decode(),
+            self.userName,
             namespace="",
             authProtocol=self.authProtocol,
             authSecret=self.authSecret,

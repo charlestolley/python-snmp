@@ -24,16 +24,16 @@ class UserRegistryTest(unittest.TestCase):
         self.users = UserRegistry()
 
     def test_addUser_ValueError_for_empty_userName(self):
-        self.assertRaises(ValueError, self.users.addUser, "", self.namespace)
+        self.assertRaises(ValueError, self.users.addUser, b"", self.namespace)
 
     def test_addUser_accepts_32_character_userName(self):
-        self.users.addUser("abcdefghijklmnopqrstuvwxyz123456", self.namespace)
+        self.users.addUser(b"abcdefghijklmnopqrstuvwxyz123456", self.namespace)
 
     def test_addUser_ValueError_for_33_character_userName(self):
         self.assertRaises(
             ValueError,
             self.users.addUser,
-            "abcdefghijklmnopqrstuvwxyz1234567",
+            b"abcdefghijklmnopqrstuvwxyz1234567",
             self.namespace,
         )
 
@@ -53,7 +53,10 @@ class UserRegistryTest(unittest.TestCase):
     def test_first_user_added_is_the_default(self):
         self.users.addUser(self.userName, self.namespace)
         self.users.addUser(self.otherName, self.namespace)
-        self.assertEqual(self.users.defaultUser(self.namespace), self.userName)
+        self.assertEqual(
+            self.users.defaultUserName(self.namespace),
+            self.userName,
+        )
 
     def test_first_user_added_to_namespace_ValueError_if_default_False(self):
         self.assertRaises(
@@ -78,7 +81,7 @@ class UserRegistryTest(unittest.TestCase):
         self.users.addUser(self.userName, self.namespace)
         self.users.addUser(self.otherName, self.namespace, default=True)
 
-        defaultUserName = self.users.defaultUser(self.namespace)
+        defaultUserName = self.users.defaultUserName(self.namespace)
         self.assertEqual(defaultUserName, self.otherName)
 
     def test_each_namespace_has_its_own_default_user(self):
@@ -89,12 +92,12 @@ class UserRegistryTest(unittest.TestCase):
         self.users.addUser(self.userName, otherNamespace)
 
         self.assertEqual(
-            self.users.defaultUser(self.namespace),
+            self.users.defaultUserName(self.namespace),
             self.userName,
         )
 
         self.assertEqual(
-            self.users.defaultUser(otherNamespace),
+            self.users.defaultUserName(otherNamespace),
             self.otherName,
         )
 

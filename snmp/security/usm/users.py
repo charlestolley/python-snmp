@@ -156,7 +156,7 @@ class UserRegistry:
     ) -> SecurityLevel:
         return self.namespaceConfigs[namespace][userName].defaultSecurityLevel
 
-    def defaultUser(self, namespace) -> bytes:
+    def defaultUserName(self, namespace) -> bytes:
         return self.namespaceConfigs[namespace].defaultUserName
 
     @staticmethod

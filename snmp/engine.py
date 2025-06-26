@@ -77,6 +77,29 @@ class Engine:
     def shutdown(self) -> None:
         pass
 
+    def addUser(self,
+        user: str,
+        namespace: str = "",
+        default: Optional[bool] = None,
+        authProtocol: Optional[Type[AuthProtocol]] = None,
+        privProtocol: Optional[Type[PrivProtocol]] = None,
+        authSecret: Optional[bytes] = None,
+        privSecret: Optional[bytes] = None,
+        secret: Optional[bytes] = None,
+        defaultSecurityLevel: Optional[SecurityLevel] = None,
+    ) -> None:
+        self.usm.addUser(
+            user.encode(),
+            authProtocol,
+            authSecret,
+            privProtocol,
+            privSecret,
+            secret,
+            default,
+            defaultSecurityLevel,
+            namespace,
+        )
+
     def connectTransport(self, transport: Transport[Tuple[str, int]]) -> None:
         self.multiplexor.register(transport, self.pipeline)
 
@@ -115,18 +138,20 @@ class Engine:
         autowait: bool,
         engineID: Optional[bytes] = None,
         defaultSecurityLevel: Optional[SecurityLevel] = None,
+        defaultUser: Optional[str] = None,
         **kwargs: Any,
     ):
-        defaultUserName = kwargs.get("defaultUserName")
         namespace = kwargs.get("namespace", "")
 
-        if defaultUserName is None:
-            defaultUserName = self.usm.getDefaultUser(namespace)
+        if defaultUser is None:
+            defaultUserName = self.usm.getDefaultUserName(namespace)
 
             if defaultUserName is None:
                 errmsg = "You must add at least one user before" \
                     " you can create an SNMPv3 Manager"
                 raise NoDefaultUser(errmsg)
+        else:
+            defaultUserName = defaultUser.encode()
 
         if defaultSecurityLevel is None:
             defaultSecurityLevel = self.usm.getDefaultSecurityLevel(
@@ -140,7 +165,7 @@ class Engine:
             self.v3_sorter,
             channel,
             namespace,
-            defaultUserName.encode(),
+            defaultUserName,
             defaultSecurityLevel,
             engineID=engineID,
             autowait=autowait,
