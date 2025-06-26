@@ -237,7 +237,10 @@ class SendTask(SchedulerTask):
             handle.expire()
             return None
 
-        self.messageID = self.manager.allocateMessage(handle.requestID, self.engineID)
+        self.messageID = self.manager.allocateMessage(
+            handle.requestID,
+            self.engineID,
+        )
 
         message = self.message \
             .withMessageID(self.messageID) \
@@ -418,11 +421,17 @@ class SNMPv3Manager:
         requestMessage = requestState.message
 
         pdu = message.scopedPDU.pdu
+        contextName = message.scopedPDU.contextName
+        securityLevel = message.header.flags.securityLevel
+        securityName = message.securityName
+
         if pdu.INTERNAL_CLASS:
             if pdu.requestID != 0 and pdu.requestID != requestID:
                 raise IncomingMessageError("ReportPDU has the wrong requestID")
-            elif message.scopedPDU.contextName != b"" and message.scopedPDU.contextName != requestMessage.scopedPDU.contextName:
-                raise IncomingMessageError("Report message has the wrong contextName")
+            elif (contextName != b""
+            and contextName != requestMessage.scopedPDU.contextName):
+                errmsg = "Report message has the wrong contextName"
+                raise IncomingMessageError(errmsg)
 
             if len(pdu.variableBindings) < 1:
                 raise IncomingMessageError("No OIDs in report")
@@ -431,7 +440,8 @@ class SNMPv3Manager:
             if oid == usmStatsUnknownEngineIDsInstance:
                 requestState.send(message.securityEngineID, self)
             elif message.securityEngineID != engineID:
-                raise IncomingMessageError("Engine ID does not match the request")
+                errmsg = "Engine ID does not match the request"
+                raise IncomingMessageError(errmsg)
             elif oid == usmStatsNotInTimeWindowsInstance:
                 if requestMessage.header.flags.authFlag:
                     refreshPeriod = requestState.refreshPeriod
@@ -447,9 +457,8 @@ class SNMPv3Manager:
                             requestState.expireOnRefresh(engineID)
             elif oid == usmStatsUnsupportedSecLevelsInstance:
                 requestSecLevel = requestMessage.header.flags.securityLevel
-                reportSecLevel = message.header.flags.securityLevel
 
-                if reportSecLevel < requestSecLevel:
+                if securityLevel < requestSecLevel:
                     userName = requestMessage.securityName.userName
                     user = self.decodeUserName(userName)
                     error = UnsupportedSecurityLevel(user, requestSecLevel)
@@ -495,10 +504,10 @@ class SNMPv3Manager:
                     pdu.requestID,
                     requestID,
                 )
-            elif message.header.flags.securityLevel < requestMessage.header.flags.securityLevel:
+            elif securityLevel < requestMessage.header.flags.securityLevel:
                 raise InvalidResponseField(
                     "securityLevel",
-                    message.header.flags.securityLevel,
+                    securityLevel,
                     requestMessage.header.flags.securityLevel,
                 )
             elif message.scopedPDU.contextEngineID != engineID:
@@ -507,10 +516,10 @@ class SNMPv3Manager:
                     message.scopedPDU.contextEngineID,
                     engineID,
                 )
-            elif message.scopedPDU.contextName != requestMessage.scopedPDU.contextName:
+            elif contextName != requestMessage.scopedPDU.contextName:
                 raise InvalidResponseField(
                     "contextName",
-                    message.scopedPDU.contextName,
+                    contextName,
                     requestMessage.scopedPDU.contextName,
                 )
             elif message.securityEngineID != engineID:
@@ -519,16 +528,16 @@ class SNMPv3Manager:
                     message.securityEngineID,
                     engineID,
                 )
-            elif message.securityName.userName != requestMessage.securityName.userName:
+            elif securityName.userName != requestMessage.securityName.userName:
                 raise InvalidResponseField(
                     "securityName",
-                    message.securityName.userName,
+                    securityName.userName,
                     requestMessage.securityName.userName,
                 )
             elif (requestMessage.header.flags.authFlag
-            and self.namespace not in message.securityName.namespaces):
+            and self.namespace not in securityName.namespaces):
                 raise NamespaceMismatch(
-                    message.securityName.namespaces,
+                    securityName.namespaces,
                     self.namespace,
                 )
 

@@ -1,5 +1,4 @@
 __all__ = ["SNMPv3Manager3Test"]
-# TODO: Check line lengths
 
 import unittest
 import weakref
@@ -130,7 +129,11 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
             prev = now
 
-    def makeManager(self, securityLevel=noAuthNoPriv, engineID=None, autowait=False):
+    def makeManager(self,
+        securityLevel=noAuthNoPriv,
+        engineID=None,
+        autowait=False,
+    ):
         return SNMPv3Manager(
             self.scheduler,
             self.router,
@@ -715,8 +718,10 @@ class SNMPv3Manager3Test(unittest.TestCase):
         message = pcap.messages.pop()
         pdu = message.scopedPDU.pdu
         self.assertEqual(pdu.requestID, h3.requestID)
-        self.assertEqual(len(pdu.variableBindings), 1)
-        self.assertEqual(pdu.variableBindings[0].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+
+        vblist = pdu.variableBindings
+        self.assertEqual(len(vblist), 1)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,2,2,1,2,1))
 
     def test_handle_raises_Timeout_after_timeout_if_there_is_no_response(self):
         manager = self.makeManager(engineID=b"remote")
@@ -2779,9 +2784,6 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(vblist[6].value, Integer(1))
         self.assertEqual(vblist[7].name, OID(1,3,6,1,2,1,2,2,1,8,2))
         self.assertEqual(vblist[7].value, Integer(1))
-
-# TODO: Verify handle ownership
-# TODO: Add withEngineID to ScopedPDU and SNMPv3Message
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
