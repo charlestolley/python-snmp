@@ -1,4 +1,4 @@
-__all__ = ["Asn1Data", "Tag", "decode", "decodeExact", "encode"]
+__all__ = ["Asn1Data", "EnhancedParseError", "Tag", "decode", "decodeExact", "encode"]
 
 from enum import IntEnum
 
