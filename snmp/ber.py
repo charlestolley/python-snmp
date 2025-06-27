@@ -8,6 +8,11 @@ from snmp.utils import *
 
 Asn1Data = Union[bytes, subbytes]
 
+class EnhancedParseError(ParseError):
+    def __init__(self, msg: str, data: subbytes):
+        super().__init__(msg)
+        self.data = data
+
 @final
 class Tag:
     """Represents an ASN.1 BER tag."""
@@ -53,9 +58,9 @@ class Tag:
         referencing everything after the tag.
         """
         try:
-            byte, data = data.pop_front()
+            byte, ptr = data.pop_front()
         except IndexError as err:
-            raise ParseError("Missing tag") from err
+            raise EnhancedParseError("Missing tag", data) from err
 
         class_      = (byte & 0xc0) >> 6
         constructed = (byte & 0x20) != 0
@@ -66,14 +71,14 @@ class Tag:
             byte = 0x80
             while byte & 0x80:
                 try:
-                    byte, data = data.pop_front()
+                    byte, ptr = ptr.pop_front()
                 except IndexError as err:
-                    raise ParseError("Incomplete tag") from err
+                    raise EnhancedParseError("Incomplete tag", data) from err
 
                 number <<= 7
                 number |= byte & 0x7f
 
-        return cls(number, constructed, cls.Class(class_)), data
+        return cls(number, constructed, cls.Class(class_)), ptr
 
     def encode(self) -> bytes:
         """Encode a Tag under ASN.1 Basic Encoding Rules."""
@@ -107,9 +112,9 @@ def decode_length(data: subbytes) -> Tuple[int, subbytes]:
     data argument immediately following the length field.
     """
     try:
-        length, data = data.pop_front()
+        length, ptr = data.pop_front()
     except IndexError as err:
-        raise ParseError("Missing length") from err
+        raise EnhancedParseError("Missing length", data) from err
 
     if length & 0x80:
         n = length & 0x7f
@@ -117,14 +122,14 @@ def decode_length(data: subbytes) -> Tuple[int, subbytes]:
         length = 0
         for i in range(n):
             try:
-                byte, data = data.pop_front()
+                byte, ptr = ptr.pop_front()
             except IndexError as err:
-                raise ParseError("Incomplete length") from err
+                raise EnhancedParseError("Incomplete length", data) from err
 
             length <<= 8
             length |= byte
 
-    return length, data
+    return length, ptr
 
 def encode_length(length: int) -> bytes:
     """Encode the length of a message under ASN.1 Basic Encoding Rules."""
@@ -143,21 +148,21 @@ def encode_length(length: int) -> bytes:
     return bytes(reversed(arr))
 
 def decode(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
-    data = subbytes(data)
-    tag, data = Tag.decode(data)
-    length, data = decode_length(data)
+    original = subbytes(data)
+    tag, ptr = Tag.decode(original)
+    length, ptr = decode_length(ptr)
 
-    if len(data) < length:
-        raise ParseError("Incomplete value")
+    if len(ptr) < length:
+        raise EnhancedParseError("Incomplete value", original)
 
-    body, tail = data.split(length)
+    body, tail = ptr.split(length)
     return tag, body, tail
 
 def decodeExact(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes]:
     tag, body, tail = decode(data)
 
     if tail:
-        raise ParseError(f"Trailing bytes: {tail}")
+        raise EnhancedParseError(f"Trailing bytes", tail)
 
     return tag, body
 
