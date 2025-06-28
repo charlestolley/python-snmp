@@ -16,12 +16,11 @@ TNULL           = TypeVar("TNULL",          bound="NULL")
 TOID            = TypeVar("TOID",           bound="OBJECT_IDENTIFIER")
 
 class ASN1:
-    TAG: ClassVar[Tag]
+    class DeserializeError(SNMPException):
+        def __init__(self, msg):
+            self.msg = msg
 
-    @classmethod
-    def checkTag(cls, tag: Tag) -> None:
-        if tag != cls.TAG:
-            raise ParseError(f"{tag} does not match expected type: {cls.TAG}")
+    TAG: ClassVar[Tag]
 
     @classmethod
     def decode(
@@ -30,8 +29,19 @@ class ASN1:
         **kwargs: Any,
     ) -> Tuple[TASN1, subbytes]:
         tag, body, tail = decode(data)
-        cls.checkTag(tag)
-        return cls.deserialize(body, **kwargs), tail
+
+        if tag != cls.TAG:
+            msg = f"{typename(cls)}.decode():" \
+                f" {tag} does not match expected type: {cls.TAG}"
+            data = subbytes(data, stop=len(data) - len(tail))
+            raise EnhancedParseError(msg, data)
+
+        try:
+            return cls.deserialize(body, **kwargs), tail
+        except ASN1.DeserializeError as err:
+            msg = f"{typename(cls)}.decode(): {err.msg}"
+            data = subbytes(data, stop=len(data) - len(tail))
+            raise EnhancedParseError(msg, data) from err
 
     @classmethod
     def decodeExact(
@@ -40,8 +50,19 @@ class ASN1:
         **kwargs: Any,
     ) -> TASN1:
         tag, body = decodeExact(data)
-        cls.checkTag(tag)
-        return cls.deserialize(body, **kwargs)
+
+        if tag != cls.TAG:
+            msg = f"{typename(cls)}.decodeExact():" \
+                f" {tag} does not match expected type: {cls.TAG}"
+            data = subbytes(data)
+            raise EnhancedParseError(msg, data)
+
+        try:
+            return cls.deserialize(body, **kwargs)
+        except ASN1.DeserializeError as err:
+            msg = f"{typename(cls)}.decodeExact(): {err.msg}"
+            data = subbytes(data)
+            raise EnhancedParseError(msg, data) from err
 
     def encode(self) -> bytes:
         return encode(self.TAG, self.serialize())
@@ -141,8 +162,8 @@ class INTEGER(Primitive):
     ) -> TINTEGER:
         try:
             return cls.construct(next(nums))
-        except ParseError as err:
-            raise OBJECT_IDENTIFIER.IndexDecodeError(*err.args) from err
+        except ASN1.DeserializeError as err:
+            raise OBJECT_IDENTIFIER.IndexDecodeError(err.msg) from err
 
 class OCTET_STRING(Primitive):
     TAG = Tag(4)
@@ -183,8 +204,8 @@ class OCTET_STRING(Primitive):
 
         try:
             return cls.construct(data)
-        except ParseError as err:
-            raise OBJECT_IDENTIFIER.IndexDecodeError(*err.args) from err
+        except ASN1.DeserializeError as err:
+            raise OBJECT_IDENTIFIER.IndexDecodeError(err.args[0]) from err
 
     @classmethod
     def construct(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
@@ -333,8 +354,8 @@ class OBJECT_IDENTIFIER(Primitive):
 
         try:
             return cls.construct(*subidentifiers)
-        except ParseError as err:
-            raise OBJECT_IDENTIFIER.IndexDecodeError(*err.args) from err
+        except ASN1.DeserializeError as err:
+            raise OBJECT_IDENTIFIER.IndexDecodeError(err.msg) from err
 
     def extend(self: TOID, *subidentifiers: int) -> TOID:
         return self.__class__(*self.subidentifiers, *subidentifiers)
@@ -400,7 +421,7 @@ class OBJECT_IDENTIFIER(Primitive):
         try:
             return cls(*subidentifiers)
         except ValueError as err:
-            raise ParseError(*err.args) from err
+            raise ASN1.DeserializeError(err.args[0]) from err
 
     @classmethod
     def deserialize(cls: Type[TOID], data: Asn1Data) -> TOID:
@@ -409,7 +430,7 @@ class OBJECT_IDENTIFIER(Primitive):
         try:
             oid = list(divmod(next(stream), 40))
         except StopIteration as err:
-            raise ParseError(f"Empty {typename(cls)}") from err
+            raise ASN1.DeserializeError(f"Empty {typename(cls)}") from err
 
         value = 0
         for byte in stream:
@@ -421,7 +442,7 @@ class OBJECT_IDENTIFIER(Primitive):
                 value = 0
 
         if value:
-            raise ParseError(f"{typename(cls)} ended unexpectedly")
+            raise ASN1.DeserializeError(f"{typename(cls)} ended unexpectedly")
 
         return cls.construct(*oid)
 

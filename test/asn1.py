@@ -34,6 +34,26 @@ class INTEGERTest(unittest.TestCase):
         i = INTEGER(65)
         self.assertEqual(eval(repr(i)), i)
 
+    def test_decode_raises_ParseError_if_the_tag_is_wrong(self):
+        data = b"\x03\x01\x00\x02\x01\x00"
+
+        try:
+            INTEGER.decode(data)
+        except EnhancedParseError as err:
+            self.assertEqual(err.data, subbytes(data, stop=3))
+        else:
+            raise AssertionError("EnhancedParseError not raised by decode")
+
+    def test_decodeExact_raises_ParseError_if_the_tag_is_wrong(self):
+        data = b"\x03\x01\x00"
+
+        try:
+            INTEGER.decodeExact(data)
+        except EnhancedParseError as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("EnhancedParseError not raised by decode")
+
     def test_decode_returns_INTEGER(self):
         self.assertIsInstance(INTEGER.decodeExact(b"\x02\x01\x00"), INTEGER)
 
@@ -386,15 +406,36 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
         oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x01\x00")
         self.assertEqual(oid, OBJECT_IDENTIFIER(0, 0))
 
+    def test_decode_raises_ParseError_for_empty_OID(self):
+        data = b"\x06\x00"
+        self.assertRaises(EnhancedParseError, OBJECT_IDENTIFIER.decode, data)
+        self.assertRaises(EnhancedParseError, OBJECT_IDENTIFIER.decodeExact, data)
+
     def test_decode_divides_the_first_byte_by_40(self):
         oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x01\x2b")
         self.assertEqual(oid, OBJECT_IDENTIFIER(1, 3))
 
     def test_decode_raises_ParseError_when_the_first_byte_is_invalid(self):
         for i in range(120, 255):
+            enc = b"\x06\x01" + bytes((i, 2, 1, 0))
+
+            try:
+                OBJECT_IDENTIFIER.decode(enc)
+            except EnhancedParseError as err:
+                self.assertEqual(err.data, subbytes(enc, stop=3))
+            else:
+                raise AssertionError("EnhancedParseError not raised by decode")
+
+    def test_decodeExact_raises_ParseError_when_first_byte_is_invalid(self):
+        for i in range(120, 255):
             enc = b"\x06\x01" + bytes((i,))
-            self.assertRaises(ParseError, OBJECT_IDENTIFIER.decode, enc)
-            self.assertRaises(ParseError, OBJECT_IDENTIFIER.decodeExact, enc)
+
+            try:
+                OBJECT_IDENTIFIER.decodeExact(enc)
+            except EnhancedParseError as err:
+                self.assertEqual(err.data, enc)
+            else:
+                raise AssertionError("EnhancedParseError not raised by decodeExact")
 
     def test_decode_reads_each_byte_with_msb_unset_as_a_subidentifier(self):
         oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x03\x2b\x06\x01")
@@ -403,6 +444,11 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
     def test_decode_concatenates_the_lowest_seven_bits_while_msb_is_set(self):
         oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x04\x2b\xa9\xb4\x5a")
         self.assertEqual(oid, OBJECT_IDENTIFIER(1, 3, 0xa5a5a))
+
+    def test_decode_raises_ParseError_if_the_last_byte_has_the_msb_set(self):
+        data = b"\x06\x02\x2b\x86"
+        self.assertRaises(EnhancedParseError, OBJECT_IDENTIFIER.decode, data)
+        self.assertRaises(EnhancedParseError, OBJECT_IDENTIFIER.decodeExact, data)
 
     def test_encode_always_produces_at_least_one_byte(self):
         self.assertEqual(OBJECT_IDENTIFIER().encode(), b"\x06\x01\x00")
