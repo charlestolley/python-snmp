@@ -77,7 +77,8 @@ class MessageFlags(OctetString):
         try:
             byte = data[0]
         except IndexError as err:
-            raise ParseError(f"{typename(cls)} must contain at least one byte")
+            errmsg = f"{typename(cls)} must contain at least one byte"
+            raise ASN1.DeserializeError(errmsg)
 
         try:
             securityLevel = SecurityLevel(
@@ -85,7 +86,9 @@ class MessageFlags(OctetString):
                 byte & cls.PRIV_FLAG,
             )
         except ValueError as err:
-            raise ParseError(f"Invalid msgFlags: {err}") from err
+            # TODO: RFC 3412 Section 7.2 step 5e says to increment
+            #       snmpInvalidMsgs, not snmpInASNParseErrs
+            raise ASN1.DeserializeError(f"Invalid msgFlags: {err}") from err
 
         reportable = (byte & cls.REPORTABLE_FLAG != 0)
         return cls(securityLevel, reportable)
@@ -188,13 +191,26 @@ class HeaderData(Sequence):
 
     @classmethod
     def deserialize(cls, data: Union[bytes, subbytes]) -> "HeaderData":
-        msgID, data         = Integer.decode(data)
-        msgMaxSize, data    = Integer.decode(data)
-        msgFlags, data      = MessageFlags.decode(data)
-        msgSecurityModel    = Integer.decodeExact(data)
+        msgID, msdata = Integer.decode(data)
+
+        if msgID.value < 0:
+            errmsg = f"Message ID may not be negative: {msgID.value}"
+            errdata = subbytes(data, stop=len(data) - len(msdata))
+            raise EnhancedParseError(errmsg, errdata)
+
+        msgMaxSize, mfdata = Integer.decode(msdata)
+
+        if msgMaxSize.value < 484:
+            errmsg = f"msgMaxSize must be at least 484: {msgMaxSize.value}"
+            errdata = subbytes(msdata, stop=len(msdata) - len(mfdata))
+            raise EnhancedParseError(errmsg, errdata)
+
+        msgFlags, smdata = MessageFlags.decode(mfdata)
+        msgSecurityModel = Integer.decodeExact(smdata)
 
         if msgSecurityModel.value < 1:
-            raise ParseError("msgSecurityModel may not be less than 1")
+            errmsg = "msgSecurityModel may not be less than 1"
+            raise EnhancedParseError(errmsg, smdata)
 
         try:
             securityModel = SecurityModel(msgSecurityModel.value)
@@ -205,7 +221,7 @@ class HeaderData(Sequence):
         try:
             return cls(msgID.value, msgMaxSize.value, msgFlags, securityModel)
         except ValueError as err:
-            raise ParseError(*err.args) from err
+            raise ASN1.DeserializeError(err.args[0]) from err
 
 class ScopedPDU(Sequence):
     def __init__(self,
@@ -268,7 +284,7 @@ class ScopedPDU(Sequence):
             pduType = pduTypes[tag]
         except KeyError as err:
             errmsg = f"{typename(cls)} does not support PDUs of type {tag}"
-            raise ParseError(errmsg) from err
+            raise EnhancedParseError(errmsg, data) from err
 
         return cls(
             pduType.decodeExact(data),
@@ -409,11 +425,13 @@ class SNMPv3WireMessage(Sequence):
             version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
             errmsg = f"Unsupported msgVersion: {msgVersion.value}"
-            raise ParseError(errmsg) from err
+            errdata = subbytes(data, stop=len(data) - len(ptr))
+            raise EnhancedParseError(errmsg, errdata) from err
 
         if version != cls.VERSION:
             errmsg = f"{typename(cls)} cannot decode {version.name} messages"
-            raise ParseError(errmsg)
+            errdata = subbytes(data, stop=len(data) - len(ptr))
+            raise EnhancedParseError(errmsg, errdata)
 
         msgGlobalData, ptr = HeaderData.decode(ptr)
         msgSecurityData, ptr = OctetString.decode(ptr, copy=False)
