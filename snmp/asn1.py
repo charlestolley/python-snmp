@@ -34,14 +34,14 @@ class ASN1:
             msg = f"{typename(cls)}.decode():" \
                 f" {tag} does not match expected type: {cls.TAG}"
             data = subbytes(data, stop=len(data) - len(tail))
-            raise EnhancedParseError(msg, data)
+            raise ParseError(msg, data)
 
         try:
             return cls.deserialize(body, **kwargs), tail
         except ASN1.DeserializeError as err:
             msg = f"{typename(cls)}.decode(): {err.msg}"
             data = subbytes(data, stop=len(data) - len(tail))
-            raise EnhancedParseError(msg, data) from err
+            raise ParseError(msg, data) from err
 
     @classmethod
     def decodeExact(
@@ -55,14 +55,14 @@ class ASN1:
             msg = f"{typename(cls)}.decodeExact():" \
                 f" {tag} does not match expected type: {cls.TAG}"
             data = subbytes(data)
-            raise EnhancedParseError(msg, data)
+            raise ParseError(msg, data)
 
         try:
             return cls.deserialize(body, **kwargs)
         except ASN1.DeserializeError as err:
             msg = f"{typename(cls)}.decodeExact(): {err.msg}"
             data = subbytes(data)
-            raise EnhancedParseError(msg, data) from err
+            raise ParseError(msg, data) from err
 
     def encode(self) -> bytes:
         return encode(self.TAG, self.serialize())

@@ -6,7 +6,7 @@ import weakref
 
 from os import linesep
 
-from snmp.ber import EnhancedParseError
+from snmp.ber import ParseError
 from snmp.exception import *
 from snmp.message import *
 from snmp.utils import typename
@@ -26,16 +26,11 @@ class Catcher:
 
         try:
             self.listener.hear(data, channel)
-        except EnhancedParseError as err:
-            self.parseErrors += 1
-
-            if self.verbose:
-                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
         except ParseError as err:
             self.parseErrors += 1
 
             if self.verbose:
-                self.logger.debug(f"{err!r}\n{data!r}")
+                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
         except BadVersion as err:
             self.badVersions += 1
 

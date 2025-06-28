@@ -6,7 +6,7 @@ __all__ = [
 import unittest
 
 from snmp.exception import *
-from snmp.ber import EnhancedParseError
+from snmp.ber import ParseError
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.security import *
@@ -146,10 +146,10 @@ class MessageFlagsTest(unittest.TestCase):
 
         try:
             MessageFlags.decodeExact(data)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, data)
         else:
-            raise AssertionError("EnhancedParseError not raised by decodeExact")
+            raise AssertionError("ParseError not raised by decodeExact")
 
     def test_decode_raises_IncomingMessageError_on_invalid_securityLevel(self):
         self.assertRaises(
@@ -268,10 +268,10 @@ class HeaderDataTest(unittest.TestCase):
 
         try:
             HeaderData.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 2, 8))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_if_msgID_is_over_int32_max(self):
         invalid = bytes.fromhex(
@@ -284,10 +284,10 @@ class HeaderDataTest(unittest.TestCase):
 
         try:
             HeaderData.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 2, 9))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_if_maxSize_is_less_than_484(self):
         invalid = bytes.fromhex(
@@ -300,10 +300,10 @@ class HeaderDataTest(unittest.TestCase):
 
         try:
             HeaderData.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 8, 12))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_if_maxSize_is_over_int32_max(self):
         invalid = bytes.fromhex(
@@ -316,10 +316,10 @@ class HeaderDataTest(unittest.TestCase):
 
         try:
             HeaderData.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 8, 15))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_accepts_msdID_of_0_and_int32_max(self):
         HeaderData.decode(bytes.fromhex(
@@ -349,10 +349,10 @@ class HeaderDataTest(unittest.TestCase):
 
         try:
             HeaderData.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, start=15))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
         invalid = bytes.fromhex(
             "30 10"
@@ -364,10 +364,10 @@ class HeaderDataTest(unittest.TestCase):
 
         try:
             HeaderData.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, start=15))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_if_securityModel_is_over_int32_max(self):
         invalid = bytes.fromhex(
@@ -380,10 +380,10 @@ class HeaderDataTest(unittest.TestCase):
 
         try:
             HeaderData.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 15))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_UnknownSecurityModel_if_model_is_not_3(self):
         invalid = bytes.fromhex(
@@ -529,10 +529,10 @@ class ScopedPDUTest(unittest.TestCase):
 
         try:
             ScopedPDU.decode(encoding)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(encoding, 6))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_example_matches_the_hand_computed_result(self):
         scopedPDU = ScopedPDU.decodeExact(self.encoding)
@@ -769,10 +769,10 @@ class SNMPv3WireMessageTest(unittest.TestCase):
 
         try:
             SNMPv3WireMessage.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 22))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_on_OctetString_without_privFlag(self):
         invalid = bytes.fromhex(
@@ -789,10 +789,10 @@ class SNMPv3WireMessageTest(unittest.TestCase):
 
         try:
             SNMPv3WireMessage.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 22))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_unknown_version(self):
         invalid = bytes.fromhex(
@@ -809,10 +809,10 @@ class SNMPv3WireMessageTest(unittest.TestCase):
 
         try:
             SNMPv3WireMessage.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 2, 5))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_wrong_version(self):
         invalid = bytes.fromhex(
@@ -828,10 +828,10 @@ class SNMPv3WireMessageTest(unittest.TestCase):
 
         try:
             SNMPv3WireMessage.decode(invalid)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(invalid, 2, 5))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_securityParameters_original_references_the_whole_message(self):
         message = SNMPv3WireMessage.decodeExact(self.plain)

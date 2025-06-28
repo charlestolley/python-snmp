@@ -1,4 +1,4 @@
-__all__ = ["Asn1Data", "EnhancedParseError", "Tag", "decode", "decodeExact", "encode"]
+__all__ = ["Asn1Data", "ParseError", "Tag", "decode", "decodeExact", "encode"]
 
 from enum import IntEnum
 
@@ -8,7 +8,7 @@ from snmp.utils import *
 
 Asn1Data = Union[bytes, subbytes]
 
-class EnhancedParseError(ParseError):
+class ParseError(IncomingMessageError):
     def __init__(self, msg: str, data: subbytes):
         super().__init__(msg)
         self.data = data
@@ -60,7 +60,7 @@ class Tag:
         try:
             byte, ptr = data.pop_front()
         except IndexError as err:
-            raise EnhancedParseError("Missing tag", data) from err
+            raise ParseError("Missing tag", data) from err
 
         class_      = (byte & 0xc0) >> 6
         constructed = (byte & 0x20) != 0
@@ -73,7 +73,7 @@ class Tag:
                 try:
                     byte, ptr = ptr.pop_front()
                 except IndexError as err:
-                    raise EnhancedParseError("Incomplete tag", data) from err
+                    raise ParseError("Incomplete tag", data) from err
 
                 number <<= 7
                 number |= byte & 0x7f
@@ -114,7 +114,7 @@ def decode_length(data: subbytes) -> Tuple[int, subbytes]:
     try:
         length, ptr = data.pop_front()
     except IndexError as err:
-        raise EnhancedParseError("Missing length", data) from err
+        raise ParseError("Missing length", data) from err
 
     if length & 0x80:
         n = length & 0x7f
@@ -124,7 +124,7 @@ def decode_length(data: subbytes) -> Tuple[int, subbytes]:
             try:
                 byte, ptr = ptr.pop_front()
             except IndexError as err:
-                raise EnhancedParseError("Incomplete length", data) from err
+                raise ParseError("Incomplete length", data) from err
 
             length <<= 8
             length |= byte
@@ -153,7 +153,7 @@ def decode(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
     length, ptr = decode_length(ptr)
 
     if len(ptr) < length:
-        raise EnhancedParseError("Incomplete value", original)
+        raise ParseError("Incomplete value", original)
 
     body, tail = ptr.split(length)
     return tag, body, tail
@@ -162,7 +162,7 @@ def decodeExact(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes]:
     tag, body, tail = decode(data)
 
     if tail:
-        raise EnhancedParseError(f"Trailing bytes", tail)
+        raise ParseError(f"Trailing bytes", tail)
 
     return tag, body
 

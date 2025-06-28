@@ -103,21 +103,21 @@ class UnsignedUsmParameters(Sequence):
         if engineBoots.value < 0:
             errmsg = f"negative value for engineBoots: {engineBoots.value}"
             errdata = subbytes(ebdata, stop=len(ebdata) - len(etdata))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         engineTime, undata = Integer.decode(etdata)
 
         if engineTime.value < 0:
             errmsg = f"negative value for engineTime: {engineTime.value}"
             errdata = subbytes(etdata, stop=len(etdata) - len(undata))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         userName, ptr = OctetString.decode(undata)
 
         if len(userName.data) > 32:
             errmsg = f"userName exceeds 32 characters: {userName.data!r}"
             errdata = subbytes(undata, stop=len(undata) - len(ptr))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         padding, ptr    = OctetString.decode(ptr)
         salt            = OctetString.decodeExact(ptr)
@@ -240,21 +240,21 @@ class SignedUsmParameters(Sequence):
         if engineBoots.value < 0:
             errmsg = f"negative value for engineBoots: {engineBoots.value}"
             errdata = subbytes(ebdata, stop=len(ebdata) - len(etdata))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         engineTime, undata = Integer.decode(etdata)
 
         if engineTime.value < 0:
             errmsg = f"negative value for engineTime: {engineTime.value}"
             errdata = subbytes(etdata, stop=len(etdata) - len(undata))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         userName, ptr = OctetString.decode(undata)
 
         if len(userName.data) > 32:
             errmsg = f"userName exceeds 32 characters: {userName.data!r}"
             errdata = subbytes(undata, stop=len(undata) - len(ptr))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         signature, ptr  = OctetString.decode(ptr, copy=False)
         salt            = OctetString.decodeExact(ptr)

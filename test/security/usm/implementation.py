@@ -640,11 +640,11 @@ class IncomingMessageTest(unittest.TestCase):
 
         try:
             self.usm.processIncoming(wireMessage)
-        except EnhancedParseError as err:
+        except ParseError as err:
             data = b"not a valid security parameters string"
             self.assertEqual(err.data, data)
         else:
-            raise AssertionError("EnhancedParseError not raised by processIncoming")
+            raise AssertionError("ParseError not raised by processIncoming")
 
 class UnknownEngineIDTest(unittest.TestCase):
     def setUp(self):
@@ -1982,10 +1982,10 @@ class ScopedPduPaddingTest(unittest.TestCase):
 
         try:
             SNMPv3WireMessage.decode(wholeMsg)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, bytes(10))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_no_error_if_encrypted_ScopedPDU_has_padding(self):
         self.local.addUser(
@@ -2107,10 +2107,10 @@ class TimeWindowTest(unittest.TestCase):
 
         try:
             self.local.processIncoming(wireMessage)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, b"\x02\x01\xff")
         else:
-            raise AssertionError("EnhancedParseError not raised by processIncoming")
+            raise AssertionError("ParseError not raised by processIncoming")
 
     def test_noAuthNoPriv_engineBoots_too_low_non_authoritative(self):
         wireMessage = self.makeResponse(noAuthNoPriv, 3, 0)
@@ -2193,10 +2193,10 @@ class TimeWindowTest(unittest.TestCase):
 
         try:
             self.local.processIncoming(wireMessage)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, b"\x02\x01\xff")
         else:
-            raise AssertionError("EnhancedParseError not raised by processIncoming")
+            raise AssertionError("ParseError not raised by processIncoming")
 
     def test_authNoPriv_engineBoots_negative_authoritative(self):
         wholeMsg = SNMPv3WireMessage(
@@ -2219,10 +2219,10 @@ class TimeWindowTest(unittest.TestCase):
 
         try:
             self.local.processIncoming(wireMessage)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, b"\x02\x01\xff")
         else:
-            raise AssertionError("EnhancedParseError not raised by processIncoming")
+            raise AssertionError("ParseError not raised by processIncoming")
 
     def test_authNoPriv_engineBoots_too_low_non_authoritative(self):
         wireMessage = self.makeResponse(authNoPriv, 3, 0)
@@ -2676,10 +2676,10 @@ class TimeWindowTest(unittest.TestCase):
 
         try:
             self.local.processIncoming(wireMessage)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, b"\x02\x01\xff")
         else:
-            raise AssertionError("EnhancedParseError not raised by processIncoming")
+            raise AssertionError("ParseError not raised by processIncoming")
 
     def test_authNoPriv_engineBoots_negative_authoritative(self):
         wholeMsg = SNMPv3WireMessage(
@@ -2702,10 +2702,10 @@ class TimeWindowTest(unittest.TestCase):
 
         try:
             self.local.processIncoming(wireMessage)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, b"\x02\x01\xff")
         else:
-            raise AssertionError("EnhancedParseError not raised by processIncoming")
+            raise AssertionError("ParseError not raised by processIncoming")
 
     def test_authNoPriv_engineTime_too_low_non_authoritative(self):
         wireMessage = self.makeResponse(authNoPriv, 3, 2653)

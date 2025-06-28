@@ -89,7 +89,7 @@ class VarBind(Sequence):
             valueType = cls.TYPES[tag]
         except KeyError as err:
             errmsg = f"Invalid variable value type: {tag}"
-            raise EnhancedParseError(errmsg, data) from err
+            raise ParseError(errmsg, data) from err
 
         return cls(name, valueType.decodeExact(data))
 
@@ -258,7 +258,7 @@ class PDU(Constructed):
             msg = f"Invalid errorStatus: {errorStatus}"
             stop = len(errorStatusData) - len(errorIndexData)
             data = subbytes(errorStatusData, stop=stop)
-            raise EnhancedParseError(msg, data) from err
+            raise ParseError(msg, data) from err
 
         if (errorStatus != ErrorStatus.noError
         and (errorIndex < 0 or errorIndex > len(variableBindings))):
@@ -266,7 +266,7 @@ class PDU(Constructed):
                 f" with {len(variableBindings)} variable bindings"
             stop = len(errorIndexData) - len(data)
             data = subbytes(errorIndexData, stop=stop)
-            raise EnhancedParseError(msg, data)
+            raise ParseError(msg, data)
 
         return cls(
             requestID=requestID,
@@ -362,11 +362,11 @@ class BulkPDU(Constructed):
         if nonRepeaters.value < 0:
             msg = "nonRepeaters may not be less than 0"
             data = subbytes(nrdata, stop=len(nrdata)-len(mrdata))
-            raise EnhancedParseError(msg, data)
+            raise ParseError(msg, data)
         elif maxRepetitions.value < 0:
             msg = "maxRepetitions may not be less than 0"
             data = subbytes(mrdata, stop=len(mrdata)-len(vbdata))
-            raise EnhancedParseError(msg, data)
+            raise ParseError(msg, data)
 
         return cls(
             requestID=requestID.value,

@@ -196,21 +196,21 @@ class HeaderData(Sequence):
         if msgID.value < 0:
             errmsg = f"Message ID may not be negative: {msgID.value}"
             errdata = subbytes(data, stop=len(data) - len(msdata))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         msgMaxSize, mfdata = Integer.decode(msdata)
 
         if msgMaxSize.value < 484:
             errmsg = f"msgMaxSize must be at least 484: {msgMaxSize.value}"
             errdata = subbytes(msdata, stop=len(msdata) - len(mfdata))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         msgFlags, smdata = MessageFlags.decode(mfdata)
         msgSecurityModel = Integer.decodeExact(smdata)
 
         if msgSecurityModel.value < 1:
             errmsg = "msgSecurityModel may not be less than 1"
-            raise EnhancedParseError(errmsg, smdata)
+            raise ParseError(errmsg, smdata)
 
         try:
             securityModel = SecurityModel(msgSecurityModel.value)
@@ -284,7 +284,7 @@ class ScopedPDU(Sequence):
             pduType = pduTypes[tag]
         except KeyError as err:
             errmsg = f"{typename(cls)} does not support PDUs of type {tag}"
-            raise EnhancedParseError(errmsg, data) from err
+            raise ParseError(errmsg, data) from err
 
         return cls(
             pduType.decodeExact(data),
@@ -426,12 +426,12 @@ class SNMPv3WireMessage(Sequence):
         except ValueError as err:
             errmsg = f"Unsupported msgVersion: {msgVersion.value}"
             errdata = subbytes(data, stop=len(data) - len(ptr))
-            raise EnhancedParseError(errmsg, errdata) from err
+            raise ParseError(errmsg, errdata) from err
 
         if version != cls.VERSION:
             errmsg = f"{typename(cls)} cannot decode {version.name} messages"
             errdata = subbytes(data, stop=len(data) - len(ptr))
-            raise EnhancedParseError(errmsg, errdata)
+            raise ParseError(errmsg, errdata)
 
         msgGlobalData, ptr = HeaderData.decode(ptr)
         msgSecurityData, ptr = OctetString.decode(ptr, copy=False)

@@ -2,7 +2,7 @@ __all__ = ["SignedUsmParametersTest", "UnsignedUsmParametersTest"]
 
 import unittest
 
-from snmp.ber import EnhancedParseError
+from snmp.ber import ParseError
 from snmp.security.usm.parameters import *
 from snmp.utils import subbytes
 
@@ -95,10 +95,10 @@ class SignedUsmParametersTest(unittest.TestCase):
 
         try:
             SignedUsmParameters.decode(encoding)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(encoding, 5, 8))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_negative_engineTime(self):
         encoding = bytes.fromhex(
@@ -113,10 +113,10 @@ class SignedUsmParametersTest(unittest.TestCase):
 
         try:
             SignedUsmParameters.decode(encoding)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(encoding, 8, 11))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_long_userName(self):
         encoding = bytes.fromhex(
@@ -134,10 +134,10 @@ class SignedUsmParametersTest(unittest.TestCase):
 
         try:
             SignedUsmParameters.decode(encoding)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(encoding, 11, 46))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_all_six_fields_defined_in_RFC3414(self):
         params = SignedUsmParameters.decodeExact(self.encoding)
@@ -262,10 +262,10 @@ class UnsignedUsmParametersTest(unittest.TestCase):
 
         try:
             UnsignedUsmParameters.decode(encoding)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(encoding, 5, 8))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_negative_engineTime(self):
         encoding = bytes.fromhex(
@@ -280,10 +280,10 @@ class UnsignedUsmParametersTest(unittest.TestCase):
 
         try:
             UnsignedUsmParameters.decode(encoding)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(encoding, 8, 11))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_long_userName(self):
         encoding = bytes.fromhex(
@@ -301,10 +301,10 @@ class UnsignedUsmParametersTest(unittest.TestCase):
 
         try:
             UnsignedUsmParameters.decode(encoding)
-        except EnhancedParseError as err:
+        except ParseError as err:
             self.assertEqual(err.data, subbytes(encoding, 11, 46))
         else:
-            raise AssertionError("EnhancedParseError not raised by decode")
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_all_six_fields_defined_in_RFC3414(self):
         params = UnsignedUsmParameters.decodeExact(self.encoding)
