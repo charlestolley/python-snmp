@@ -71,6 +71,14 @@ class BoundedIntegerTest(unittest.TestCase):
         for encoding in encodings:
             u = self.UnsignedNybble.decodeExact(encoding)
 
+    def test_decodeIndex_raises_IndexDecodeError_if_out_of_range(self):
+        self.assertRaises(
+            OBJECT_IDENTIFIER.IndexDecodeError,
+            OBJECT_IDENTIFIER(1, 3, 6, 1, 8).decodeIndex,
+            OBJECT_IDENTIFIER(1, 3, 6, 1),
+            self.Nybble,
+        )
+
 class IntegerTypesTest(unittest.TestCase):
     def help_test_integer_boundaries_and_tag(self, cls, a, b, c, d):
         # Lower bound
@@ -199,6 +207,21 @@ class OctetStringTest(unittest.TestCase):
         s = OctetString(data)
         copy = eval(repr(s))
         self.assertEqual(repr(s.original), repr(copy.original))
+
+    def test_decodeIndex_raises_IndexDecodeError_if_check_fails(self):
+        class MiniOctetString(OctetString):
+            @classmethod
+            def check(cls, data):
+                if len(data) > 4:
+                    raise ValueError("That string is too big")
+
+        self.assertRaises(
+            OBJECT_IDENTIFIER.IndexDecodeError,
+            OBJECT_IDENTIFIER(1, 3, 6, 1, 99, 104, 117, 99, 107).decodeIndex,
+            OBJECT_IDENTIFIER(1, 3, 6, 1),
+            MiniOctetString,
+            implied=True,
+        )
 
 class IpAddressTest(unittest.TestCase):
     def setUp(self):

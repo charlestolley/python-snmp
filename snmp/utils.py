@@ -1,5 +1,6 @@
 __all__ = ["NumberGenerator", "subbytes", "typename"]
 
+from os import linesep
 from random import randint
 import weakref
 
@@ -114,6 +115,45 @@ class subbytes:
     def __len__(self) -> int:
         """Query the length of the sequence."""
         return self.stop - self.start
+
+    @staticmethod
+    def _format(data, step, indent="", sep=""):
+        lines = []
+        start = 0
+
+        while start < len(data):
+            stop = start + step
+            block = data[start:stop]
+            line = sep.join(f"{b:02x}" for b in block)
+            lines.append(indent + line)
+            start = stop
+
+        return linesep.join(lines)
+
+    def __str__(self) -> str:
+        sections = []
+
+        if self.start > 0:
+            prefix = self.data[:self.start]
+            sections.append(self._format(prefix, 40))
+
+        indent = 4 * " "
+        if self.start < self.stop:
+            data = self.data[self.start:self.stop]
+            sections.append(self._format(data, 24, indent=indent, sep=" "))
+        else:
+            sections.append(indent + "(empty)")
+
+        if self.stop < len(self.data):
+            suffix = self.data[self.stop:]
+            sections.append(self._format(suffix, 40))
+
+        separator = 2 * linesep
+        body = separator.join(sections)
+
+        header = 32 * "=" + " begin subbytes " + 32 * "="
+        footer = 33 * "=" +  " end subbytes "  + 33 * "="
+        return linesep.join((header, body, footer))
 
     def __repr__(self) -> str:
         """Provide an eval()-able representation of this object."""

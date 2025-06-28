@@ -14,11 +14,21 @@ class ExceptionTypesTest(unittest.TestCase):
         self.assertIsInstance(EncodeError(), SNMPException)
 
     def test_ParseError_subclasses_IncomingMessageError(self):
-        self.assertIsInstance(ParseError(), IncomingMessageError)
+        self.assertIsInstance(
+            ParseError("", subbytes(b"")),
+            IncomingMessageError,
+        )
 
 class TagTest(unittest.TestCase):
     def test_decode_raises_ParseError_on_empty_input(self):
-        self.assertRaises(ParseError, Tag.decode, subbytes(b""))
+        data = subbytes(b"")
+
+        try:
+            Tag.decode(data)
+        except ParseError as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("ParseError not raised by decode")
 
     def test_the_result_of_eval_repr_is_equal_to_the_original(self):
         tag = Tag(14, True, Tag.Class.CONTEXT_SPECIFIC)
@@ -79,7 +89,14 @@ class TagTest(unittest.TestCase):
             self.assertEqual(tag.encode(), encoding)
         
     def test_decode_raises_ParseError_when_extended_tag_is_missing(self):
-        self.assertRaises(ParseError, Tag.decode, subbytes(b"\x1f"))
+        data = subbytes(b"\x1f")
+
+        try:
+            Tag.decode(data)
+        except ParseError as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_understands_extended_tags(self):
         encoding = subbytes(b"\x1f\x88\xdc\x7b\x01\x00")
@@ -105,11 +122,33 @@ class DecodeLengthTest(unittest.TestCase):
         self.payload = b"payload"
 
     def test_raises_ParseError_when_encoding_is_empty(self):
-        self.assertRaises(ParseError, decode_length, subbytes(b""))
+        data = subbytes(b"")
+
+        try:
+            decode_length(data)
+        except ParseError as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("ParseError not raied by decode_length")
 
     def test_raises_ParseError_when_msb_is_set_but_encoding_is_too_short(self):
-        self.assertRaises(ParseError, decode_length, subbytes(b"\x81"))
-        self.assertRaises(ParseError, decode_length, subbytes(b"\x82\x01"))
+        data = subbytes(b"\x81")
+
+        try:
+            decode_length(data)
+        except ParseError as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("ParseError not raised by decode_length")
+
+        data = subbytes(b"\x82\x01")
+
+        try:
+            decode_length(data)
+        except ParseError as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("ParseError not raised by decode_length")
 
     def test_returns_zero_when_msb_is_set_and_seven_lsb_are_zero(self):
         encoding = subbytes(b"\x80")
@@ -179,7 +218,14 @@ class DecodeTest(unittest.TestCase):
         self.payload = self.data[2:]
 
     def test_raises_ParseError_when_payload_is_too_short(self):
-        self.assertRaises(ParseError, decode, self.data[:-1])
+        data = self.data[:-1]
+
+        try:
+            decode(data)
+        except ParseError as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("ParseError not raised by decode")
 
     def test_returns_tail_as_subbytes(self):
         tag, body, tail = decode(self.data + self.extra)
@@ -201,7 +247,14 @@ class DecodeTest(unittest.TestCase):
         self.assertIs(body.data, raw)
 
     def test_decodeExact_raises_ParseError_when_there_are_leftovers(self):
-        self.assertRaises(ParseError, decodeExact, self.data + self.extra)
+        data = self.data + self.extra
+
+        try:
+            decodeExact(data)
+        except ParseError as err:
+            self.assertEqual(err.data, self.extra)
+        else:
+            raise AssertionError("ParseError not raised by decodeExact")
 
 class EncodeTest(unittest.TestCase):
     def test_concatenates_tag_and_length_encoding_with_payload(self):

@@ -97,10 +97,28 @@ class UnsignedUsmParameters(Sequence):
     def deserialize(cls,
         data: Union[bytes, subbytes],
     ) -> "UnsignedUsmParameters":
-        engineID, ptr   = OctetString.decode(data)
-        engineBoots, ptr= Integer.decode(ptr)
-        engineTime, ptr = Integer.decode(ptr)
-        userName, ptr   = OctetString.decode(ptr)
+        engineID, ebdata = OctetString.decode(data)
+        engineBoots, etdata = Integer.decode(ebdata)
+
+        if engineBoots.value < 0:
+            errmsg = f"negative value for engineBoots: {engineBoots.value}"
+            errdata = subbytes(ebdata, stop=len(ebdata) - len(etdata))
+            raise ParseError(errmsg, errdata)
+
+        engineTime, undata = Integer.decode(etdata)
+
+        if engineTime.value < 0:
+            errmsg = f"negative value for engineTime: {engineTime.value}"
+            errdata = subbytes(etdata, stop=len(etdata) - len(undata))
+            raise ParseError(errmsg, errdata)
+
+        userName, ptr = OctetString.decode(undata)
+
+        if len(userName.data) > 32:
+            errmsg = f"userName exceeds 32 characters: {userName.data!r}"
+            errdata = subbytes(undata, stop=len(undata) - len(ptr))
+            raise ParseError(errmsg, errdata)
+
         padding, ptr    = OctetString.decode(ptr)
         salt            = OctetString.decodeExact(ptr)
 
@@ -114,7 +132,7 @@ class UnsignedUsmParameters(Sequence):
                 salt.data,
             )
         except ValueError as err:
-            raise ParseError(*err.args) from err
+            raise ASN1.DeserializeError(*err.args) from err
 
     @classmethod
     def findPadding(self, msgSecurityParameters: subbytes) -> subbytes:
@@ -216,10 +234,28 @@ class SignedUsmParameters(Sequence):
     def deserialize(cls,
         data: Union[bytes, subbytes],
     ) -> "SignedUsmParameters":
-        engineID, ptr   = OctetString.decode(data)
-        engineBoots, ptr= Integer.decode(ptr)
-        engineTime, ptr = Integer.decode(ptr)
-        userName, ptr   = OctetString.decode(ptr)
+        engineID, ebdata   = OctetString.decode(data)
+        engineBoots, etdata = Integer.decode(ebdata)
+
+        if engineBoots.value < 0:
+            errmsg = f"negative value for engineBoots: {engineBoots.value}"
+            errdata = subbytes(ebdata, stop=len(ebdata) - len(etdata))
+            raise ParseError(errmsg, errdata)
+
+        engineTime, undata = Integer.decode(etdata)
+
+        if engineTime.value < 0:
+            errmsg = f"negative value for engineTime: {engineTime.value}"
+            errdata = subbytes(etdata, stop=len(etdata) - len(undata))
+            raise ParseError(errmsg, errdata)
+
+        userName, ptr = OctetString.decode(undata)
+
+        if len(userName.data) > 32:
+            errmsg = f"userName exceeds 32 characters: {userName.data!r}"
+            errdata = subbytes(undata, stop=len(undata) - len(ptr))
+            raise ParseError(errmsg, errdata)
+
         signature, ptr  = OctetString.decode(ptr, copy=False)
         salt            = OctetString.decodeExact(ptr)
 
@@ -233,4 +269,4 @@ class SignedUsmParameters(Sequence):
                 salt.data,
             )
         except ValueError as err:
-            raise ParseError(*err.args) from err
+            raise ASN1.DeserializeError(*err.args) from err

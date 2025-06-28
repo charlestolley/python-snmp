@@ -2,7 +2,7 @@ __all__ = ["SignedUsmParametersTest", "UnsignedUsmParametersTest"]
 
 import unittest
 
-from snmp.exception import ParseError
+from snmp.ber import ParseError
 from snmp.security.usm.parameters import *
 from snmp.utils import subbytes
 
@@ -93,7 +93,12 @@ class SignedUsmParametersTest(unittest.TestCase):
             "   04 00"
         )
 
-        self.assertRaises(ParseError, SignedUsmParameters.decode, encoding)
+        try:
+            SignedUsmParameters.decode(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, 5, 8))
+        else:
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_negative_engineTime(self):
         encoding = bytes.fromhex(
@@ -106,7 +111,33 @@ class SignedUsmParametersTest(unittest.TestCase):
             "   04 00"
         )
 
-        self.assertRaises(ParseError, SignedUsmParameters.decode, encoding)
+        try:
+            SignedUsmParameters.decode(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, 8, 11))
+        else:
+            raise AssertionError("ParseError not raised by decode")
+
+    def test_decode_raises_ParseError_for_long_userName(self):
+        encoding = bytes.fromhex(
+            "30 30"
+            "   04 01 80"
+            "   02 01 00"
+            "   02 01 00"
+            "   04 21 00 01 02 03 04 05 06 07"
+            "         08 09 0a 0b 0c 0d 0e 0f"
+            "         10 11 12 13 14 15 16 17"
+            "         18 19 1a 1b 1c 1d 1e 1f 20"
+            "   04 00"
+            "   04 00"
+        )
+
+        try:
+            SignedUsmParameters.decode(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, 11, 46))
+        else:
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_all_six_fields_defined_in_RFC3414(self):
         params = SignedUsmParameters.decodeExact(self.encoding)
@@ -229,7 +260,12 @@ class UnsignedUsmParametersTest(unittest.TestCase):
             "   04 00"
         )
 
-        self.assertRaises(ParseError, UnsignedUsmParameters.decode, encoding)
+        try:
+            UnsignedUsmParameters.decode(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, 5, 8))
+        else:
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_raises_ParseError_for_negative_engineTime(self):
         encoding = bytes.fromhex(
@@ -242,7 +278,33 @@ class UnsignedUsmParametersTest(unittest.TestCase):
             "   04 00"
         )
 
-        self.assertRaises(ParseError, UnsignedUsmParameters.decode, encoding)
+        try:
+            UnsignedUsmParameters.decode(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, 8, 11))
+        else:
+            raise AssertionError("ParseError not raised by decode")
+
+    def test_decode_raises_ParseError_for_long_userName(self):
+        encoding = bytes.fromhex(
+            "30 30"
+            "   04 01 80"
+            "   02 01 00"
+            "   02 01 00"
+            "   04 21 00 01 02 03 04 05 06 07"
+            "         08 09 0a 0b 0c 0d 0e 0f"
+            "         10 11 12 13 14 15 16 17"
+            "         18 19 1a 1b 1c 1d 1e 1f 20"
+            "   04 00"
+            "   04 00"
+        )
+
+        try:
+            UnsignedUsmParameters.decode(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, 11, 46))
+        else:
+            raise AssertionError("ParseError not raised by decode")
 
     def test_decode_all_six_fields_defined_in_RFC3414(self):
         params = UnsignedUsmParameters.decodeExact(self.encoding)

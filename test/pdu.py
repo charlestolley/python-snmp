@@ -12,6 +12,7 @@ from snmp.exception import *
 from snmp.ber import *
 from snmp.pdu import *
 from snmp.smi import *
+from snmp.utils import subbytes
 
 class NoSuchObjectTest(unittest.TestCase):
     def test_tag_context_specific_primitive_0(self):
@@ -108,25 +109,29 @@ class VarBindTest(unittest.TestCase):
         varbind = VarBind(self.oid, Integer(0))
         self.assertEqual(eval(repr(varbind)), varbind)
 
-    def helpAssertParseErrors(self, *hex_strings):
-        for h in hex_strings:
-            encoding = bytes.fromhex(h)
-            self.assertRaises(ParseError, VarBind.decodeExact, encoding)
+    def helpAssertParseError(self, hex_string, **kwargs):
+        encoding = bytes.fromhex(hex_string)
+
+        try:
+            VarBind.decodeExact(encoding)
+        except ParseError as err:
+            data = subbytes(encoding, **kwargs)
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("ParseError not raised by decodeExact")
 
     def test_decode_raises_ParseError_on_missing_fields(self):
-        self.helpAssertParseErrors(
-            "30 00",
-            "30 03 06 01 00",
-        )
+        self.helpAssertParseError("30 00", start=2)
+        self.helpAssertParseError("30 03 06 01 00", start=5)
 
     def test_decode_raises_ParseError_on_extra_fields(self):
-        self.helpAssertParseErrors("30 07 06 01 00 04 00 04 00")
+        self.helpAssertParseError("30 07 06 01 00 04 00 04 00", start=7)
 
     def test_decode_raises_ParseError_if_name_is_not_an_OID(self):
-        self.helpAssertParseErrors("30 03 02 01 00")
+        self.helpAssertParseError("30 03 02 01 00", start=2)
 
     def test_decode_raises_ParseError_on_unknown_tag(self):
-        self.helpAssertParseErrors("30 06 06 01 00 01 01 00")
+        self.helpAssertParseError("30 06 06 01 00 01 01 00", start=5)
 
     def test_decode_recognized_any_smi_type_or_special_NULL_type(self):
         encodings = (
@@ -308,15 +313,37 @@ class PDUTest(unittest.TestCase):
 
     def test_decode_raises_ParseError_when_errorStatus_is_invalid(self):
         encoding = bytes.fromhex("a0 0b 02 01 00 02 01 13 02 01 00 30 00")
-        self.assertRaises(ParseError, GetRequestPDU.decodeExact, encoding)
+
+        try:
+            GetRequestPDU.decodeExact(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, start=5, stop=8))
+        else:
+            raise AssertionError("ParseError not raised by decodeExact")
 
     def test_decode_raises_ParseError_on_negative_errorIndex(self):
         encoding = bytes.fromhex("a0 0b 02 01 00 02 01 01 02 01 ff 30 00")
-        self.assertRaises(ParseError, GetRequestPDU.decodeExact, encoding)
+
+        try:
+            GetRequestPDU.decodeExact(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, start=8, stop=11))
+        else:
+            raise AssertionError("ParseError not raised by decodeExact")
 
     def test_decode_raises_ParseError_if_errorIndex_is_out_of_range(self):
         encoding = bytes.fromhex("a0 0b 02 01 00 02 01 01 02 01 01 30 00")
-        self.assertRaises(ParseError, GetRequestPDU.decodeExact, encoding)
+
+        try:
+            GetRequestPDU.decodeExact(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, start=8, stop=11))
+        else:
+            raise AssertionError("ParseError not raised by decodeExact")
+
+    def test_decode_ignores_errorIndex_if_errorStatus_is_zero(self):
+        encoding = bytes.fromhex("a0 0b 02 01 00 02 01 00 02 01 04 30 00")
+        pdu = GetRequestPDU.decodeExact(encoding)
 
     def test_the_result_of_decode_encode_equals_the_original_object(self):
         pdu = GetRequestPDU(self.oid)
@@ -388,11 +415,23 @@ class BulkPDUTest(unittest.TestCase):
 
     def test_decode_raises_ParseError_if_nonRepeaters_is_negative(self):
         encoding = bytes.fromhex("a5 0b 02 01 00 02 01 ff 02 01 00 30 00")
-        self.assertRaises(ParseError, GetBulkRequestPDU.decodeExact, encoding)
+
+        try:
+            GetBulkRequestPDU.decodeExact(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, start=5, stop=8))
+        else:
+            raise AssertionError("ParseError not raised by decodeExact")
 
     def test_decode_raises_ParseError_if_maxRepetitions_is_negative(self):
         encoding = bytes.fromhex("a5 0b 02 01 00 02 01 00 02 01 ff 30 00")
-        self.assertRaises(ParseError, GetBulkRequestPDU.decodeExact, encoding)
+
+        try:
+            GetBulkRequestPDU.decodeExact(encoding)
+        except ParseError as err:
+            self.assertEqual(err.data, subbytes(encoding, start=8, stop=11))
+        else:
+            raise AssertionError("ParseError not raised by decodeExact")
 
     def test_the_result_of_decode_encode_equals_the_original_object(self):
         pdu = GetBulkRequestPDU(self.oid, maxRepetitions=4)

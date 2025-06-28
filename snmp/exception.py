@@ -23,9 +23,6 @@ class PrivacyNotEnabled(SNMPException):
 class EncodeError(SNMPException):
     pass
 
-class ParseError(IncomingMessageError):
-    pass
-
 class BadVersion(IncomingMessageError):
     pass
 

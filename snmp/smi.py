@@ -33,7 +33,7 @@ class BoundedInteger(INTEGER):
         try:
             return cls(value)
         except ValueError as err:
-            raise ParseError(*err.args)
+            raise ASN1.DeserializeError(err.args[0])
 
     @classmethod
     def deserialize(cls: Type[TInteger], data: Asn1Data) -> TInteger:
@@ -103,7 +103,7 @@ class OctetString(OCTET_STRING):
         try:
             return cls(data)
         except ValueError as err:
-            raise ParseError(*err.args) from err
+            raise ASN1.DeserializeError(err.args[0]) from err
 
 @final
 class IpAddress(OCTET_STRING):
@@ -131,7 +131,8 @@ class IpAddress(OCTET_STRING):
         try:
             addr = inet_ntoa(_data)
         except OSError as err:
-            raise ParseError(f"Invalid IPv4 address: {_data!r}") from err
+            errmsg = f"Invalid IPv4 address: {_data!r}"
+            raise ASN1.DeserializeError(errmsg) from err
 
         return cls(addr)
 

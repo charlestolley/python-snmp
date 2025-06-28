@@ -83,15 +83,15 @@ class VarBind(Sequence):
     @classmethod
     def deserialize(cls, data: Asn1Data) -> "VarBind":
         name, data = OID.decode(data)
-        tag, data = decodeExact(data)
+        tag, _ = Tag.decode(data)
 
         try:
             valueType = cls.TYPES[tag]
         except KeyError as err:
-            msg = "Invalid variable value type: {}"
-            raise ParseError(msg.format(tag)) from err
+            errmsg = f"Invalid variable value type: {tag}"
+            raise ParseError(errmsg, data) from err
 
-        return cls(name, valueType.deserialize(data))
+        return cls(name, valueType.decodeExact(data))
 
 @final
 class VarBindList(Sequence):
@@ -243,10 +243,10 @@ class PDU(Constructed):
 
     @classmethod
     def deserialize(cls: Type[TPDU], data: Asn1Data) -> TPDU:
-        _requestID, data = Integer.decode(data)
-        _errorStatus, data = Integer.decode(data)
-        _errorIndex, data = Integer.decode(data)
-        variableBindings = VarBindList.decodeExact(data)
+        _requestID, errorStatusData     = Integer.decode(data)
+        _errorStatus, errorIndexData    = Integer.decode(errorStatusData)
+        _errorIndex, data               = Integer.decode(errorIndexData)
+        variableBindings                = VarBindList.decodeExact(data)
 
         requestID = _requestID.value
         errorStatus = _errorStatus.value
@@ -255,13 +255,18 @@ class PDU(Constructed):
         try:
             errorStatus = ErrorStatus(errorStatus)
         except ValueError as err:
-            msg = "Invalid errorStatus: {}"
-            raise ParseError(msg.format(errorStatus)) from err
+            msg = f"Invalid errorStatus: {errorStatus}"
+            stop = len(errorStatusData) - len(errorIndexData)
+            data = subbytes(errorStatusData, stop=stop)
+            raise ParseError(msg, data) from err
 
         if (errorStatus != ErrorStatus.noError
-        and errorIndex < 0 or errorIndex > len(variableBindings)):
-            msg = "Error index {} not valid with {} variable bindings"
-            raise ParseError(msg.format(errorIndex, len(variableBindings)))
+        and (errorIndex < 0 or errorIndex > len(variableBindings))):
+            msg = f"Error index {errorIndex} not valid" \
+                f" with {len(variableBindings)} variable bindings"
+            stop = len(errorIndexData) - len(data)
+            data = subbytes(errorIndexData, stop=stop)
+            raise ParseError(msg, data)
 
         return cls(
             requestID=requestID,
@@ -349,15 +354,19 @@ class BulkPDU(Constructed):
 
     @classmethod
     def deserialize(cls: Type[TBulkPDU], data: Asn1Data) -> TBulkPDU:
-        requestID, data = Integer.decode(data)
-        nonRepeaters, data = Integer.decode(data)
-        maxRepetitions, data = Integer.decode(data)
-        variableBindings = VarBindList.decodeExact(data)
+        requestID, nrdata = Integer.decode(data)
+        nonRepeaters, mrdata = Integer.decode(nrdata)
+        maxRepetitions, vbdata = Integer.decode(mrdata)
+        variableBindings = VarBindList.decodeExact(vbdata)
 
         if nonRepeaters.value < 0:
-            raise ParseError("nonRepeaters may not be less than 0")
+            msg = "nonRepeaters may not be less than 0"
+            data = subbytes(nrdata, stop=len(nrdata)-len(mrdata))
+            raise ParseError(msg, data)
         elif maxRepetitions.value < 0:
-            raise ParseError("maxRepetitions may not be less than 0")
+            msg = "maxRepetitions may not be less than 0"
+            data = subbytes(mrdata, stop=len(mrdata)-len(vbdata))
+            raise ParseError(msg, data)
 
         return cls(
             requestID=requestID.value,

@@ -4,8 +4,12 @@ import logging
 import random
 import weakref
 
+from os import linesep
+
+from snmp.ber import ParseError
 from snmp.exception import *
 from snmp.message import *
+from snmp.utils import typename
 
 class Catcher:
     def __init__(self, listener, verbose=False):
@@ -26,7 +30,7 @@ class Catcher:
             self.parseErrors += 1
 
             if self.verbose:
-                self.logger.debug(f"{err!r}\n{data!r}")
+                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
         except BadVersion as err:
             self.badVersions += 1
 
