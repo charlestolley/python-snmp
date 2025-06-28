@@ -1,8 +1,8 @@
 __all__ = ["Message"]
 
-from snmp.exception import *
+from snmp.exception import BadVersion
 from snmp.asn1 import ASN1
-from snmp.ber import Asn1Data, Tag
+from snmp.ber import Asn1Data, EnhancedParseError, Tag
 from snmp.pdu import AnyPDU
 from snmp.smi import *
 from snmp.typing import *
@@ -79,7 +79,7 @@ class Message(Sequence):
         try:
             pduType = types[tag]
         except KeyError as err:
-            raise ParseError(f"Invalid PDU type: {tag}") from err
+            raise EnhancedParseError(f"Invalid PDU type: {tag}", ptr) from err
 
         return cls(
             version,

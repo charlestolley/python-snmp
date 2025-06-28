@@ -3,10 +3,12 @@ __all__ = ["MessageTest"]
 import re
 import unittest
 
-from snmp.exception import *
+from snmp.ber import EnhancedParseError
+from snmp.exception import BadVersion
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.message import *
+from snmp.utils import subbytes
 
 class MessageTest(unittest.TestCase):
     def setUp(self):
@@ -46,7 +48,13 @@ class MessageTest(unittest.TestCase):
     def test_decode_raises_ParseError_if_the_PDU_tag_is_not_in_types(self):
         for version in self.versions:
             encoding = self.encodings[version]
-            self.assertRaises(ParseError, Message.decodeExact, encoding)
+
+            try:
+                Message.decodeExact(encoding)
+            except EnhancedParseError as err:
+                self.assertEqual(err.data, subbytes(encoding, start=20))
+            else:
+                raise AssertionError("EnhancedParseError not raised by decodeExact")
 
     def test_Message_can_decode_SNMPv1_and_SNMPv2c_message(self):
         for version in self.versions:
