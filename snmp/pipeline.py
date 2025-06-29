@@ -1,4 +1,4 @@
-__all__ = ["Catcher", "MessageSorter", "VersionDecoder"]
+__all__ = ["Catcher", "VersionDecoder"]
 
 import logging
 import random
@@ -7,7 +7,7 @@ import weakref
 from os import linesep
 
 from snmp.ber import ParseError
-from snmp.exception import *
+from snmp.exception import IncomingMessageError
 from snmp.message import *
 from snmp.security import UnknownSecurityModel
 from snmp.utils import *
@@ -75,51 +75,3 @@ class VersionDecoder:
     def register(self, version, listener):
         registered = self.listeners.setdefault(version, listener)
         return registered is listener
-
-class MessageSorter:
-    def __init__(self, interpreter):
-        self.interpreter = interpreter
-        self.subscribers = weakref.WeakValueDictionary()
-
-        self.unknownHandlers = 0
-
-    def register(self, pduType, subscriber):
-        subscribed = self.subscribers.setdefault(pduType.TAG, subscriber)
-        return subscriber is subscribed
-
-    def forward(self, message, channel):
-        pduType = self.interpreter.pduType(message)
-
-        try:
-            subscriber = self.subscribers[pduType.TAG]
-        except KeyError:
-            if not pduType.RESPONSE_CLASS:
-                self.unknownHandlers += 1
-                if pduType.CONFIRMED_CLASS:
-                    reportMessage = self.interpreter.makeReport(
-                        message,
-                        VarBind(
-                            snmpUnknownPDUHandlersInstance,
-                            Counter32(self.unknownHandlers),
-                        )
-                    )
-
-                    if reportMessage is not None:
-                        try:
-                            data = self.interpreter.encode(reportMessage)
-                            channel.send(data)
-                        except Exception:
-                            pass
-        else:
-            subscriber.hear(message, channel)
-
-    def hear(self, data, channel):
-        try:
-            message = self.interpreter.decode(data)
-        except ReportMessage as report:
-            self.send(report.message, channel)
-        else:
-            self.forward(message, channel)
-
-    def send(self, message, channel):
-        channel.send(self.interpreter.encode(message))
