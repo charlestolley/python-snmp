@@ -17,20 +17,21 @@ TOID            = TypeVar("TOID",           bound="OBJECT_IDENTIFIER")
 
 class ASN1:
     class DeserializeError(SNMPException):
-        def __init__(self, msg, etype=ParseError):
+        def __init__(self,
+            msg: str,
+            etype: Type[IncomingMessageErrorWithPointer] = ParseError,
+        ) -> None:
             self.etype = etype
             self.msg = msg
 
-        def reraise(self, cls, method, data, tail=None):
+        def reraise(self,
+            cls: Any,
+            method: str,
+            data: subbytes,
+            tail: Optional[subbytes] = None,
+        ) -> NoReturn:
             errmsg = f"{typename(cls)}.{method}(): {self.msg}"
-
-            if tail is None:
-                errdata = subbytes(data)
-            else:
-                stop = len(data) - len(tail)
-                errdata = subbytes(data, stop=stop)
-
-            raise self.etype(errmsg, errdata) from self
+            raise self.etype(errmsg, subbytes(data), tail) from self
 
     TAG: ClassVar[Tag]
 

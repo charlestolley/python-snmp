@@ -8,10 +8,8 @@ from snmp.utils import *
 
 Asn1Data = Union[bytes, subbytes]
 
-class ParseError(IncomingMessageError):
-    def __init__(self, msg: str, data: subbytes):
-        super().__init__(msg)
-        self.data = data
+class ParseError(IncomingMessageErrorWithPointer):
+    pass
 
 @final
 class Tag:

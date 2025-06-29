@@ -63,13 +63,14 @@ class MessageTest(unittest.TestCase):
             message = Message.decodeExact(encoding, types=self.types)
             self.assertEqual(message, self.messages[version])
 
+
     def test_decode_raises_BadVersion_on_invalid_ProtocolVersion(self):
         encoding = self.invalidEncoding
 
         try:
             Message.decodeExact(encoding, types=self.types)
         except BadVersion as err:
-            self.assertEqual(err.data, encoding)
+            self.assertEqual(err.data, b"\x02\x01\x02")
         else:
             raise AssertionError("BadVersion not raised by decodeExact")
 
@@ -79,7 +80,7 @@ class MessageTest(unittest.TestCase):
         try:
             Message.decodeExact(encoding, types=self.types)
         except BadVersion as err:
-            self.assertEqual(err.data, encoding)
+            self.assertEqual(err.data, b"\x02\x01\x03")
         else:
             raise AssertionError("BadVersion not raised by decodeExact")
 

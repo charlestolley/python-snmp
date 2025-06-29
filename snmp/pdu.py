@@ -256,17 +256,13 @@ class PDU(Constructed):
             errorStatus = ErrorStatus(errorStatus)
         except ValueError as err:
             msg = f"Invalid errorStatus: {errorStatus}"
-            stop = len(errorStatusData) - len(errorIndexData)
-            data = subbytes(errorStatusData, stop=stop)
-            raise ParseError(msg, data) from err
+            raise ParseError(msg, errorStatusData, errorIndexData) from err
 
         if (errorStatus != ErrorStatus.noError
         and (errorIndex < 0 or errorIndex > len(variableBindings))):
             msg = f"Error index {errorIndex} not valid" \
                 f" with {len(variableBindings)} variable bindings"
-            stop = len(errorIndexData) - len(data)
-            data = subbytes(errorIndexData, stop=stop)
-            raise ParseError(msg, data)
+            raise ParseError(msg, errorIndexData, data)
 
         return cls(
             requestID=requestID,
@@ -361,12 +357,10 @@ class BulkPDU(Constructed):
 
         if nonRepeaters.value < 0:
             msg = "nonRepeaters may not be less than 0"
-            data = subbytes(nrdata, stop=len(nrdata)-len(mrdata))
-            raise ParseError(msg, data)
+            raise ParseError(msg, nrdata, mrdata)
         elif maxRepetitions.value < 0:
             msg = "maxRepetitions may not be less than 0"
-            data = subbytes(mrdata, stop=len(mrdata)-len(vbdata))
-            raise ParseError(msg, data)
+            raise ParseError(msg, mrdata, vbdata)
 
         return cls(
             requestID=requestID.value,

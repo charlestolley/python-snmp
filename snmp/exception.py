@@ -1,18 +1,49 @@
+__all__ = [
+    "SNMPException",
+    "SNMPLibraryBug",
+    "UnsupportedFeature",
+    "IncomingMessageError",
+    "IncomingMessageErrorWithPointer",
+    "AuthenticationNotEnabled",
+    "PrivacyNotEnabled",
+    "EncodeError",
+    "InvalidSignature",
+    "UsmUnsupportedSecLevel",
+    "UsmNotInTimeWindow",
+    "UsmUnknownUserName",
+    "UnknownEngineID",
+    "UsmWrongDigest",
+    "UsmDecryptionError",
+    "ReportMessage",
+]
+
+from snmp.typing import Optional
+from snmp.utils import subbytes
+
 class SNMPException(Exception):
     """Base class for all run-time exceptions in this library."""
-    pass
 
 class SNMPLibraryBug(AssertionError):
     """Base class for logic errors in the code of this library."""
-    pass
 
 class UnsupportedFeature(SNMPLibraryBug):
     """A failure owing to a feature that this library does not yet support."""
-    pass
 
 class IncomingMessageError(SNMPException):
     """An error indicating a received message is invalid in some way."""
-    pass
+
+class IncomingMessageErrorWithPointer(IncomingMessageError):
+    def __init__(self,
+        msg: str,
+        data: subbytes,
+        tail: Optional[subbytes] = None,
+    ) -> None:
+        super().__init__(msg)
+
+        if tail is None:
+            self.data = data
+        else:
+            self.data = subbytes(data, stop=len(data) - len(tail))
 
 class AuthenticationNotEnabled(SNMPException):
     pass

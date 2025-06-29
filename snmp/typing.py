@@ -11,6 +11,7 @@ __all__ = [
     "Literal",
     "Mapping",
     "NamedTuple",
+    "NoReturn",
     "Optional",
     "Set",
     "Tuple",
@@ -67,3 +68,8 @@ else:
 
     def final(wrapped):
         return wrapped
+
+if sys.version_info[:2] >= (3, 6, 5):
+    from typing import NoReturn
+else:
+    NoReturn = None

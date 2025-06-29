@@ -29,7 +29,7 @@ class VersionOnlyMessageTest(unittest.TestCase):
         try:
             VersionOnlyMessage.decodeExact(message)
         except BadVersion as err:
-            self.assertEqual(err.data, message)
+            self.assertEqual(err.data, message[2:])
         else:
             raise AssertionError("BadVersion not raised by decodeExact")
 

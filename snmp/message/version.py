@@ -9,10 +9,8 @@ from snmp.smi import *
 from snmp.typing import *
 from snmp.utils import *
 
-class BadVersion(IncomingMessageError):
-    def __init__(self, msg: str, data: subbytes):
-        super().__init__(msg)
-        self.data = data
+class BadVersion(IncomingMessageErrorWithPointer):
+    pass
 
 class ProtocolVersion(enum.IntEnum):
     SNMPv1  = 0
@@ -40,11 +38,12 @@ class VersionOnlyMessage(Sequence):
     def deserialize(cls,
         data: Asn1Data,
     ) -> "VersionOnlyMessage":
-        msgVersion, _ = Integer.decode(data)
+        msgVersion, tail = Integer.decode(data)
 
         try:
             version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
-            raise ASN1.DeserializeError(err.args[0], BadVersion) from err
+            errmsg = f"Invalid msgVersion: {msgVersion.value}"
+            raise BadVersion(errmsg, data, tail) from err
 
         return cls(version)

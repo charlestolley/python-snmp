@@ -195,15 +195,13 @@ class HeaderData(Sequence):
 
         if msgID.value < 0:
             errmsg = f"Message ID may not be negative: {msgID.value}"
-            errdata = subbytes(data, stop=len(data) - len(msdata))
-            raise ParseError(errmsg, errdata)
+            raise ParseError(errmsg, subbytes(data), msdata)
 
         msgMaxSize, mfdata = Integer.decode(msdata)
 
         if msgMaxSize.value < 484:
             errmsg = f"msgMaxSize must be at least 484: {msgMaxSize.value}"
-            errdata = subbytes(msdata, stop=len(msdata) - len(mfdata))
-            raise ParseError(errmsg, errdata)
+            raise ParseError(errmsg, msdata, mfdata)
 
         msgFlags, smdata = MessageFlags.decode(mfdata)
         msgSecurityModel = Integer.decodeExact(smdata)
@@ -425,13 +423,11 @@ class SNMPv3WireMessage(Sequence):
             version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
             errmsg = f"Unsupported msgVersion: {msgVersion.value}"
-            errdata = subbytes(data, stop=len(data) - len(ptr))
-            raise ParseError(errmsg, errdata) from err
+            raise ParseError(errmsg, subbytes(data), ptr) from err
 
         if version != cls.VERSION:
             errmsg = f"{typename(cls)} cannot decode {version.name} messages"
-            errdata = subbytes(data, stop=len(data) - len(ptr))
-            raise ParseError(errmsg, errdata)
+            raise ParseError(errmsg, subbytes(data), ptr)
 
         msgGlobalData, ptr = HeaderData.decode(ptr)
         msgSecurityData, ptr = OctetString.decode(ptr, copy=False)

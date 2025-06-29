@@ -64,11 +64,12 @@ class Message(Sequence):
         try:
             version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
-            raise ASN1.DeserializeError(err.args[0], BadVersion) from err
+            errmsg = f"Invalid msgVersion: {msgVersion.value}"
+            raise BadVersion(errmsg, data, ptr) from err
 
         if version not in cls.VERSIONS:
             errmsg = f"{typename(cls)} does not support {version.name}"
-            raise ASN1.DeserializeError(errmsg, BadVersion)
+            raise BadVersion(errmsg, data, ptr)
 
         community, ptr = OctetString.decode(ptr)
         tag, _ = Tag.decode(subbytes(ptr))
