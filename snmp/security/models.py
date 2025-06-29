@@ -1,9 +1,9 @@
 __all__ = ["SecurityModel", "UnknownSecurityModel"]
 
 import enum
-from snmp.exception import IncomingMessageError
+from snmp.exception import IncomingMessageErrorWithPointer
 
-class UnknownSecurityModel(IncomingMessageError):
+class UnknownSecurityModel(IncomingMessageErrorWithPointer):
     pass
 
 class SecurityModel(enum.IntEnum):

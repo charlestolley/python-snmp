@@ -9,6 +9,7 @@ from os import linesep
 from snmp.ber import ParseError
 from snmp.exception import *
 from snmp.message import *
+from snmp.security import UnknownSecurityModel
 from snmp.utils import *
 
 class Catcher:
@@ -21,6 +22,7 @@ class Catcher:
         self.parseErrors = 0
         self.badVersions = 0
         self.invalidMsgs = 0
+        self.unknownSecurityModels = 0
 
     def hear(self, data: bytes, channel) -> None:
         self.packets += 1
@@ -39,6 +41,11 @@ class Catcher:
                 self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
         except InvalidMessage as err:
             self.invalidMsgs += 1
+
+            if self.verbose:
+                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
+        except UnknownSecurityModel as err:
+            self.unknownSecurityModels += 1
 
             if self.verbose:
                 self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")

@@ -213,7 +213,7 @@ class HeaderData(Sequence):
             securityModel = SecurityModel(msgSecurityModel.value)
         except ValueError as err:
             errmsg = f"Unknown security model: {msgSecurityModel.value}"
-            raise UnknownSecurityModel(errmsg) from err
+            raise UnknownSecurityModel(errmsg, smdata) from err
 
         try:
             return cls(msgID.value, msgMaxSize.value, msgFlags, securityModel)

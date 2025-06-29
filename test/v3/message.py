@@ -398,7 +398,12 @@ class HeaderDataTest(unittest.TestCase):
             "   02 01 01"
         )
 
-        self.assertRaises(UnknownSecurityModel, HeaderData.decode, invalid)
+        try:
+            HeaderData.decode(invalid)
+        except UnknownSecurityModel as err:
+            self.assertEqual(err.data, subbytes(invalid, 15))
+        else:
+            raise AssertionError("UnknownSecurityModel not raised by decode")
 
         invalid = bytes.fromhex(
             "30 13"
@@ -408,7 +413,12 @@ class HeaderDataTest(unittest.TestCase):
             "   02 04 7f ff ff ff"
         )
 
-        self.assertRaises(UnknownSecurityModel, HeaderData.decode, invalid)
+        try:
+            HeaderData.decode(invalid)
+        except UnknownSecurityModel as err:
+            self.assertEqual(err.data, subbytes(invalid, 15))
+        else:
+            raise AssertionError("UnknownSecurityModel not raised by decode")
 
     def test_decode_accepts_maxSize_of_484_and_int32_max(self):
         HeaderData.decode(bytes.fromhex(
