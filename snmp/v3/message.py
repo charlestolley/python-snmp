@@ -6,7 +6,7 @@ __all__ = [
 from snmp.exception import *
 from snmp.asn1 import ASN1
 from snmp.ber import *
-from snmp.message import ProtocolVersion
+from snmp.message import InvalidMessage, ProtocolVersion
 from snmp.pdu import *
 from snmp.smi import *
 from snmp.typing import *
@@ -86,9 +86,8 @@ class MessageFlags(OctetString):
                 byte & cls.PRIV_FLAG,
             )
         except ValueError as err:
-            # TODO: RFC 3412 Section 7.2 step 5e says to increment
-            #       snmpInvalidMsgs, not snmpInASNParseErrs
-            raise ASN1.DeserializeError(f"Invalid msgFlags: {err}") from err
+            errmsg = f"Invalid msgFlags: {err.args[0]}"
+            raise ASN1.DeserializeError(errmsg, InvalidMessage) from err
 
         reportable = (byte & cls.REPORTABLE_FLAG != 0)
         return cls(securityLevel, reportable)

@@ -9,6 +9,7 @@ from snmp.exception import *
 from snmp.ber import ParseError
 from snmp.smi import *
 from snmp.pdu import *
+from snmp.message import InvalidMessage
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.utils import subbytes
@@ -152,11 +153,14 @@ class MessageFlagsTest(unittest.TestCase):
             raise AssertionError("ParseError not raised by decodeExact")
 
     def test_decode_raises_IncomingMessageError_on_invalid_securityLevel(self):
-        self.assertRaises(
-            IncomingMessageError,
-            MessageFlags.decodeExact,
-            b"\x04\x01\x02",
-        )
+        data = b"\x04\x01\x02"
+
+        try:
+            MessageFlags.decodeExact(data)
+        except InvalidMessage as err:
+            self.assertEqual(err.data, data)
+        else:
+            raise AssertionError("InvalidMessage not raised by decodeExact")
 
     def test_decode_ignores_extra_bytes(self):
         self.assertEqual(
@@ -746,6 +750,26 @@ class SNMPv3WireMessageTest(unittest.TestCase):
             encryptedPDU,
             securityParameters,
         )
+
+    def test_decode_raises_InvalidMessage_on_privFlag_without_authFlag(self):
+        invalid = bytes.fromhex(
+            "30 16"
+            "   02 01 03"
+            "   30 0d"
+            "      02 01 00"
+            "      02 02 01 e4"
+            "      04 01 02"
+            "      02 01 03"
+            "   04 00"
+            "   04 00"
+        )
+
+        try:
+            SNMPv3WireMessage.decodeExact(invalid)
+        except InvalidMessage as err:
+            self.assertEqual(err.data, subbytes(invalid, 14, 17))
+        else:
+            raise AssertionError("InvalidMessage not raised by decodeExact")
 
     def test_decode_raises_ParseError_on_ScopedPDU_with_privFlag(self):
         invalid = bytes.fromhex(

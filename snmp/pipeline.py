@@ -20,6 +20,7 @@ class Catcher:
         self.packets = 0
         self.parseErrors = 0
         self.badVersions = 0
+        self.invalidMsgs = 0
 
     def hear(self, data: bytes, channel) -> None:
         self.packets += 1
@@ -33,6 +34,11 @@ class Catcher:
                 self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
         except BadVersion as err:
             self.badVersions += 1
+
+            if self.verbose:
+                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
+        except InvalidMessage as err:
+            self.invalidMsgs += 1
 
             if self.verbose:
                 self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
