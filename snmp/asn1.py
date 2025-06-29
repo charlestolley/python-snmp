@@ -17,8 +17,20 @@ TOID            = TypeVar("TOID",           bound="OBJECT_IDENTIFIER")
 
 class ASN1:
     class DeserializeError(SNMPException):
-        def __init__(self, msg):
+        def __init__(self, msg, etype=ParseError):
+            self.etype = etype
             self.msg = msg
+
+        def reraise(self, cls, method, data, tail=None):
+            errmsg = f"{typename(cls)}.{method}(): {self.msg}"
+
+            if tail is None:
+                errdata = subbytes(data)
+            else:
+                stop = len(data) - len(tail)
+                errdata = subbytes(data, stop=stop)
+
+            raise self.etype(errmsg, errdata) from self
 
     TAG: ClassVar[Tag]
 
@@ -30,18 +42,14 @@ class ASN1:
     ) -> Tuple[TASN1, subbytes]:
         tag, body, tail = decode(data)
 
-        if tag != cls.TAG:
-            msg = f"{typename(cls)}.decode():" \
-                f" {tag} does not match expected type: {cls.TAG}"
-            data = subbytes(data, stop=len(data) - len(tail))
-            raise ParseError(msg, data)
-
         try:
-            return cls.deserialize(body, **kwargs), tail
+            if tag == cls.TAG:
+                return cls.deserialize(body, **kwargs), tail
+            else:
+                errmsg = f"{tag} does not match expected type: {cls.TAG}"
+                raise ASN1.DeserializeError(errmsg)
         except ASN1.DeserializeError as err:
-            msg = f"{typename(cls)}.decode(): {err.msg}"
-            data = subbytes(data, stop=len(data) - len(tail))
-            raise ParseError(msg, data) from err
+            err.reraise(cls, "decode", data, tail)
 
     @classmethod
     def decodeExact(
@@ -51,18 +59,14 @@ class ASN1:
     ) -> TASN1:
         tag, body = decodeExact(data)
 
-        if tag != cls.TAG:
-            msg = f"{typename(cls)}.decodeExact():" \
-                f" {tag} does not match expected type: {cls.TAG}"
-            data = subbytes(data)
-            raise ParseError(msg, data)
-
         try:
-            return cls.deserialize(body, **kwargs)
+            if tag == cls.TAG:
+                return cls.deserialize(body, **kwargs)
+            else:
+                errmsg = f" {tag} does not match expected type: {cls.TAG}"
+                raise ASN1.DeserializeError(errmsg)
         except ASN1.DeserializeError as err:
-            msg = f"{typename(cls)}.decodeExact(): {err.msg}"
-            data = subbytes(data)
-            raise ParseError(msg, data) from err
+            err.reraise(cls, "decodeExact", data)
 
     def encode(self) -> bytes:
         return encode(self.TAG, self.serialize())

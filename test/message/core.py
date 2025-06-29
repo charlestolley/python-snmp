@@ -4,7 +4,6 @@ import re
 import unittest
 
 from snmp.ber import ParseError
-from snmp.exception import BadVersion
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.message import *
@@ -39,6 +38,8 @@ class MessageTest(unittest.TestCase):
             self.encodings[version] = bytes.fromhex(template.format(version))
             self.messages[version] = Message(version, community, pdu)
 
+        self.invalidEncoding = bytes.fromhex(template.format(2))
+
     def test_two_Messages_with_different_versions_are_not_equal(self):
         self.assertNotEqual(
             self.messages[ProtocolVersion.SNMPv1],
@@ -62,14 +63,25 @@ class MessageTest(unittest.TestCase):
             message = Message.decodeExact(encoding, types=self.types)
             self.assertEqual(message, self.messages[version])
 
+    def test_decode_raises_BadVersion_on_invalid_ProtocolVersion(self):
+        encoding = self.invalidEncoding
+
+        try:
+            Message.decodeExact(encoding, types=self.types)
+        except BadVersion as err:
+            self.assertEqual(err.data, encoding)
+        else:
+            raise AssertionError("BadVersion not raised by decodeExact")
+
     def test_decode_raises_BadVersion_on_SNMPv3_message(self):
         encoding = self.encodings[ProtocolVersion.SNMPv3]
-        self.assertRaises(
-            BadVersion,
-            Message.decodeExact,
-            encoding,
-            types=self.types,
-        )
+
+        try:
+            Message.decodeExact(encoding, types=self.types)
+        except BadVersion as err:
+            self.assertEqual(err.data, encoding)
+        else:
+            raise AssertionError("BadVersion not raised by decodeExact")
 
     def test_the_result_of_eval_repr_equals_the_original_object(self):
         for version in self.versions:

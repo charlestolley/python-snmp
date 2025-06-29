@@ -1,4 +1,4 @@
-__all__ = ["Message", "ProtocolVersion", "VersionOnlyMessage"]
+__all__ = ["BadVersion", "Message", "ProtocolVersion", "VersionOnlyMessage"]
 
 from .core import *
 from .version import *

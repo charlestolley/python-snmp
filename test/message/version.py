@@ -25,7 +25,13 @@ class VersionOnlyMessageTest(unittest.TestCase):
 
     def test_decode_raises_BadVersion_for_unknown_version(self):
         message = bytes.fromhex("30 03 02 01 02")
-        self.assertRaises(BadVersion, VersionOnlyMessage.decodeExact, message)
+
+        try:
+            VersionOnlyMessage.decodeExact(message)
+        except BadVersion as err:
+            self.assertEqual(err.data, message)
+        else:
+            raise AssertionError("BadVersion not raised by decodeExact")
 
     def test_decode_ignores_everything_after_version_field(self):
         encoding = bytes.fromhex("30 10 02 01 00")

@@ -16,13 +16,15 @@ class VersionDecoderTest(unittest.TestCase):
             self.messages.append(data)
 
     def test_hear_ignores_messages_with_no_matching_listener(self):
+        message = b"\x30\x03\x02\x01\x00"
         decoder = VersionDecoder()
-        self.assertRaises(
-            BadVersion,
-            decoder.hear,
-            b"\x30\x03\x02\x01\x00",
-            None,
-        )
+
+        try:
+            decoder.hear(message, None)
+        except BadVersion as err:
+            self.assertEqual(err.data, message)
+        else:
+            raise AssertionError("BadVersion not raised by hear")
 
     def test_register_keeps_only_the_first_listener_and_returns_bool(self):
         s1 = self.Listener()

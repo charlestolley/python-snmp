@@ -1,6 +1,5 @@
 __all__ = ["Message"]
 
-from snmp.exception import BadVersion
 from snmp.asn1 import ASN1
 from snmp.ber import Asn1Data, ParseError, Tag
 from snmp.pdu import AnyPDU
@@ -65,10 +64,11 @@ class Message(Sequence):
         try:
             version = ProtocolVersion(msgVersion.value)
         except ValueError as err:
-            raise BadVersion(msgVersion.value) from err
+            raise ASN1.DeserializeError(err.args[0], BadVersion) from err
 
         if version not in cls.VERSIONS:
-            raise BadVersion(f"{typename} does not support {version.name}")
+            errmsg = f"{typename(cls)} does not support {version.name}"
+            raise ASN1.DeserializeError(errmsg, BadVersion)
 
         community, ptr = OctetString.decode(ptr)
         tag, _ = Tag.decode(subbytes(ptr))

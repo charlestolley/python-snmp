@@ -9,7 +9,7 @@ from os import linesep
 from snmp.ber import ParseError
 from snmp.exception import *
 from snmp.message import *
-from snmp.utils import typename
+from snmp.utils import *
 
 class Catcher:
     def __init__(self, listener, verbose=False):
@@ -35,7 +35,7 @@ class Catcher:
             self.badVersions += 1
 
             if self.verbose:
-                self.logger.debug(f"{err!r}\n{data!r}")
+                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
         except IncomingMessageError as err:
             if self.verbose:
                 self.logger.debug(f"{err!r}\n{data!r}")
@@ -52,7 +52,10 @@ class VersionDecoder:
         try:
             listener = self.listeners[msgVersion]
         except KeyError as err:
-            raise BadVersion() from err
+            errmsg = f"Ignoring {msgVersion.name} message" \
+                " because no application is listening for it."
+            errdata = subbytes(data)
+            raise BadVersion(errmsg, errdata) from err
         else:
             listener.hear(data, channel)
 
