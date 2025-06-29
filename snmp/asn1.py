@@ -25,15 +25,22 @@ class ASN1:
             self.msg = msg
 
         def reraise(self,
-            cls: Any,
-            method: str,
-            data: subbytes,
+            data: Union[bytes, subbytes],
             tail: Optional[subbytes] = None,
         ) -> NoReturn:
-            errmsg = f"{typename(cls)}.{method}(): {self.msg}"
-            raise self.etype(errmsg, subbytes(data), tail) from self
+            raise self.etype(self.msg, data, tail) from self
 
     TAG: ClassVar[Tag]
+
+    @classmethod
+    def checkTag(cls,
+        tag: Tag,
+        data: Union[bytes, subbytes],
+        tail: Optional[subbytes] = None,
+    ) -> None:
+        if tag != cls.TAG:
+            errmsg = f"{tag} does not match the expected type: {cls.TAG}"
+            raise ParseError(errmsg, data, tail)
 
     @classmethod
     def decode(
@@ -42,15 +49,12 @@ class ASN1:
         **kwargs: Any,
     ) -> Tuple[TASN1, subbytes]:
         tag, body, tail = decode(data)
+        cls.checkTag(tag, data, tail)
 
         try:
-            if tag == cls.TAG:
-                return cls.deserialize(body, **kwargs), tail
-            else:
-                errmsg = f"{tag} does not match expected type: {cls.TAG}"
-                raise ASN1.DeserializeError(errmsg)
+            return cls.deserialize(body, **kwargs), tail
         except ASN1.DeserializeError as err:
-            err.reraise(cls, "decode", data, tail)
+            err.reraise(data, tail)
 
     @classmethod
     def decodeExact(
@@ -59,15 +63,12 @@ class ASN1:
         **kwargs: Any,
     ) -> TASN1:
         tag, body = decodeExact(data)
+        cls.checkTag(tag, data)
 
         try:
-            if tag == cls.TAG:
-                return cls.deserialize(body, **kwargs)
-            else:
-                errmsg = f" {tag} does not match expected type: {cls.TAG}"
-                raise ASN1.DeserializeError(errmsg)
+            return cls.deserialize(body, **kwargs)
         except ASN1.DeserializeError as err:
-            err.reraise(cls, "decodeExact", data)
+            err.reraise(data)
 
     def encode(self) -> bytes:
         return encode(self.TAG, self.serialize())

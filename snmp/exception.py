@@ -17,7 +17,7 @@ __all__ = [
     "ReportMessage",
 ]
 
-from snmp.typing import Optional
+from snmp.typing import Optional, Union
 from snmp.utils import subbytes
 
 class SNMPException(Exception):
@@ -35,13 +35,13 @@ class IncomingMessageError(SNMPException):
 class IncomingMessageErrorWithPointer(IncomingMessageError):
     def __init__(self,
         msg: str,
-        data: subbytes,
+        data: Union[bytes, subbytes],
         tail: Optional[subbytes] = None,
     ) -> None:
         super().__init__(msg)
 
         if tail is None:
-            self.data = data
+            self.data = subbytes(data)
         else:
             self.data = subbytes(data, stop=len(data) - len(tail))
 
