@@ -2,14 +2,13 @@ __all__ = ["Catcher", "VersionDecoder"]
 
 import logging
 import random
+import re
 import weakref
 
 from os import linesep
 
-from snmp.ber import ParseError
-from snmp.exception import IncomingMessageError
+from snmp.exception import *
 from snmp.message import *
-from snmp.security import UnknownSecurityModel
 from snmp.utils import *
 
 class Catcher:
@@ -19,39 +18,19 @@ class Catcher:
         self.verbose = verbose
 
         self.packets = 0
-        self.parseErrors = 0
-        self.badVersions = 0
-        self.invalidMsgs = 0
-        self.unknownSecurityModels = 0
 
     def hear(self, data: bytes, channel) -> None:
         self.packets += 1
 
         try:
             self.listener.hear(data, channel)
-        except ParseError as err:
-            self.parseErrors += 1
-
-            if self.verbose:
-                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
-        except BadVersion as err:
-            self.badVersions += 1
-
-            if self.verbose:
-                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
-        except InvalidMessage as err:
-            self.invalidMsgs += 1
-
-            if self.verbose:
-                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
-        except UnknownSecurityModel as err:
-            self.unknownSecurityModels += 1
-
+        except IncomingMessageErrorWithPointer as err:
             if self.verbose:
                 self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
         except IncomingMessageError as err:
             if self.verbose:
-                self.logger.debug(f"{err!r}\n{data!r}")
+                hexdump = re.sub(r"(?<=.{2})(.{2})", r" \1", data.hex())
+                self.logger.debug(f"{err!r}{linesep}{hexdump}")
         except Exception as exc:
             self.logger.exception(exc)
 

@@ -67,20 +67,19 @@ class SNMPv3MessageSorter:
             if not pduType.RESPONSE_CLASS:
                 self.unknownHandlers += 1
                 if pduType.CONFIRMED_CLASS:
-                    reportMessage = self.interpreter.makeReport(
-                        message,
-                        VarBind(
-                            snmpUnknownPDUHandlersInstance,
-                            Counter32(self.unknownHandlers),
+                    try:
+                        reportMessage = self.interpreter.makeReport(
+                            message,
+                            VarBind(
+                                snmpUnknownPDUHandlersInstance,
+                                Counter32(self.unknownHandlers),
+                            )
                         )
-                    )
 
-                    if reportMessage is not None:
-                        try:
-                            data = self.interpreter.encode(reportMessage)
-                            channel.send(data)
-                        except Exception:
-                            pass
+                        data = self.interpreter.encode(reportMessage)
+                        channel.send(data)
+                    except Exception:
+                        pass
         else:
             subscriber.hear(message, channel)
 
