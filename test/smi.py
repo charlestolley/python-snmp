@@ -269,6 +269,36 @@ class IpAddressTest(unittest.TestCase):
     def test_encode_uses_data_for_the_payload(self):
         self.assertEqual(IpAddress(self.addr).encode(), self.encoding)
 
+    def test_decodeIndex_raises_IndexDecodeError_if_the_encoding_is_too_long(self):
+        internet = OBJECT_IDENTIFIER(1,3,6,1)
+        oid = internet.extend(4, 192, 168, 0, 1)
+
+        self.assertRaises(
+            OBJECT_IDENTIFIER.IndexDecodeError,
+            oid.decodeIndex,
+            internet,
+            IpAddress,
+        )
+
+    def test_decodeIndex_implied_argument_is_ignored(self):
+        internet = OBJECT_IDENTIFIER(1,3,6,1)
+        oid = internet.extend(192, 168, 0, 1)
+
+        addr = IpAddress("192.168.0.1")
+        a = oid.decodeIndex(internet, IpAddress, implied=False)[0]
+        self.assertEqual(addr, a)
+
+        b = oid.decodeIndex(internet, IpAddress, implied=True)[0]
+        self.assertEqual(a, b)
+
+    def test_decodeIndex_address_does_not_have_to_be_the_last_field(self):
+        internet = OBJECT_IDENTIFIER(1,3,6,1)
+        oid = internet.extend(192, 168, 0, 1).extend(8080)
+
+        addr, port = oid.decodeIndex(internet, IpAddress, Integer)
+        self.assertEqual(addr, IpAddress("192.168.0.1"))
+        self.assertEqual(port.value, 8080)
+
 class OpaqueTest(unittest.TestCase):
     def test_result_of_eval_repr_is_equal_to_the_original(self):
         o = Opaque(b"this could contain anything")

@@ -125,16 +125,26 @@ class IpAddress(OCTET_STRING):
         return super().asOID(implied=True)
 
     @classmethod
-    def construct(cls, data: Asn1Data) -> "IpAddress":
-        _data = data[:]
-
+    def fromBytes(cls, data: bytes) -> "IpAddress":
         try:
-            addr = inet_ntoa(_data)
+            addr = inet_ntoa(data)
         except OSError as err:
-            errmsg = f"Invalid IPv4 address: {_data!r}"
-            raise ASN1.DeserializeError(errmsg) from err
+            errmsg = f"Invalid IPv4 address: {data!r}"
+            raise ValueError(errmsg) from err
 
         return cls(addr)
+
+    @classmethod
+    def fromOID(cls, nums, implied = False) -> "IpAddress":
+        data = bytes(next(nums) for i in range(4))
+        return cls.fromBytes(data)
+
+    @classmethod
+    def construct(cls, data: Asn1Data) -> "IpAddress":
+        try:
+            return cls.fromBytes(data[:])
+        except ValueError as err:
+            raise ASN1.DeserializeError(err.args[0]) from err
 
 @final
 class Opaque(OCTET_STRING):
