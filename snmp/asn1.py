@@ -166,10 +166,7 @@ class INTEGER(Primitive):
         nums: Iterator[int],
         implied: bool = False,
     ) -> TINTEGER:
-        try:
-            return cls.construct(next(nums))
-        except ASN1.DeserializeError as err:
-            raise OBJECT_IDENTIFIER.IndexDecodeError(err.msg) from err
+        return cls(next(nums))
 
 class OCTET_STRING(Primitive):
     TAG = Tag(4)
@@ -208,10 +205,7 @@ class OCTET_STRING(Primitive):
             length = next(nums)
             data = bytes([next(nums) for _ in range(length)])
 
-        try:
-            return cls.construct(data)
-        except ASN1.DeserializeError as err:
-            raise OBJECT_IDENTIFIER.IndexDecodeError(err.args[0]) from err
+        return cls(data)
 
     @classmethod
     def construct(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
@@ -269,6 +263,19 @@ class OBJECT_IDENTIFIER(Primitive):
 
     class IndexDecodeError(SNMPException):
         pass
+
+    class CountingIterator:
+        def __init__(self, nums: Tuple[int], count: int = 0):
+            self.count = count
+            self.wrapped = iter(nums[count:])
+
+        def __iter__(self):
+            return self
+
+        def __next__(self) -> int:
+            item = next(self.wrapped)
+            self.count += 1
+            return item
 
     def __init__(self, *subidentifiers: int) -> None:
         first = 0
@@ -358,10 +365,7 @@ class OBJECT_IDENTIFIER(Primitive):
             length = next(nums)
             subidentifiers = (next(nums) for _ in range(length))
 
-        try:
-            return cls.construct(*subidentifiers)
-        except ASN1.DeserializeError as err:
-            raise OBJECT_IDENTIFIER.IndexDecodeError(err.msg) from err
+        return cls(*subidentifiers)
 
     def extend(self: TOID, *subidentifiers: int) -> TOID:
         return self.__class__(*self.subidentifiers, *subidentifiers)
@@ -377,7 +381,7 @@ class OBJECT_IDENTIFIER(Primitive):
         if not self.startswith(prefix):
             raise self.BadPrefix(f"{self} does not begin with {prefix}")
 
-        nums = iter(self.subidentifiers[len(prefix):])
+        nums = self.CountingIterator(self.subidentifiers, len(prefix))
 
         index = []
         for cls in types[:-1]:
@@ -396,17 +400,21 @@ class OBJECT_IDENTIFIER(Primitive):
 
         return tuple(index)
 
-    @staticmethod
-    def decodeIndexField(
-        nums: Iterator[int],
+    def decodeIndexField(self,
+        nums: CountingIterator,
         cls: Type[TPrimitive],
         implied: bool = False,
     ) -> TPrimitive:
+        position = nums.count
+
         try:
             return cls.fromOID(nums, implied=implied)
         except StopIteration as err:
             errmsg = f"Incomplete {typename(cls)} field in index"
-            raise OBJECT_IDENTIFIER.IndexDecodeError(errmsg)
+            raise OBJECT_IDENTIFIER.IndexDecodeError(errmsg) from err
+        except ValueError as err:
+            errmsg = f"{self} @ sub-identifier {position}: {err.args[0]}"
+            raise OBJECT_IDENTIFIER.IndexDecodeError(errmsg) from err
 
     def withIndex(self: TOID,
         *index: Primitive,
