@@ -363,7 +363,7 @@ class OBJECT_IDENTIFIER(Primitive):
             subidentifiers = nums
         else:
             length = next(nums)
-            subidentifiers = (next(nums) for _ in range(length))
+            subidentifiers = [next(nums) for i in range(length)]
 
         return cls(*subidentifiers)
 
@@ -410,10 +410,14 @@ class OBJECT_IDENTIFIER(Primitive):
         try:
             return cls.fromOID(nums, implied=implied)
         except StopIteration as err:
-            errmsg = f"Incomplete {typename(cls)} field in index"
+            impstr = "IMPLIED " if implied else ""
+            errmsg = f"Incomplete {impstr}{typename(cls)}" \
+                f" at position {position}: {self}"
             raise OBJECT_IDENTIFIER.IndexDecodeError(errmsg) from err
         except ValueError as err:
-            errmsg = f"{self} @ sub-identifier {position}: {err.args[0]}"
+            impstr = "IMPLIED " if implied else ""
+            errmsg = f"Failed to decode {impstr}{typename(cls)}" \
+                f" at position {position}: {self}: {err.args[0]}"
             raise OBJECT_IDENTIFIER.IndexDecodeError(errmsg) from err
 
     def withIndex(self: TOID,

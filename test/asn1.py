@@ -327,12 +327,28 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
             self.internet,
         )
 
-    def test_decodeIndex_raises_IndexDecodeError_if_OID_is_too_short(self):
+    def test_IndexDecodeError_decoding_INTEGER_if_OID_is_too_short(self):
         self.assertRaises(
             OBJECT_IDENTIFIER.IndexDecodeError,
             self.internet.decodeIndex,
             self.internet,
             INTEGER,
+        )
+
+    def test_IndexDecodeError_decoding_short_non_implied_OCTET_STRING(self):
+        self.assertRaises(
+            OBJECT_IDENTIFIER.IndexDecodeError,
+            self.internet.extend(5, 0x61, 0x73, 0x64, 0x66).decodeIndex,
+            self.internet,
+            OCTET_STRING,
+        )
+
+    def test_IndexDecodeError_decoding_non_implied_OID_if_cut_short(self):
+        self.assertRaises(
+            OBJECT_IDENTIFIER.IndexDecodeError,
+            self.internet.extend(5, 1, 3, 6, 1).decodeIndex,
+            self.internet,
+            OBJECT_IDENTIFIER,
         )
 
     def test_decodeIndex_turns_single_subidentifier_into_INTEGER(self):
