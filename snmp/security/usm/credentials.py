@@ -1,4 +1,5 @@
 __all__ = [
+    "AuthenticationNotEnabled", "InvalidSignature", "PrivacyNotEnabled",
     "Credentials", "AuthCredentials", "AuthPrivCredentials",
     "LocalizedCredentials",
 ]
@@ -10,6 +11,15 @@ from snmp.smi import OctetString
 from snmp.typing import *
 from snmp.utils import *
 from snmp.v3.message import *
+
+class AuthenticationNotEnabled(SNMPException):
+    pass
+
+class PrivacyNotEnabled(SNMPException):
+    pass
+
+class InvalidSignature(IncomingMessageError):
+    pass
 
 class WrongSignatureLength(InvalidSignature):
     pass

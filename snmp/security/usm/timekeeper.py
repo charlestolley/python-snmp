@@ -1,7 +1,10 @@
-__all__ = ["EngineTime", "TimeKeeper"]
+__all__ = ["EngineTime", "TimeKeeper", "UsmNotInTimeWindow"]
 
-from snmp.exception import UsmNotInTimeWindow
+from snmp.exception import IncomingMessageError
 from snmp.typing import *
+
+class UsmNotInTimeWindow(IncomingMessageError):
+    pass
 
 class EngineTime:
     class NegativeEngineBoots(ValueError):

@@ -2,9 +2,8 @@ __all__ = ["AesCfb128"]
 
 import os
 
-from snmp.exception import UsmDecryptionError
 from snmp.smi import OID
-from snmp.security.usm import PrivProtocol
+from snmp.security.usm import PrivProtocol, UsmDecryptionError
 from snmp.typing import *
 
 from . import *

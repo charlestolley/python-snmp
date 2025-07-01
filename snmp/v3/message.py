@@ -1,6 +1,6 @@
 __all__ = [
     "HeaderData", "MessageFlags", "ScopedPDU", "SecurityName",
-    "SNMPv3Message", "SNMPv3WireMessage",
+    "SNMPv3Message", "SNMPv3WireMessage", "ReportMessage",
 ]
 
 from snmp.exception import *
@@ -450,3 +450,7 @@ class SNMPv3WireMessage(Sequence):
     def decodePlaintext(data: Union[bytes, subbytes]) -> ScopedPDU:
         scopedPDU, padding = ScopedPDU.decode(data)
         return scopedPDU
+
+class ReportMessage(SNMPException):
+    def __init__(self, message):
+        self.message = message

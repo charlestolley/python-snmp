@@ -1,5 +1,6 @@
 __all__ = [
-    "AuthProtocol", "PrivProtocol", "UserBasedSecurityModule",
+    "AuthProtocol", "PrivProtocol",
+    "UserBasedSecurityModule", "UsmDecryptionError",
 ]
 
 from snmp.exception import *
@@ -49,6 +50,9 @@ class PrivProtocol:
         engineTime: int,
     ) -> Tuple[bytes, bytes]:
         raise NotImplementedError()
+
+class UsmDecryptionError(IncomingMessageError):
+    pass
 
 from .implementation import *
 from .users import *

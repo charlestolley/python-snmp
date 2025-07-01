@@ -10,9 +10,6 @@ from snmp.exception import *
 from snmp.utils import subbytes
 
 class ExceptionTypesTest(unittest.TestCase):
-    def test_EncodeError_subclasses_SNMPException(self):
-        self.assertIsInstance(EncodeError(), SNMPException)
-
     def test_ParseError_subclasses_IncomingMessageError(self):
         self.assertIsInstance(
             ParseError("", subbytes(b"")),
@@ -201,9 +198,9 @@ class EncodeLengthTest(unittest.TestCase):
         encoding = encode_length(length)
         self.assertEqual(encoding, b"\x84\x12\x34\x56\x78")
 
-    def test_raises_EncodeError_when_length_is_too_big(self):
+    def test_raises_ValueError_when_length_is_too_big(self):
         length = 1 << (0x7f * 8)
-        self.assertRaises(EncodeError, encode_length, length)
+        self.assertRaises(ValueError, encode_length, length)
 
     def test_successfully_encodes_maximum_length_value(self):
         length = (1 << (0x7f * 8)) - 1

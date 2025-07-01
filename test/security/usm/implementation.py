@@ -23,14 +23,21 @@ __all__ = [
 import time
 import unittest
 
-from snmp.exception import *
 from snmp.ber import *
 from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
+from snmp.security.usm import UsmDecryptionError
 from snmp.security.usm.auth import *
 from snmp.security.usm.credentials import *
 from snmp.security.usm.implementation import *
+from snmp.security.usm.implementation import (
+    UsmUnsupportedSecLevel,
+    UsmUnknownEngineID,
+    UsmUnknownUserName,
+    UsmWrongDigest,
+)
+
 from snmp.security.usm.parameters import *
 from snmp.security.usm.timekeeper import *
 from snmp.smi import *
@@ -704,7 +711,11 @@ class UnknownEngineIDTest(unittest.TestCase):
         wireMessage = SNMPv3WireMessage.decodeExact(wholeMsg)
 
         self.assertEqual(local.unknownEngineIDs, 0)
-        self.assertRaises(UnknownEngineID, local.processIncoming, wireMessage)
+        self.assertRaises(
+            UsmUnknownEngineID,
+            local.processIncoming,
+            wireMessage,
+        )
         self.assertEqual(local.unknownEngineIDs, 1)
 
     def test_report_UnknownEngineID_if_securityEngineID_does_not_match(self):

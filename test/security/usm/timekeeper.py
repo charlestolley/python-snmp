@@ -2,8 +2,7 @@ __all__ = ["LocalEngineTimeTest", "RemoteEngineTimeTest", "TimeKeeperTest"]
 
 import unittest
 
-from snmp.exception import UsmNotInTimeWindow
-from snmp.security.usm.timekeeper import EngineTime, TimeKeeper
+from snmp.security.usm.timekeeper import *
 
 class LocalEngineTimeTest(unittest.TestCase):
     def setUp(self):

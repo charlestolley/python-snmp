@@ -140,7 +140,7 @@ def encode_length(length: int) -> bytes:
         length >>= 8
 
     if len(arr) > 0x7f:
-        raise EncodeError("Length too large for definite-length encoding")
+        raise ValueError("Length too large for definite-length encoding")
 
     arr.append(0x80 | len(arr))
     return bytes(reversed(arr))

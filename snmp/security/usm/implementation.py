@@ -12,12 +12,44 @@ from snmp.typing import *
 from snmp.utils import *
 from snmp.v3.message import *
 
-from . import AuthProtocol, PrivProtocol
-from .credentials import LocalizedCredentials
+from . import AuthProtocol, PrivProtocol, UsmDecryptionError
+from .credentials import *
 from .parameters import *
 from .stats import *
 from .timekeeper import *
 from .users import *
+
+class UsmUnsupportedSecLevel(IncomingMessageError):
+    def __init__(self, level=None):
+        if level is None:
+            errmsg = f"The remote engine does not support" \
+                " the requested securityLevel"
+        else:
+            errmsg = f"The remote engine does not support {level}"
+
+        super().__init__(errmsg)
+
+class UsmUnknownEngineID(IncomingMessageError):
+    pass
+
+class UsmUnknownUserName(IncomingMessageError):
+    def __init__(self, username=None):
+        if username is None:
+            errmsg = "The remote engine does not recognize the requested user"
+        else:
+            errmsg = f'The remote engine does not recognize user "{username}"'
+
+        super().__init__(errmsg)
+
+class UsmWrongDigest(IncomingMessageError):
+    def __init__(self, username=None):
+        errmsg = "The remote engine reported an incorrect message signature"
+
+        if username is not None:
+            errmsg += f"; check that \"{username}\" is using" \
+                " the right authentication protocol and secret"
+
+        super().__init__(errmsg)
 
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM
@@ -301,7 +333,7 @@ class UserBasedSecurityModule(SecurityModule):
                 contextName = scopedPDU.contextName
 
             if reportable and sp.engineID != self.engineID:
-                raise UnknownEngineID(sp.engineID)
+                raise UsmUnknownEngineID(sp.engineID)
 
             namespaces = self.candidateNamespaces(sp)
 
@@ -321,7 +353,7 @@ class UserBasedSecurityModule(SecurityModule):
                     contextName = scopedPDU.contextName
 
                     if reportable and sp.engineID != self.engineID:
-                        raise UnknownEngineID(sp.engineID)
+                        raise UsmUnknownEngineID(sp.engineID)
 
             self.verifyIncomingTime(message, sp, timestamp)
 
@@ -346,7 +378,7 @@ class UserBasedSecurityModule(SecurityModule):
                 value = Counter32(self.unknownUserNames)
             else:
                 raise
-        except UnknownEngineID as err:
+        except UsmUnknownEngineID as err:
             self.unknownEngineIDs += 1
             if reportable and self.engineID is not None:
                 oid = usmStatsUnknownEngineIDsInstance
