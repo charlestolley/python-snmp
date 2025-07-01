@@ -307,15 +307,15 @@ class BulkPDU(Constructed):
     def __repr__(self) -> str:
         arguments = []
         if self.requestID:
-            arguments.append("requestID={}".format(self.requestID))
+            arguments.append(f"requestID={self.requestID}")
 
         if self.nonRepeaters:
-            arguments.append("nonRepeaters={}".format(self.nonRepeaters))
+            arguments.append(f"nonRepeaters={self.nonRepeaters}")
 
         if self.maxRepetitions:
-            arguments.append("maxRepetitions={}".format(self.maxRepetitions))
+            arguments.append(f"maxRepetitions={self.maxRepetitions}")
 
-        arguments.append("variableBindings={}".format(repr(self.variableBindings)))
+        arguments.append(f"variableBindings={self.variableBindings!r}")
 
         args = ", ".join(arguments)
         return f"{typename(self)}({args})"

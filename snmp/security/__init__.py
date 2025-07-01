@@ -1,4 +1,7 @@
-__all__ = ["SecurityLevel", "SecurityModel", "SecurityModule", "UnknownSecurityModel"]
+__all__ = [
+    "SecurityLevel", "SecurityModel",
+    "SecurityModule", "UnknownSecurityModel",
+]
 
 from snmp.smi import Sequence
 from snmp.typing import *

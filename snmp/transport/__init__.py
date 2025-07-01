@@ -16,7 +16,11 @@ AddressUsage = enum.Enum(
 )
 
 class TransportDomain(enum.Enum):
-    def __init__(self, family: socket.AddressFamily, loopback: str, default: str):
+    def __init__(self,
+        family: socket.AddressFamily,
+        loopback: str,
+        default: str,
+    ) -> None:
         self.address_family = family
         self.loopback_address = loopback
         self.default_address = default

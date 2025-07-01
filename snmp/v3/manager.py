@@ -569,8 +569,13 @@ class SNMPv3Manager:
         handle = self.openRequest(pdu, timeout)
 
         if handle.active():
-            flags = MessageFlags(securityLevel, True)
-            header = HeaderData(0, self.channel.msgMaxSize, flags, SecurityModel.USM)
+            header = HeaderData(
+                0,
+                self.channel.msgMaxSize,
+                MessageFlags(securityLevel, True),
+                SecurityModel.USM,
+            )
+
             scopedPDU = ScopedPDU(handle.pdu, b"", context)
             securityName = SecurityName(userName, self.namespace)
             message = SNMPv3Message(header, scopedPDU, b"", securityName)
