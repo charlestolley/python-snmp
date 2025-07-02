@@ -18,17 +18,17 @@ class RequestIDAuthority(NumberAuthority):
         # indicate a bug, and, more importantly, encountering this error by
         # any other way would also indicate a bug, so that's why it's a type
         # of SNMPLibraryBug.
-        def __init__(self, attempts=None):
-            if attempts is None:
-                errmsg = "No available request ID was found"
-            else:
-                errmsg = f"After {attempts} attempts," \
-                " no available request ID was found"
+        def __init__(self, attempts):
+            errmsg = f"No available request ID found after {attempts} attempts"
+            super().__init__(errmsg)
 
             super().__init__(errmsg)
 
     class RequestIDDeallocationFailure(SNMPLibraryBug):
-        pass
+        def __init__(self, requestID: int):
+            errmsg = f"Failed to release request ID {requestID}" \
+                " because it is not currently reserved"
+            super().__init__(errmsg)
 
     AllocationFailure = RequestIDAllocationFailure
     DeallocationFailure = RequestIDDeallocationFailure

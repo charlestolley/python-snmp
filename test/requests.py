@@ -27,11 +27,11 @@ class RequestIDAuthorityTest(unittest.TestCase):
         self.assertEqual(len(requestIDs), 1000)
 
     def test_AllocationFailure_is_an_SNMPLibraryBug(self):
-        exception = self.authority.AllocationFailure()
+        exception = self.authority.AllocationFailure(30)
         self.assertIsInstance(exception, SNMPLibraryBug)
 
     def test_DeallocationFailure_is_an_SNMPLibraryBug(self):
-        exception = self.authority.DeallocationFailure()
+        exception = self.authority.DeallocationFailure(34)
         self.assertIsInstance(exception, SNMPLibraryBug)
 
 if __name__ == "__main__":

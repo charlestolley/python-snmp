@@ -15,8 +15,16 @@ class MessageIDAuthority(NumberAuthority):
     def newGenerator(self):
         return NumberGenerator(31, signed=False)
 
-    class MessageIDAllocationFailure(SNMPLibraryBug): pass
-    class MessageIDDeallocationFailure(SNMPLibraryBug): pass
+    class MessageIDAllocationFailure(SNMPLibraryBug):
+        def __init__(self, attempts):
+            errmsg = f"No available message ID found after {attempts} attempts"
+            super().__init__(errmsg)
+
+    class MessageIDDeallocationFailure(SNMPLibraryBug):
+        def __init__(self, msgID: int):
+            errmsg = f"Failed to release message ID {msgID}" \
+                " because it is not currently reserved"
+            super().__init__(errmsg)
 
     AllocationFailure = MessageIDAllocationFailure
     DeallocationFailure = MessageIDDeallocationFailure

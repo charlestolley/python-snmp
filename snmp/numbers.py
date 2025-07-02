@@ -52,7 +52,7 @@ class NumberAuthority:
         try:
             self.reserved.remove(number)
         except KeyError as err:
-            raise self.DeallocationFailure() from err
+            raise self.DeallocationFailure(number) from err
 
     def reserve(self) -> int:
         for attempt in range(self.attempts):
