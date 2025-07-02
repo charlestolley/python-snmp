@@ -157,10 +157,7 @@ class UserRegistry:
         return self.namespaceConfigs[namespace][userName].defaultSecurityLevel
 
     def defaultUserName(self, namespace) -> Optional[bytes]:
-        try:
-            return self.namespaceConfigs[namespace].defaultUserName
-        except KeyError:
-            return None
+        return self.namespaceConfigs[namespace].defaultUserName
 
     @staticmethod
     def makeCredentials(

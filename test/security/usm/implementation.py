@@ -54,6 +54,10 @@ else:
 from . import DummyAuthProtocol, DummyPrivProtocol
 
 class UserBasedSecurityModuleTest(unittest.TestCase):
+    def test_defaultSecurityLevel_returns_None_if_no_users_added(self):
+        usm = UserBasedSecurityModule()
+        self.assertIsNone(usm.defaultSecurityLevel(b"kejklx", "m,eujkxeui"))
+
     def test_defaultUserName_returns_None_if_no_users_have_been_added(self):
         usm = UserBasedSecurityModule()
         self.assertIsNone(usm.defaultUserName("jkfuismerkj"))

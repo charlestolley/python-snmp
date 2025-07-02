@@ -106,10 +106,16 @@ class UserBasedSecurityModule(SecurityModule):
         userName: bytes,
         namespace: str,
     ) -> SecurityLevel:
-        return self.users.defaultSecurityLevel(userName, namespace)
+        try:
+            return self.users.defaultSecurityLevel(userName, namespace)
+        except KeyError:
+            return None
 
     def defaultUserName(self, namespace: str) -> Optional[bytes]:
-        return self.users.defaultUserName(namespace)
+        try:
+            return self.users.defaultUserName(namespace)
+        except KeyError:
+            return None
 
     ### Methods for outgoing messages
 

@@ -162,9 +162,15 @@ class Engine:
             defaultUserName = self.usm.defaultUserName(namespace)
 
             if defaultUserName is None:
-                errmsg = "You must add at least one user before" \
-                    " you can create an SNMPv3 Manager"
-                raise NoDefaultUser(errmsg)
+                errmsg = "An SNMPv3 Manager requires a default userName," \
+                    " either via the 'defaultUserName' parameter, or by" \
+                    " calling the addUser() method"
+
+                if namespace:
+                    errmsg += f" for namespace \"{namespace}\""
+
+                errmsg += "."
+                raise TypeError(errmsg)
         else:
             defaultUserName = defaultUser.encode()
 
@@ -173,6 +179,10 @@ class Engine:
                 defaultUserName,
                 namespace,
             )
+
+            if defaultSecurityLevel is None:
+                errmsg = "Found default userName without default securityLevel"
+                raise SNMPLibraryBug(errmsg)
 
         return SNMPv3Manager(
             self.scheduler,
