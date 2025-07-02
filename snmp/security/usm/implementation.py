@@ -12,7 +12,7 @@ from snmp.typing import *
 from snmp.utils import *
 from snmp.v3.message import *
 
-from . import AuthProtocol, PrivProtocol, UsmDecryptionError
+from . import AuthProtocol, PrivProtocol
 from .credentials import *
 from .parameters import *
 from .stats import *
@@ -50,6 +50,9 @@ class UsmWrongDigest(IncomingMessageError):
                 " the right authentication protocol and secret"
 
         super().__init__(errmsg)
+
+class UsmDecryptionError(IncomingMessageError):
+    pass
 
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM

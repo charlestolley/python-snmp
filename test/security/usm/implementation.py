@@ -28,7 +28,6 @@ from snmp.ber import *
 from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
-from snmp.security.usm import UsmDecryptionError
 from snmp.security.usm.auth import *
 from snmp.security.usm.credentials import *
 from snmp.security.usm.implementation import *
@@ -37,6 +36,7 @@ from snmp.security.usm.implementation import (
     UsmUnknownEngineID,
     UsmUnknownUserName,
     UsmWrongDigest,
+    UsmDecryptionError,
 )
 
 from snmp.security.usm.parameters import *

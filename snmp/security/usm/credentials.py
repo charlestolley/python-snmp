@@ -124,11 +124,7 @@ class LocalizedAuthPrivCredentials(LocalizedAuthCredentials):
     ) -> ScopedPDU:
         ciphertext = encryptedPDU.data
         plaintext = self.priv.decrypt(ciphertext, msgBoots, msgTime, salt)
-
-        try:
-            return SNMPv3WireMessage.decodePlaintext(plaintext)
-        except Exception as err:
-            raise UsmDecryptionError(err) from err
+        return SNMPv3WireMessage.decodePlaintext(plaintext)
 
     def encrypt(self,
         scopedPDU: ScopedPDU,

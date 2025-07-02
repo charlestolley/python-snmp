@@ -3,7 +3,7 @@ __all__ = ["DesCbc"]
 import os
 
 from snmp.smi import OID
-from snmp.security.usm import PrivProtocol, UsmDecryptionError
+from snmp.security.usm import PrivProtocol
 from snmp.typing import *
 
 from . import *
@@ -50,7 +50,7 @@ class DesCbc(PrivProtocol):
     ) -> bytes:
         if len(data) % self.BLOCKLEN:
             errmsg = "DES ciphertext must be a multiple of {} in length"
-            raise UsmDecryptionError(errmsg.format(self.BLOCKLEN))
+            raise ValueError(errmsg.format(self.BLOCKLEN))
 
         iv = self.computeIV(salt)
         return Decryptor(self.CIPHER).decrypt(data, self.key, iv)
