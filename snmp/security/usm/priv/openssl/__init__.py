@@ -23,7 +23,7 @@ class EnvelopeContext:
         self.ctx = lib.EVP_CIPHER_CTX_new()
 
         if self.ctx == ffi.NULL:
-            raise Exception("Failed to allocate EVP_CIPHER_CTX")
+            raise RuntimeError("Failed to allocate EVP_CIPHER_CTX")
 
     def __enter__(self) -> "Pointer[EVP_CIPHER_CTX]":
         return self.ctx
@@ -55,14 +55,14 @@ class Envelope:
     def process(self, data: bytes, key: bytes, iv: bytes) -> bytes:
         with EnvelopeContext() as ctx:
             if not self.init(ctx, self.cipher(), key, iv):
-                raise Exception("Failed to initialize cipher context")
+                raise RuntimeError("Failed to initialize cipher context")
 
             inl = len(data)
             outl = ffi.new("int*")
             output = self.allocateOutputBuffer(len(data), self.cipher.BLOCKLEN)
 
             if not self.update(ctx, output, outl, data, inl):
-                raise Exception("Failed to update cipher context")
+                raise RuntimeError("Failed to update cipher context")
 
             return bytes(output)
 

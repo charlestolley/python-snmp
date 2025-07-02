@@ -18,8 +18,7 @@ class DesCbc(PrivProtocol):
 
     def __init__(self, key: bytes) -> None:
         if len(key) < self.KEYLEN:
-            errmsg = f"key must be at least {self.KEYLEN} bytes long"
-            raise ValueError(errmsg)
+            raise ValueError(f"key must be at least {self.KEYLEN} bytes long")
 
         self.algorithm = OID.parse("1.3.6.1.6.3.10.1.2.2")
         self.key = key[:self.BLOCKLEN]
