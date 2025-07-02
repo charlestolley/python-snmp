@@ -1,4 +1,4 @@
-__all__ = ["ImproperResponse", "MessageIDAuthority", "SNMPv3RequestHandle"]
+__all__ = ["MessageIDAuthority", "SNMPv3RequestHandle"]
 
 import weakref
 
@@ -6,10 +6,6 @@ from snmp.exception import *
 from snmp.numbers import *
 from snmp.pdu import *
 from snmp.requests import *
-
-class ImproperResponse(SNMPException):
-    def __init__(self, variableBindings):
-        self.variableBindings = variableBindings
 
 class MessageIDAuthority(NumberAuthority):
     def newGenerator(self):

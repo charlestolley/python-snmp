@@ -1,7 +1,11 @@
-__all__ = ["RequestIDAuthority", "Timeout"]
+__all__ = ["ImproperResponse", "RequestIDAuthority", "Timeout"]
 
 from snmp.exception import *
 from snmp.numbers import *
+
+class ImproperResponse(SNMPException):
+    def __init__(self, variableBindings):
+        self.variableBindings = variableBindings
 
 class Timeout(SNMPException):
     pass

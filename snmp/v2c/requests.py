@@ -76,8 +76,13 @@ class SNMPv2cRequestHandle:
                     self.response.errorIndex,
                     self.request,
                 )
+
+            vblist = self.response.variableBindings
+
+            if not self.request.validResponse(vblist):
+                raise ImproperResponse(vblist)
             else:
-                return self.response.variableBindings
+                return vblist
         else:
             raise Timeout()
 
