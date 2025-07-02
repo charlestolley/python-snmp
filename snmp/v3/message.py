@@ -78,7 +78,7 @@ class MessageFlags(OctetString):
             byte = data[0]
         except IndexError as err:
             errmsg = f"{typename(cls)} must contain at least one byte"
-            raise ASN1.DeserializeError(errmsg)
+            raise ASN1.DeserializeError(errmsg) from err
 
         try:
             securityLevel = SecurityLevel(

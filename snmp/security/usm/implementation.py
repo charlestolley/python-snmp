@@ -20,36 +20,16 @@ from .timekeeper import *
 from .users import *
 
 class UsmUnsupportedSecLevel(IncomingMessageError):
-    def __init__(self, level=None):
-        if level is None:
-            errmsg = f"The remote engine does not support" \
-                " the requested securityLevel"
-        else:
-            errmsg = f"The remote engine does not support {level}"
-
-        super().__init__(errmsg)
+    pass
 
 class UsmUnknownEngineID(IncomingMessageError):
     pass
 
 class UsmUnknownUserName(IncomingMessageError):
-    def __init__(self, username=None):
-        if username is None:
-            errmsg = "The remote engine does not recognize the requested user"
-        else:
-            errmsg = f'The remote engine does not recognize user "{username}"'
-
-        super().__init__(errmsg)
+    pass
 
 class UsmWrongDigest(IncomingMessageError):
-    def __init__(self, username=None):
-        errmsg = "The remote engine reported an incorrect message signature"
-
-        if username is not None:
-            errmsg += f"; check that \"{username}\" is using" \
-                " the right authentication protocol and secret"
-
-        super().__init__(errmsg)
+    pass
 
 class UsmDecryptionError(IncomingMessageError):
     pass

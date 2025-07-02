@@ -129,7 +129,7 @@ class IpAddress(OCTET_STRING):
         try:
             addr = inet_ntoa(data)
         except OSError as err:
-            errmsg = f"Invalid IPv4 address: {data!r}"
+            errmsg = f"Invalid IPv4 address encoding: {data!r}"
             raise ValueError(errmsg) from err
 
         return cls(addr)
