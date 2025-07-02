@@ -380,7 +380,11 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
 
     def test_decodeIndex_reads_length_for_OBJECT_IDENTIFIER(self):
         oid = self.internet.extend(len(self.internet), *self.internet)
-        index = oid.decodeIndex(self.internet, OBJECT_IDENTIFIER, implied=False)
+        index = oid.decodeIndex(
+            self.internet,
+            OBJECT_IDENTIFIER,
+            implied=False,
+        )
         self.assertEqual(index[0], self.internet)
 
     def test_decodeIndex_restricts_first_two_subidentifiers(self):

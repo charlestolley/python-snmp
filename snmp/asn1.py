@@ -345,7 +345,7 @@ class OBJECT_IDENTIFIER(Primitive):
         try:
             return cls(*(int(n) for n in numbers))
         except ValueError as err:
-            raise ValueError(f"Invalid {typename(cls)} string: {oid}") from err
+            raise ValueError(f"\"{oid}\": {err}") from err
 
     def asOID(self, implied: bool = False) -> Iterable[int]:
         if not implied:
@@ -379,7 +379,8 @@ class OBJECT_IDENTIFIER(Primitive):
         implied: bool = False,
     ) -> Tuple[TPrimitive, ...]:
         if not self.startswith(prefix):
-            raise self.BadPrefix(f"{self} does not begin with {prefix}")
+            errmsg = f"\"{self}\" does not begin with \"{prefix}\""
+            raise self.BadPrefix(errmsg)
 
         nums = self.CountingIterator(self.subidentifiers, len(prefix))
 
@@ -395,7 +396,8 @@ class OBJECT_IDENTIFIER(Primitive):
         except StopIteration:
             pass
         else:
-            errmsg = "Not all sub-identifiers were consumed"
+            errmsg = f"Only {nums.count-1} of {len(self)}" \
+                f" sub-identifiers were consumed: \"{self}\""
             raise self.IndexDecodeError(errmsg)
 
         return tuple(index)
@@ -448,7 +450,7 @@ class OBJECT_IDENTIFIER(Primitive):
         try:
             oid = list(divmod(next(stream), 40))
         except StopIteration as err:
-            raise ASN1.DeserializeError(f"Empty {typename(cls)}") from err
+            raise ASN1.DeserializeError("Empty") from err
 
         value = 0
         for byte in stream:
@@ -460,7 +462,8 @@ class OBJECT_IDENTIFIER(Primitive):
                 value = 0
 
         if value:
-            raise ASN1.DeserializeError(f"{typename(cls)} ended unexpectedly")
+            errmsg = f"{typename(cls)} encoding ended mid-subidentifier"
+            raise ASN1.DeserializeError(errmsg)
 
         return cls.construct(*oid)
 
