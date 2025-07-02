@@ -5,6 +5,8 @@ __all__ = [
     "IncomingMessageErrorWithPointer",
 ]
 
+from os import linesep
+
 from snmp.typing import Optional, Union
 from snmp.utils import subbytes
 
@@ -29,3 +31,6 @@ class IncomingMessageErrorWithPointer(IncomingMessageError):
             self.data = subbytes(data)
         else:
             self.data = subbytes(data, stop=len(data) - len(tail))
+
+    def __str__(self):
+        return f"{super().__str__()}{linesep}{self.data}"

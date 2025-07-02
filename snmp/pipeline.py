@@ -26,7 +26,7 @@ class Catcher:
             self.listener.hear(data, channel)
         except IncomingMessageErrorWithPointer as err:
             if self.verbose:
-                self.logger.debug(f"{typename(err)}:{err}{linesep}{err.data}")
+                self.logger.debug(f"{typename(err)}:{err}")
         except IncomingMessageError as err:
             if self.verbose:
                 hexdump = re.sub(r"(?<=.{2})(.{2})", r" \1", data.hex())
