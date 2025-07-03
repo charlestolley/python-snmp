@@ -2316,6 +2316,26 @@ class SNMPv3Manager3Test(unittest.TestCase):
         else:
             self.assertTrue(False)
 
+    def test_getNext_accepts_the_same_oid_with_EndOfMibView(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.3.6.1.2.1.1.1", "1.2.3.4.5.5")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1", EndOfMibView()),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+        vblist = handle.wait()
+
+        self.assertEqual(len(vblist), 2)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1))
+        self.assertEqual(vblist[0].value, EndOfMibView())
+        self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[1].value, Integer(123456))
+
     def test_getNext_request_returns_variableBindings_on_success(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
@@ -2456,7 +2476,41 @@ class SNMPv3Manager3Test(unittest.TestCase):
             nonRepeaters=3,
         )
 
+    def test_getBulk_ImproperResponse_empty_response_to_nonzero_maxReps(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            maxRepetitions=1,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(message)
+        self.assertRaises(ImproperResponse, handle.wait)
+
     def test_getBulk_handle_ImproperResponse_for_too_few_OIDs(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            nonRepeaters=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_handle_ImproperResponse_for_incomplete_response(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
         handle = manager.getBulk(
@@ -2777,6 +2831,104 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(vblist[0].value, OctetString(b"Test case"))
         self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
         self.assertEqual(vblist[1].value, Integer(123456))
+
+    def test_getBulk_accepts_empty_response_if_maxRepetitions_is_zero(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            nonRepeaters=0,
+            maxRepetitions=0,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(message)
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 0)
+
+    def test_getBulk_accepts_EndOfMibView_in_response_to_nonRepeaters(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            nonRepeaters=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1", EndOfMibView()),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 2)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1))
+        self.assertEqual(vblist[0].value, EndOfMibView())
+        self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[1].value, Integer(123456))
+
+    def test_getBulk_accepts_EndOfMibView_in_response_to_repeaters(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            "1.3.6.1.2.1.2.2.1.7",
+            "1.3.6.1.2.1.2.2.1.8",
+            nonRepeaters=2,
+            maxRepetitions=3,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1", EndOfMibView()),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            VarBind("1.3.6.1.2.1.2.2.1.2.1", OctetString(b"Interface 1")),
+            VarBind("1.3.6.1.2.1.2.2.1.7.1", Integer(2)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.3.1", Integer(6)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", Integer(1)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", EndOfMibView()),
+            VarBind("1.3.6.1.2.1.2.2.1.4.1", Integer(1500)),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", EndOfMibView()),
+            VarBind("1.3.6.1.2.1.2.2.1.8.1", EndOfMibView()),
+        )
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 11)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1))
+        self.assertEqual(vblist[0].value, EndOfMibView())
+        self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[1].value, Integer(123456))
+        self.assertEqual(vblist[2].name, OID(1,3,6,1,2,1,2,2,1,2,1))
+        self.assertEqual(vblist[2].value, OctetString(b"Interface 1"))
+        self.assertEqual(vblist[3].name, OID(1,3,6,1,2,1,2,2,1,7,1))
+        self.assertEqual(vblist[3].value, Integer(2))
+        self.assertEqual(vblist[4].name, OID(1,3,6,1,2,1,2,2,1,8,1))
+        self.assertEqual(vblist[4].value, Integer(1))
+        self.assertEqual(vblist[5].name, OID(1,3,6,1,2,1,2,2,1,3,1))
+        self.assertEqual(vblist[5].value, Integer(6))
+        self.assertEqual(vblist[6].name, OID(1,3,6,1,2,1,2,2,1,8,1))
+        self.assertEqual(vblist[6].value, Integer(1))
+        self.assertEqual(vblist[7].name, OID(1,3,6,1,2,1,2,2,1,8,1))
+        self.assertEqual(vblist[7].value, EndOfMibView())
+        self.assertEqual(vblist[8].name, OID(1,3,6,1,2,1,2,2,1,4,1))
+        self.assertEqual(vblist[8].value, Integer(1500))
+        self.assertEqual(vblist[9].name, OID(1,3,6,1,2,1,2,2,1,8,1))
+        self.assertEqual(vblist[9].value, EndOfMibView())
+        self.assertEqual(vblist[10].name, OID(1,3,6,1,2,1,2,2,1,8,1))
+        self.assertEqual(vblist[10].value, EndOfMibView())
 
     def test_getBulk_returns_variableBindings_on_success(self):
         pcap = self.connect(PacketCapture())

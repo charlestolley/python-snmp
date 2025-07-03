@@ -386,7 +386,7 @@ class GetRequestPDU(PDU):
             return False
 
         for request_vb, response_vb in zip(self.variableBindings, vblist):
-            if request_vb.name != response_vb.name:
+            if response_vb.name != request_vb.name:
                 return False
 
         return True
@@ -402,7 +402,10 @@ class GetNextRequestPDU(PDU):
             return False
 
         for request_vb, response_vb in zip(self.variableBindings, vblist):
-            if not request_vb.name < response_vb.name:
+            if response_vb.name < request_vb.name:
+                return False
+            elif (response_vb.name == request_vb.name
+            and response_vb.value != EndOfMibView()):
                 return False
 
         return True
@@ -423,7 +426,7 @@ class SetRequestPDU(PDU):
             return False
 
         for request_vb, response_vb in zip(self.variableBindings, vblist):
-            if request_vb.name != response_vb.name:
+            if response_vb.name != request_vb.name:
                 return False
 
         return True
@@ -435,33 +438,49 @@ class GetBulkRequestPDU(BulkPDU):
     TAG = Tag(5, True, Tag.Class.CONTEXT_SPECIFIC)
 
     def validResponse(self, vblist):
-        if len(vblist) < len(self.variableBindings):
+        if len(vblist) < self.nonRepeaters:
             return False
 
         for i in range(self.nonRepeaters):
-            if not self.variableBindings[i].name < vblist[i].name:
+            request_vb = self.variableBindings[i]
+            response_vb = vblist[i]
+
+            if response_vb.name < request_vb.name:
+                return False
+            elif (response_vb.name == request_vb.name
+            and response_vb.value != EndOfMibView()):
                 return False
 
         repeaters = self.variableBindings[self.nonRepeaters:]
-        n = len(repeaters)
+        m = len(repeaters)
 
-        if n > 0:
-            repetitions, leftovers = divmod(len(vblist) - self.nonRepeaters, n)
+        if m > 0:
+            repetitions, leftovers = divmod(len(vblist) - self.nonRepeaters, m)
 
-            if repetitions > self.maxRepetitions or leftovers != 0:
+            if repetitions < min(self.maxRepetitions, 1):
+                return False
+            elif repetitions > self.maxRepetitions:
+                return False
+            elif leftovers != 0:
                 return False
 
             prev = repeaters
             for r in range(repetitions):
-                start = r * n + self.nonRepeaters
-                stop = start + n
-                group = vblist[start:stop]
+                start = r * m + self.nonRepeaters
+                stop = start + m
+                successor = vblist[start:stop]
 
-                for i in range(n):
-                    if not prev[i].name < group[i].name:
+                for i in range(m):
+                    request_vb = prev[i]
+                    response_vb = successor[i]
+
+                    if response_vb.name < request_vb.name:
+                        return False
+                    elif (response_vb.name == request_vb.name
+                    and response_vb.value != EndOfMibView()):
                         return False
 
-                prev = group
+                prev = successor
 
         return True
 
