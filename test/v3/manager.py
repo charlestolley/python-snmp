@@ -2445,6 +2445,17 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
         self.assertEqual(vblist[1].value, Integer(654321))
 
+    def test_getBulk_ValueError_if_nonRepeaters_exceeds_length_of_vblist(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        self.assertRaises(
+            ValueError,
+            manager.getBulk,
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            nonRepeaters=3,
+        )
+
     def test_getBulk_handle_ImproperResponse_for_too_few_OIDs(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
@@ -2741,6 +2752,31 @@ class SNMPv3Manager3Test(unittest.TestCase):
             self.assertEqual(vblist[2].value, OctetString(b"Interface 1"))
         else:
             self.assertTrue(False)
+
+    def test_getBulk_works_if_all_varbinds_are_nonRepeaters(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            nonRepeaters=2,
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+
+        vblist = handle.wait()
+        self.assertEqual(len(vblist), 2)
+        self.assertEqual(vblist[0].name, OID(1,3,6,1,2,1,1,1,0))
+        self.assertEqual(vblist[0].value, OctetString(b"Test case"))
+        self.assertEqual(vblist[1].name, OID(1,2,3,4,5,6))
+        self.assertEqual(vblist[1].value, Integer(123456))
 
     def test_getBulk_returns_variableBindings_on_success(self):
         pcap = self.connect(PacketCapture())

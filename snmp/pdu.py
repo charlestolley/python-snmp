@@ -295,6 +295,12 @@ class BulkPDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
+        if self.nonRepeaters > len(self.variableBindings):
+            errmsg = f"The nonRepeaters parameter ({self.nonRepeaters})" \
+                " must not exceed the number of variable bindings" \
+                f" in the request ({len(self.variableBindings)})"
+            raise ValueError(errmsg)
+
     def __iter__(self) -> Iterator[ASN1]:
         yield Integer(self.requestID)
         yield Integer(self.nonRepeaters)
@@ -439,22 +445,23 @@ class GetBulkRequestPDU(BulkPDU):
         repeaters = self.variableBindings[self.nonRepeaters:]
         n = len(repeaters)
 
-        repetitions, leftovers = divmod(len(vblist) - self.nonRepeaters, n)
+        if n > 0:
+            repetitions, leftovers = divmod(len(vblist) - self.nonRepeaters, n)
 
-        if repetitions > self.maxRepetitions or leftovers != 0:
-            return False
+            if repetitions > self.maxRepetitions or leftovers != 0:
+                return False
 
-        prev = repeaters
-        for r in range(repetitions):
-            start = r * n + self.nonRepeaters
-            stop = start + n
-            group = vblist[start:stop]
+            prev = repeaters
+            for r in range(repetitions):
+                start = r * n + self.nonRepeaters
+                stop = start + n
+                group = vblist[start:stop]
 
-            for i in range(n):
-                if not prev[i].name < group[i].name:
-                    return False
+                for i in range(n):
+                    if not prev[i].name < group[i].name:
+                        return False
 
-            prev = group
+                prev = group
 
         return True
 

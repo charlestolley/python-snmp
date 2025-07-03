@@ -391,13 +391,19 @@ class BulkPDUTest(unittest.TestCase):
     def test_iter_yields_requestID_nonRepeaters_maxRepetitions_varbinds(self):
         requestID = 24
         nonRepeaters = 3
-        pdu = GetBulkRequestPDU(requestID=requestID, nonRepeaters=nonRepeaters)
+        pdu = GetBulkRequestPDU(
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            requestID=requestID,
+            nonRepeaters=nonRepeaters,
+        )
 
         i = iter(pdu)
         self.assertEqual(next(i), Integer(requestID))
         self.assertEqual(next(i), Integer(nonRepeaters))
         self.assertEqual(next(i), Integer(0))
-        self.assertEqual(next(i), VarBindList())
+        self.assertEqual(next(i), pdu.variableBindings)
         self.assertRaises(StopIteration, next, i)
 
     def test_len_is_always_4(self):
@@ -443,8 +449,10 @@ class BulkPDUTest(unittest.TestCase):
 
     def test_withRequestID_copies_all_fields_except_requestID(self):
         pdu = GetBulkRequestPDU(
-            self.oid,
-            nonRepeaters=6,
+            "1.3.6.1.2.1.1.1",
+            "1.2.3.4.5.5",
+            "1.3.6.1.2.1.2.2.1.2",
+            nonRepeaters=2,
             maxRepetitions=4,
         )
 
