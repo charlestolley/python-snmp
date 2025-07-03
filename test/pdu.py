@@ -553,11 +553,11 @@ class ErrorResponseTest(unittest.TestCase):
         error = ErrorResponse(self.status, 0, self.request)
         self.assertEqual(error.cause, self.request)
 
-    def test_cause_contains_offending_varbind_if_index_is_valid_nonzero(self):
+    def test_cause_contains_offending_oid_if_index_is_valid_nonzero(self):
         error = ErrorResponse(self.status, self.index, self.request)
         self.assertEqual(
             error.cause,
-            self.request.variableBindings[self.index-1],
+            OID.parse("1.3.6.1.2.1.1.1"),
         )
 
     def test_cause_contains_index_if_index_is_invalid(self):

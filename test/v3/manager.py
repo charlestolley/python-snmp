@@ -2115,8 +2115,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         try:
             handle.wait()
         except ErrorResponse as err:
-            varbind = message.scopedPDU.pdu.variableBindings[0]
-            self.assertEqual(err.cause, varbind)
+            self.assertEqual(err.cause, OID(1,2,3,4,5,6))
         else:
             self.assertTrue(False)
 

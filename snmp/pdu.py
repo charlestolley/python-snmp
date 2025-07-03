@@ -508,17 +508,17 @@ class ErrorResponse(SNMPException):
         request: "AnyPDU",
     ) -> None:
         self.status = status
-        self.cause: Union[VarBind, AnyPDU, int]
+        self.cause: Union[AnyPDU, OID, int]
 
         details = ""
         if index == 0:
             self.cause = request
         else:
             try:
-                self.cause = request.variableBindings[index-1]
+                self.cause = request.variableBindings[index-1].name
             except IndexError:
                 self.cause = index
             else:
-                details = f": {self.cause.name}"
+                details = f": {self.cause}"
 
         super().__init__(f"{status.name}{details}")
