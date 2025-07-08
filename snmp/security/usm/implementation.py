@@ -32,7 +32,7 @@ class UsmWrongDigest(IncomingMessageError):
 class UsmDecryptionError(IncomingMessageError):
     pass
 
-class UserBasedSecurityModule(SecurityModule):
+class UserBasedSecurityModule:
     MODEL = SecurityModel.USM
 
     def __init__(self, namespace = None, engineID = None, engineBoots = 0):
