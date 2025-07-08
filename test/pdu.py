@@ -375,6 +375,24 @@ class PDUTest(unittest.TestCase):
         request = pdu.withRequestID(346)
         self.assertEqual(pdu.requestID, 0)
 
+    def test_checkResponse_does_nothing_if_validResponse(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=382)
+        response = ResponsePDU(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"description")),
+            requestID=382,
+        )
+
+        request.checkResponse(response)
+
+    def test_checkResponse_raises_ImproperResponse_if_not_validResponse(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=388)
+        response = ResponsePDU(
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+            requestID=388,
+        )
+
+        self.assertRaises(ImproperResponse, request.checkResponse, response)
+
 class BulkPDUTest(unittest.TestCase):
     def setUp(self):
         self.oid = OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1)
@@ -476,6 +494,22 @@ class BulkPDUTest(unittest.TestCase):
         InformRequestPDU    .decodeExact(b"\xa6" + suffix)
         SNMPv2TrapPDU       .decodeExact(b"\xa7" + suffix)
         ReportPDU           .decodeExact(b"\xa8" + suffix)
+
+    def test_checkResponse_does_nothing_if_validResponse(self):
+        request = GetBulkRequestPDU("1.3.6.1.2.1.1.1", nonRepeaters=1)
+        response = ResponsePDU(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"description")),
+        )
+
+        request.checkResponse(response)
+
+    def test_checkResponse_raises_ImproperResponse_if_not_validResponse(self):
+        request = GetBulkRequestPDU("1.3.6.1.2.1.1.1", nonRepeaters=1)
+        response = ResponsePDU(
+            VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+
+        self.assertRaises(ImproperResponse, request.checkResponse, response)
 
 class ResponsePduTest(unittest.TestCase):
     def test_checkErrorStatus_returns_for_noError(self):

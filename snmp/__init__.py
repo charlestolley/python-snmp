@@ -9,12 +9,13 @@ __all__ = [
 
 from snmp.engine import Engine
 from snmp.message import ProtocolVersion
-from snmp.requests import ImproperResponse, Timeout
+from snmp.requests import Timeout
 from snmp.transport import TransportDomain
 from snmp.security.levels import noAuthNoPriv, authNoPriv, authPriv
 from snmp.pdu import (
     EndOfMibView, NoSuchInstance, NoSuchObject,
     ErrorStatus, ErrorResponse, NoSuchName,
+    ImproperResponse,
 )
 
 SNMPv1  = ProtocolVersion.SNMPv1

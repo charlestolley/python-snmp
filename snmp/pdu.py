@@ -6,7 +6,7 @@ __all__ = [
     "SetRequestPDU",
     "ResponsePDU", "ReportPDU",
     "InformRequestPDU", "SNMPv2TrapPDU",
-    "ErrorStatus", "ErrorResponse", "NoSuchName",
+    "ErrorStatus", "ErrorResponse", "NoSuchName", "ImproperResponse",
 ]
 
 import enum
@@ -217,6 +217,10 @@ class PDU(Constructed):
     def __str__(self) -> str:
         return self.toString()
 
+    def checkResponse(self, response: "ResponsePDU"):
+        if not self.validResponse(response.variableBindings):
+            raise ImproperResponse(response.variableBindings)
+
     def toString(self, depth: int = 0, tab: str = "    ") -> str:
         indent = tab * depth
         subindent = indent + tab
@@ -330,6 +334,10 @@ class BulkPDU(Constructed):
 
     def __str__(self) -> str:
         return self.toString()
+
+    def checkResponse(self, response: "ResponsePDU"):
+        if not self.validResponse(response.variableBindings):
+            raise ImproperResponse(response.variableBindings)
 
     def toString(self, depth: int = 0, tab: str = "    ") -> str:
         indent = tab * (depth + 1)
@@ -533,3 +541,7 @@ class ErrorResponse(SNMPException):
 class NoSuchName(ErrorResponse):
     def __init__(self, index, request):
         super().__init__(ErrorStatus.noSuchName, index, request)
+
+class ImproperResponse(SNMPException):
+    def __init__(self, variableBindings):
+        self.variableBindings = variableBindings

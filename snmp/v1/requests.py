@@ -67,12 +67,8 @@ class SNMPv1RequestHandle:
 
         if self.response is not None:
             self.response.checkErrorStatus(self.request)
-            vblist = self.response.variableBindings
-
-            if not self.request.validResponse(vblist):
-                raise ImproperResponse(vblist)
-            else:
-                return vblist
+            self.request.checkResponse(self.response)
+            return self.response.variableBindings
         else:
             raise Timeout()
 

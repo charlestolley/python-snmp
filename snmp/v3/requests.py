@@ -84,12 +84,8 @@ class SNMPv3RequestHandle:
 
         if self.response is not None:
             self.response.checkErrorStatus(self.pdu)
-            vblist = self.response.variableBindings
-
-            if not self.pdu.validResponse(vblist):
-                raise ImproperResponse(vblist)
-            else:
-                return vblist
+            self.pdu.checkResponse(self.response)
+            return self.response.variableBindings
         elif self.exception is not None:
             raise self.exception
         else:
