@@ -477,6 +477,131 @@ class BulkPDUTest(unittest.TestCase):
         SNMPv2TrapPDU       .decodeExact(b"\xa7" + suffix)
         ReportPDU           .decodeExact(b"\xa8" + suffix)
 
+class ResponsePduTest(unittest.TestCase):
+    def test_checkErrorStatus_returns_for_noError(self):
+        request = GetNextRequestPDU("1.3.6.1.2.1.1.1", requestID=482)
+        response = ResponsePDU(
+            VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"description")),
+            errorStatus=ErrorStatus.noError,
+            errorIndex=0,
+            requestID=482,
+        )
+
+        response.checkErrorStatus(request)
+
+    def test_checkErrorStatus_raises_NoSuchName_for_noSuchName(self):
+        request = GetNextRequestPDU("1.3.6.1.2.1.1.1", requestID=482)
+        response = ResponsePDU(
+            "1.3.6.1.2.1.1.1",
+            errorStatus=ErrorStatus.noSuchName,
+            errorIndex=1,
+            requestID=482,
+        )
+
+        self.assertRaises(NoSuchName, response.checkErrorStatus, request)
+
+    def test_NoSuchName_is_an_ErrorResponse_with_noSuchName_status(self):
+        request = GetNextRequestPDU("1.3.6.1.2.1.1.1", requestID=504)
+        response = ResponsePDU(
+            "1.3.6.1.2.1.1.1",
+            errorStatus=ErrorStatus.noSuchName,
+            errorIndex=1,
+            requestID=504,
+        )
+
+        try:
+            response.checkErrorStatus(request)
+        except ErrorResponse as err:
+            self.assertEqual(err.status, ErrorStatus.noSuchName)
+        else:
+            errmsg = "ErrorResponse not raised by checkErrorStatus"
+            raise AssertionError(errmsg)
+
+    def test_checkErrorStatus_ErrorResponse_has_the_correct_errorStatus(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=521)
+        response = ResponsePDU(
+            "1.3.6.1.2.1.1.1.0",
+            errorStatus=ErrorStatus.noAccess,
+            errorIndex=1,
+            requestID=521,
+        )
+
+        try:
+            response.checkErrorStatus(request)
+        except ErrorResponse as err:
+            self.assertEqual(err.status, ErrorStatus.noAccess)
+        else:
+            errmsg = "ErrorResponse not raised by checkErrorStatus"
+            raise AssertionError(errmsg)
+
+    def test_checkErrorStatus_clamps_down_on_out_of_range_errorIndex(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=538)
+        response = ResponsePDU(
+            "1.3.6.1.2.1.1.1.0",
+            errorStatus=ErrorStatus.noAccess,
+            errorIndex=2,
+            requestID=538,
+        )
+
+        try:
+            response.checkErrorStatus(request)
+        except ErrorResponse as err:
+            self.assertEqual(err.index, 1)
+        else:
+            errmsg = "ErrorResponse not raised by checkErrorStatus"
+            raise AssertionError(errmsg)
+
+    def test_ErrorResponse_variableBindings_come_from_request(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=555)
+        response = ResponsePDU(
+            "1.2.3.4.5.6",
+            errorStatus=ErrorStatus.noAccess,
+            errorIndex=1,
+            requestID=555,
+        )
+
+        try:
+            response.checkErrorStatus(request)
+        except ErrorResponse as err:
+            self.assertEqual(err.variableBindings, request.variableBindings)
+        else:
+            errmsg = "ErrorResponse not raised by checkErrorStatus"
+            raise AssertionError(errmsg)
+
+    def test_ErrorResponse_oid_is_a_shortcut_to_index_variableBindings(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=555)
+        response = ResponsePDU(
+            "1.3.6.1.2.1.1.1.0",
+            errorStatus=ErrorStatus.noAccess,
+            errorIndex=1,
+            requestID=555,
+        )
+
+        try:
+            response.checkErrorStatus(request)
+        except ErrorResponse as err:
+            self.assertEqual(err.oid, OID(1,3,6,1,2,1,1,1,0))
+        else:
+            errmsg = "ErrorResponse not raised by checkErrorStatus"
+            raise AssertionError(errmsg)
+
+    def test_ErrorResponse_oid_is_None_if_errorIndex_is_zero(self):
+        request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=555)
+        response = ResponsePDU(
+            "1.3.6.1.2.1.1.1.0",
+            errorStatus=ErrorStatus.tooBig,
+            errorIndex=0,
+            requestID=555,
+        )
+
+        try:
+            response.checkErrorStatus(request)
+        except ErrorResponse as err:
+            self.assertEqual(err.oid, None)
+        else:
+            errmsg = "ErrorResponse not raised by checkErrorStatus"
+            raise AssertionError(errmsg)
+
 # see RFC 3411 section 2.8 (pp. 13-14)
 class PDUClassesTest(unittest.TestCase):
     def test_only_Get_GetNext_and_GetBulk_belong_to_the_Read_class(self):

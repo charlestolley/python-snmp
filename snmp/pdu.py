@@ -417,6 +417,14 @@ class ResponsePDU(PDU):
     RESPONSE_CLASS = True
     TAG = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
 
+    def checkErrorStatus(self, request):
+        if self.errorStatus == ErrorStatus.noError:
+            return
+        elif self.errorStatus == ErrorStatus.noSuchName:
+            raise NoSuchName(self.errorIndex, request)
+
+        raise ErrorResponse(self.errorStatus, self.errorIndex, request)
+
 @final
 class SetRequestPDU(PDU):
     CONFIRMED_CLASS = True

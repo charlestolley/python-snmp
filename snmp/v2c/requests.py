@@ -70,13 +70,7 @@ class SNMPv2cRequestHandle:
             self.scheduler.wait()
 
         if self.response is not None:
-            if self.response.errorStatus:
-                raise ErrorResponse(
-                    self.response.errorStatus,
-                    self.response.errorIndex,
-                    self.request,
-                )
-
+            self.response.checkErrorStatus(self.request)
             vblist = self.response.variableBindings
 
             if not self.request.validResponse(vblist):
