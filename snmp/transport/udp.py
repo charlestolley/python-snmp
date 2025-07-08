@@ -56,7 +56,7 @@ class UdpSocket(Transport):
     def port(self):
         return self.socket.getsockname()[1]
 
-    def __init__(self, recvSize, host = "", port = 0):
+    def __init__(self, host, port, recvSize):
         self.recvSize = recvSize
 
         self.socket = socket(self.DOMAIN.address_family, SOCK_DGRAM)
@@ -76,14 +76,14 @@ class UdpSocket(Transport):
 class UdpIPv4Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv4
 
-    def __init__(self, *args, mtu = 1500, **kwargs):
-        super().__init__(mtu - 28, *args, **kwargs)
+    def __init__(self, host = "", port = 0, mtu = 1500):
+        super().__init__(host, port, mtu - 28)
 
 class UdpIPv6Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv6
 
-    def __init__(self, *args, mtu = 1500, **kwargs):
-        super().__init__(mtu - 48, *args, **kwargs)
+    def __init__(self, host = "", port = 0, mtu = 1500):
+        super().__init__(host, port, mtu - 48)
 
 module = importlib.import_module(".udp", package=package)
 UdpMultiplexor = module.UdpMultiplexor
