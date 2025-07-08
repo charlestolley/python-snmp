@@ -33,6 +33,5 @@ class RequestIDAuthority(NumberAuthority):
     AllocationFailure = RequestIDAllocationFailure
     DeallocationFailure = RequestIDDeallocationFailure
 
-    @staticmethod
-    def newGenerator() -> NumberGenerator:
+    def newGenerator(self) -> NumberGenerator:
         return NumberGenerator(32, signed=True)
