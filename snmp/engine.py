@@ -31,7 +31,7 @@ class Engine:
     def __init__(self,
         defaultVersion: ProtocolVersion = ProtocolVersion.SNMPv3,
         defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
-        defaultCommunity: bytes = b"",
+        defaultCommunity: bytes = b"public",
         verboseLogging: bool = False,
         autowait: bool = True,
     ):
