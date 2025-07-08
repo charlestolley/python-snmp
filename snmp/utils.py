@@ -1,7 +1,6 @@
 __all__ = ["subbytes", "typename"]
 
-from os import linesep
-from random import randint
+import os
 import weakref
 
 from snmp.typing import *
@@ -127,7 +126,7 @@ class subbytes:
             lines.append(indent + line)
             start = stop
 
-        return linesep.join(lines)
+        return os.linesep.join(lines)
 
     def __str__(self) -> str:
         sections = []
@@ -147,12 +146,12 @@ class subbytes:
             suffix = self.data[self.stop:]
             sections.append(self._format(suffix, 40))
 
-        separator = 2 * linesep
+        separator = 2 * os.linesep
         body = separator.join(sections)
 
         header = 32 * "=" + " begin subbytes " + 32 * "="
         footer = 33 * "=" +  " end subbytes "  + 33 * "="
-        return linesep.join((header, body, footer))
+        return os.linesep.join((header, body, footer))
 
     def __repr__(self) -> str:
         """Provide an eval()-able representation of this object."""
