@@ -35,7 +35,6 @@ class Engine:
         verboseLogging: bool = False,
         autowait: bool = True,
     ):
-        # Read-only variables
         self.defaultVersion         = defaultVersion
         self.defaultDomain          = defaultDomain
         self.defaultCommunity       = defaultCommunity
