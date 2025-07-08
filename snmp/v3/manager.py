@@ -426,13 +426,6 @@ class SNMPv3Manager:
         securityName = message.securityName
 
         if pdu.INTERNAL_CLASS:
-            if pdu.requestID != 0 and pdu.requestID != requestID:
-                raise IncomingMessageError("ReportPDU has the wrong requestID")
-            elif (contextName != b""
-            and contextName != requestMessage.scopedPDU.contextName):
-                errmsg = "Report message has the wrong contextName"
-                raise IncomingMessageError(errmsg)
-
             if len(pdu.variableBindings) < 1:
                 raise IncomingMessageError("No OIDs in report")
 
