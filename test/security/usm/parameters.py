@@ -158,8 +158,9 @@ class SignedUsmParametersTest(unittest.TestCase):
         )
 
     def test_the_result_of_eval_repr_equals_the_original_object(self):
+        securityParameters = SignedUsmParameters.decodeExact(self.encoding)
         self.assertEqual(
-            eval(repr(self.securityParameters)),
+            eval(repr(securityParameters)),
             self.securityParameters,
         )
 

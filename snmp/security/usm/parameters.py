@@ -205,7 +205,7 @@ class SignedUsmParameters(Sequence):
             str(self.engineBoots),
             str(self.engineTime),
             str(self.userName),
-            str(self.signature),
+            repr(self.signature),
             str(self.salt),
         )
 
