@@ -3,7 +3,7 @@ __all__ = [
     "AuthenticationFailure", "PrivacyFailure", "TimeWindowFailure",
     "UnknownUserName", "UnsupportedSecurityLevel", "UnhandledReport",
     "InvalidResponseField", "NamespaceMismatch",
-    "SNMPv3Manager", "SNMPv3MessageRouter",
+    "SNMPv3Manager", "SNMPv3MessageTable",
 ]
 
 import collections
@@ -84,7 +84,7 @@ class NamespaceMismatch(IncomingMessageError):
             f" Matched namespace(s): {matched_string}"
         super().__init__(errmsg)
 
-class SNMPv3MessageRouter:
+class SNMPv3MessageTable:
     def __init__(self):
         self.authority = MessageIDAuthority()
         self.listeners = {}
@@ -126,11 +126,11 @@ class DiscoveryHandler:
                 self.handler.sendNewMessage()
                 self.handler.scheduleRefresh()
 
-    def __init__(self, handle, callback, scheduler, router, sender, channel):
+    def __init__(self, handle, callback, scheduler, table, sender, channel):
         self.channel = channel
         self.sender = sender
         self.scheduler = scheduler
-        self.router = router
+        self.table = table
 
         self.messageID = 0
         self.refreshTask = None
@@ -144,10 +144,10 @@ class DiscoveryHandler:
         self.callback(message.securityEngineID)
 
     def expireMessage(self):
-        self.router.releaseMessageID(self.messageID)
+        self.table.releaseMessageID(self.messageID)
 
     def sendNewMessage(self):
-        self.messageID = self.router.reserveMessageID(self)
+        self.messageID = self.table.reserveMessageID(self)
 
         message = SNMPv3Message(
             HeaderData(
@@ -303,7 +303,7 @@ class RequestState:
 class SNMPv3Manager:
     def __init__(self,
         scheduler,
-        router,
+        table,
         sender,
         channel,
         namespace,
@@ -314,7 +314,7 @@ class SNMPv3Manager:
     ):
         self.channel = channel
         self.sender = sender
-        self.router = router
+        self.table = table
 
         self.engineIDAuthenticated = False
         self.engineID = engineID
@@ -394,13 +394,13 @@ class SNMPv3Manager:
         self.setEngineID(engineID, False)
 
     def allocateMessage(self, requestID, engineID):
-        messageID = self.router.reserveMessageID(self)
+        messageID = self.table.reserveMessageID(self)
         self.mapping[messageID] = requestID, engineID
         return messageID
 
     def deallocateMessage(self, messageID):
         del self.mapping[messageID]
-        self.router.releaseMessageID(messageID)
+        self.table.releaseMessageID(messageID)
 
     def hear(self, message):
         messageID = message.header.msgID
@@ -582,7 +582,7 @@ class SNMPv3Manager:
                         self.openRequestNoTimeout(GetRequestPDU()),
                         self.discoveryCallback,
                         self.scheduler,
-                        self.router,
+                        self.table,
                         self.sender,
                         self.channel,
                     )

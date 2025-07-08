@@ -85,7 +85,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.scheduler = Scheduler(self.sleep, self.time)
 
         self.sender = self.Sender()
-        self.router = SNMPv3MessageRouter()
+        self.table = SNMPv3MessageTable()
 
         self.incoming = Channel()
         self.outgoing = Channel()
@@ -110,10 +110,10 @@ class SNMPv3Manager3Test(unittest.TestCase):
             self.scheduler.wait()
             now = self.time()
 
-        self.assertEqual(len(self.router.authority.reserved), 0)
+        self.assertEqual(len(self.table.authority.reserved), 0)
 
     def connect(self, target):
-        self.incoming.connect(self.router, self.outgoing)
+        self.incoming.connect(self.table, self.outgoing)
         self.outgoing.connect(target, self.incoming)
         return target
 
@@ -140,7 +140,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
     ):
         return SNMPv3Manager(
             self.scheduler,
-            self.router,
+            self.table,
             self.sender,
             self.outgoing,
             self.namespace,

@@ -45,9 +45,9 @@ class Engine:
 
         self.usm = UserBasedSecurityModule()
         self.v3_sorter = SNMPv3MessageSorter(SNMPv3Interpreter(self.usm))
-        self.v3_router = SNMPv3MessageRouter()
-        self.v3_sorter.register(ReportPDU, self.v3_router)
-        self.v3_sorter.register(ResponsePDU, self.v3_router)
+        self.v3_table = SNMPv3MessageTable()
+        self.v3_sorter.register(ReportPDU, self.v3_table)
+        self.v3_sorter.register(ResponsePDU, self.v3_table)
 
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder, verbose=verboseLogging)
@@ -171,7 +171,7 @@ class Engine:
 
         return SNMPv3Manager(
             self.scheduler,
-            self.v3_router,
+            self.v3_table,
             self.v3_sorter,
             channel,
             namespace,
