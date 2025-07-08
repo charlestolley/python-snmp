@@ -54,7 +54,7 @@ class UserRegistry:
         if not userName:
             raise ValueError(f"Empty userName")
         elif len(userName) > 32:
-            raise ValueError(f"userName is too long: {userName}")
+            raise ValueError(f"userName is too long: {userName!r}")
 
         newNamespace = namespace not in self.namespaceConfigs
 
