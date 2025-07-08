@@ -4,25 +4,13 @@ __all__ = [
 ]
 
 from snmp.smi import Sequence
-from snmp.typing import *
 
 from .levels import SecurityLevel
 from .models import *
 
-TMessage = TypeVar("TMessage", bound="Sequence")
-
-class SecurityModule(Generic[TMessage]):
-    MODEL: ClassVar[SecurityModel]
-
-    def processIncoming(self,
-        message: TMessage,
-        timestamp: Optional[float] = None,
-    ) -> None:
+class SecurityModule:
+    def processIncoming(self, message, timestamp = None):
         raise NotImplementedError()
 
-    def prepareOutgoing(self,
-        message: TMessage,
-        engineID: bytes,
-        securityName: bytes,
-    ) -> bytes:
+    def prepareOutgoing(self, message, engineID, securityName):
         raise NotImplementedError()

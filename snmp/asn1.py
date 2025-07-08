@@ -5,49 +5,25 @@ __all__ = [
 
 from snmp.ber import *
 from snmp.exception import *
-from snmp.typing import *
 from snmp.utils import *
-
-TASN1           = TypeVar("TASN1",          bound="ASN1")
-TPrimitive      = TypeVar("TPrimitive",     bound="Primitive")
-TINTEGER        = TypeVar("TINTEGER",       bound="INTEGER")
-TOCTET_STRING   = TypeVar("TOCTET_STRING",  bound="OCTET_STRING")
-TNULL           = TypeVar("TNULL",          bound="NULL")
-TOID            = TypeVar("TOID",           bound="OBJECT_IDENTIFIER")
 
 class ASN1:
     class DeserializeError(SNMPException):
-        def __init__(self,
-            msg: str,
-            etype: Type[IncomingMessageErrorWithPointer] = ParseError,
-        ) -> None:
+        def __init__(self, msg, etype = ParseError):
             self.etype = etype
             self.msg = msg
 
-        def reraise(self,
-            data: Union[bytes, subbytes],
-            tail: Optional[subbytes] = None,
-        ) -> NoReturn:
+        def reraise(self, data, tail = None):
             raise self.etype(self.msg, data, tail) from self
 
-    TAG: ClassVar[Tag]
-
     @classmethod
-    def checkTag(cls,
-        tag: Tag,
-        data: Union[bytes, subbytes],
-        tail: Optional[subbytes] = None,
-    ) -> None:
+    def checkTag(cls, tag, data, tail = None):
         if tag != cls.TAG:
             errmsg = f"{tag} does not match the expected type: {cls.TAG}"
             raise ParseError(errmsg, data, tail)
 
     @classmethod
-    def decode(
-        cls: Type[TASN1],
-        data: Union[bytes, subbytes],
-        **kwargs: Any,
-    ) -> Tuple[TASN1, subbytes]:
+    def decode(cls, data, **kwargs):
         tag, body, tail = decode(data)
         cls.checkTag(tag, data, tail)
 
@@ -57,11 +33,7 @@ class ASN1:
             err.reraise(data, tail)
 
     @classmethod
-    def decodeExact(
-        cls: Type[TASN1],
-        data: Union[bytes, subbytes],
-        **kwargs: Any,
-    ) -> TASN1:
+    def decodeExact(cls, data, **kwargs):
         tag, body = decodeExact(data)
         cls.checkTag(tag, data)
 
@@ -70,18 +42,18 @@ class ASN1:
         except ASN1.DeserializeError as err:
             err.reraise(data)
 
-    def encode(self) -> bytes:
+    def encode(self):
         return encode(self.TAG, self.serialize())
 
     @classmethod
-    def deserialize(cls: Type[TASN1], data: Asn1Data) -> TASN1:
+    def deserialize(cls, data):
         raise NotImplementedError()
 
-    def serialize(self) -> bytes:
+    def serialize(self):
         raise NotImplementedError()
 
 class Constructed(ASN1):
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         if not isinstance(other, Constructed):
             return NotImplemented
 
@@ -94,111 +66,99 @@ class Constructed(ASN1):
 
         return True
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         raise NotImplementedError()
 
-    def __len__(self) -> int:
+    def __len__(self):
         raise NotImplementedError()
 
-    def serialize(self) -> bytes:
+    def serialize(self):
         return b"".join([obj.encode() for obj in self])
 
 class Primitive(ASN1):
-    def asOID(self, implied: bool = False) -> Iterable[int]:
+    def asOID(self, implied = False):
         raise NotImplementedError()
 
     @classmethod
-    def fromOID(
-        cls: Type[TPrimitive],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TPrimitive:
+    def fromOID(cls, nums, implied = False):
         raise NotImplementedError()
 
 class INTEGER(Primitive):
-    BYTEORDER: ClassVar[Literal["big"]] = "big"
+    BYTEORDER = "big"
     TAG = Tag(2)
 
-    def __init__(self, value: int) -> None:
+    def __init__(self, value):
         self._value = value
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         if not isinstance(other, INTEGER):
             return NotImplemented
 
         return self.value == other.value and self.TAG == other.TAG
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({self.value})"
 
     @property
-    def value(self) -> int:
+    def value(self):
         return self._value
 
     @staticmethod
-    def bitCount(value: int) -> int:
+    def bitCount(value):
         if value < 0:
             value = -value - 1
 
         return value.bit_length()
 
     @classmethod
-    def construct(cls: Type[TINTEGER], value: int) -> TINTEGER:
+    def construct(cls, value):
         return cls(value)
 
     @classmethod
-    def deserialize(cls: Type[TINTEGER], data: Asn1Data) -> TINTEGER:
+    def deserialize(cls, data):
         value = int.from_bytes(data, cls.BYTEORDER, signed=True)
         return cls.construct(value)
 
-    def serialize(self) -> bytes:
+    def serialize(self):
         # equivalent to (N + 8) // 8
         # the reason it's not (N + 7) is that ASN.1 always includes a sign bit
         nbytes = (self.bitCount(self.value) // 8) + 1
         return self.value.to_bytes(nbytes, self.BYTEORDER, signed=True)
 
-    def asOID(self, implied: bool = False) -> Iterable[int]:
+    def asOID(self, implied = False):
         yield self.value
 
     @classmethod
-    def fromOID(
-        cls: Type[TINTEGER],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TINTEGER:
+    def fromOID(cls, nums, implied = False):
         return cls(next(nums))
 
 class OCTET_STRING(Primitive):
     TAG = Tag(4)
 
-    def __init__(self, data: bytes = b"") -> None:
+    def __init__(self, data = b""):
         self._data = data
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         if not isinstance(other, OCTET_STRING):
             return NotImplemented
 
         return self.data == other.data and self.TAG == other.TAG
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({repr(self.data)})"
 
     @property
-    def data(self) -> bytes:
+    def data(self):
         return self._data
 
-    def asOID(self, implied: bool = False) -> Iterable[int]:
+    def asOID(self, implied = False):
         if not implied:
             yield len(self.data)
 
         yield from self.data
 
     @classmethod
-    def fromOID(
-        cls: Type[TOCTET_STRING],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TOCTET_STRING:
+    def fromOID(cls, nums, implied = False):
         if implied:
             data = bytes(nums)
         else:
@@ -208,51 +168,43 @@ class OCTET_STRING(Primitive):
         return cls(data)
 
     @classmethod
-    def construct(cls: Type[TOCTET_STRING], data: Asn1Data) -> TOCTET_STRING:
+    def construct(cls, data):
         return cls(data[:])
 
     @classmethod
-    def deserialize(
-        cls: Type[TOCTET_STRING],
-        data: Asn1Data,
-        copy: bool = True,
-    ) -> TOCTET_STRING:
+    def deserialize(cls, data, copy = True):
         if copy:
             return cls.construct(data[:])
         else:
             return cls.construct(data)
 
-    def serialize(self) -> bytes:
+    def serialize(self):
         return self.data
 
 class NULL(Primitive):
     TAG = Tag(5)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         if not isinstance(other, NULL):
             return NotImplemented
 
         return self.TAG == other.TAG
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}()"
 
-    def asOID(self, implied: bool = False) -> Iterable[int]:
+    def asOID(self, implied = False):
         return ()
 
     @classmethod
-    def fromOID(
-        cls: Type[TNULL],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TNULL:
+    def fromOID(cls, nums, implied = False):
         return cls()
 
     @classmethod
-    def deserialize(cls: Type[TNULL], data: Asn1Data) -> TNULL:
+    def deserialize(cls, data):
         return cls()
 
-    def serialize(self) -> bytes:
+    def serialize(self):
         return b""
 
 class OBJECT_IDENTIFIER(Primitive):
@@ -265,19 +217,19 @@ class OBJECT_IDENTIFIER(Primitive):
         pass
 
     class CountingIterator:
-        def __init__(self, nums: Tuple[int], count: int = 0):
+        def __init__(self, nums, count = 0):
             self.count = count
             self.wrapped = iter(nums[count:])
 
         def __iter__(self):
             return self
 
-        def __next__(self) -> int:
+        def __next__(self):
             item = next(self.wrapped)
             self.count += 1
             return item
 
-    def __init__(self, *subidentifiers: int) -> None:
+    def __init__(self, *subidentifiers):
         first = 0
         second = 0
 
@@ -297,46 +249,36 @@ class OBJECT_IDENTIFIER(Primitive):
 
         self.subidentifiers = subidentifiers
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         if not isinstance(other, OBJECT_IDENTIFIER):
             return NotImplemented
 
         return self.subidentifiers == other.subidentifiers
 
-    def __lt__(self, other: "OBJECT_IDENTIFIER") -> bool:
+    def __lt__(self, other):
         return self.subidentifiers < other.subidentifiers
 
-    @overload
-    def __getitem__(self, index: int) -> int:
-        ...
-
-    @overload
-    def __getitem__(self, index: slice) -> Tuple[int, ...]:
-        ...
-
-    def __getitem__(self,
-        index: Union[int, slice],
-    ) -> Union[int, Tuple[int, ...]]:
+    def __getitem__(self, index):
         return self.subidentifiers.__getitem__(index)
 
-    def __hash__(self) -> int:
+    def __hash__(self):
         return self.subidentifiers.__hash__()
 
-    def __iter__(self) -> Iterator[int]:
+    def __iter__(self):
         return iter(self.subidentifiers)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.subidentifiers)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         args = ", ".join(str(i) for i in self.subidentifiers)
         return f"{typename(self)}({args})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return ".".join(str(i) for i in  self.subidentifiers)
 
     @classmethod
-    def parse(cls: Type[TOID], oid: str) -> TOID:
+    def parse(cls, oid):
         numbers = oid.split(".")
 
         if numbers[0] == "":
@@ -347,18 +289,14 @@ class OBJECT_IDENTIFIER(Primitive):
         except ValueError as err:
             raise ValueError(f"\"{oid}\": {err}") from err
 
-    def asOID(self, implied: bool = False) -> Iterable[int]:
+    def asOID(self, implied = False):
         if not implied:
             yield len(self.subidentifiers)
 
         yield from self.subidentifiers
 
     @classmethod
-    def fromOID(
-        cls: Type[TOID],
-        nums: Iterator[int],
-        implied: bool = False,
-    ) -> TOID:
+    def fromOID(cls, nums, implied = False):
         if implied:
             subidentifiers = nums
         else:
@@ -367,17 +305,13 @@ class OBJECT_IDENTIFIER(Primitive):
 
         return cls(*subidentifiers)
 
-    def extend(self: TOID, *subidentifiers: int) -> TOID:
+    def extend(self, *subidentifiers):
         return self.__class__(*self.subidentifiers, *subidentifiers)
 
-    def startswith(self, prefix: "OBJECT_IDENTIFIER") -> bool:
+    def startswith(self, prefix):
         return self.subidentifiers[:len(prefix)] == prefix[:]
 
-    def decodeIndex(self: TOID,
-        prefix: TOID,
-        *types: Type[TPrimitive],
-        implied: bool = False,
-    ) -> Tuple[TPrimitive, ...]:
+    def decodeIndex(self, prefix, *types, implied = False):
         if not self.startswith(prefix):
             errmsg = f"\"{self}\" does not begin with \"{prefix}\""
             raise self.BadPrefix(errmsg)
@@ -402,11 +336,7 @@ class OBJECT_IDENTIFIER(Primitive):
 
         return tuple(index)
 
-    def decodeIndexField(self,
-        nums: CountingIterator,
-        cls: Type[TPrimitive],
-        implied: bool = False,
-    ) -> TPrimitive:
+    def decodeIndexField(self, nums, cls, implied = False):
         position = nums.count
 
         try:
@@ -422,10 +352,7 @@ class OBJECT_IDENTIFIER(Primitive):
                 f" at position {position}: {self}: {err.args[0]}"
             raise OBJECT_IDENTIFIER.IndexDecodeError(errmsg) from err
 
-    def withIndex(self: TOID,
-        *index: Primitive,
-        implied: bool = False,
-    ) -> TOID:
+    def withIndex(self, *index, implied = False):
         oid = self
 
         for obj in index[:-1]:
@@ -437,14 +364,14 @@ class OBJECT_IDENTIFIER(Primitive):
         return oid
 
     @classmethod
-    def construct(cls: Type[TOID], *subidentifiers: int) -> TOID:
+    def construct(cls, *subidentifiers):
         try:
             return cls(*subidentifiers)
         except ValueError as err:
             raise ASN1.DeserializeError(err.args[0]) from err
 
     @classmethod
-    def deserialize(cls: Type[TOID], data: Asn1Data) -> TOID:
+    def deserialize(cls, data):
         stream = iter(data)
 
         try:
@@ -468,7 +395,7 @@ class OBJECT_IDENTIFIER(Primitive):
         return cls.construct(*oid)
 
     @staticmethod
-    def serializeSubIdentifier(bytearr: bytearray, num: int) -> None:
+    def serializeSubIdentifier(bytearr, num):
         if num < 0x80:
             bytearr.append(num)
         else:
@@ -483,7 +410,7 @@ class OBJECT_IDENTIFIER(Primitive):
             tmp.reverse()
             bytearr.extend(tmp)
 
-    def serialize(self) -> bytes:
+    def serialize(self):
         try:
             first = self.subidentifiers[0]
         except IndexError:

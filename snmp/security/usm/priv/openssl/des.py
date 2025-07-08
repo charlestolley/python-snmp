@@ -4,20 +4,19 @@ import os
 
 from snmp.smi import OID
 from snmp.security.usm import PrivProtocol
-from snmp.typing import *
 
 from . import *
 
 class DesCbc(PrivProtocol):
-    BYTEORDER:  ClassVar[Literal["big"]] = "big"
+    BYTEORDER = "big"
     CIPHER = DES_CBC
 
-    BLOCKLEN:   ClassVar[int] = CIPHER.BLOCKLEN
-    KEYLEN:     ClassVar[int] = BLOCKLEN * 2
-    SALTLEN:    ClassVar[int] = BLOCKLEN // 2
-    SALTWRAP:   ClassVar[int] = 1 << (8 * SALTLEN)
+    BLOCKLEN = CIPHER.BLOCKLEN
+    KEYLEN = BLOCKLEN * 2
+    SALTLEN = BLOCKLEN // 2
+    SALTWRAP = 1 << (8 * SALTLEN)
 
-    def __init__(self, key: bytes) -> None:
+    def __init__(self, key):
         if len(key) < self.KEYLEN:
             raise ValueError(f"key must be at least {self.KEYLEN} bytes long")
 
@@ -26,7 +25,7 @@ class DesCbc(PrivProtocol):
         self.preIV = key[self.BLOCKLEN:self.KEYLEN]
         self.salt = int.from_bytes(os.urandom(self.SALTLEN), self.BYTEORDER)
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other):
         try:
             return (self.algorithm == other.algorithm
                 and self.key == other.key
@@ -34,19 +33,14 @@ class DesCbc(PrivProtocol):
         except AttributeError:
             return NotImplemented
 
-    def computeIV(self, salt: bytes) -> bytes:
+    def computeIV(self, salt):
         return bytes(a ^ b for a, b in zip(self.preIV, salt))
 
-    def pad(self, data: bytes) -> bytes:
+    def pad(self, data):
         n = self.BLOCKLEN - (len(data) % self.BLOCKLEN)
         return data + bytes(n)
 
-    def decrypt(self,
-        data: bytes,
-        engineBoots: int,
-        engineTime: int,
-        salt: bytes,
-    ) -> bytes:
+    def decrypt(self, data, engineBoots, engineTime, salt):
         if len(data) % self.BLOCKLEN:
             errmsg = "DES ciphertext must be a multiple of {} in length"
             raise ValueError(errmsg.format(self.BLOCKLEN))
@@ -54,11 +48,7 @@ class DesCbc(PrivProtocol):
         iv = self.computeIV(salt)
         return Decryptor(self.CIPHER).decrypt(data, self.key, iv)
 
-    def encrypt(self,
-        data: bytes,
-        engineBoots: int,
-        engineTime: int,
-    ) -> Tuple[bytes, bytes]:
+    def encrypt(self, data, engineBoots, engineTime):
         self.salt = (self.salt + 1) % self.SALTWRAP
         salt = b''.join((
             engineBoots.to_bytes(self.BLOCKLEN - self.SALTLEN, self.BYTEORDER),

@@ -7,15 +7,12 @@ from snmp.security import SecurityLevel
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
-from snmp.typing import *
 from snmp.v1.manager import *
 from snmp.v1.requests import *
 from snmp.v2c.manager import *
 from snmp.v2c.requests import *
 from snmp.v3.interpreter import *
 from snmp.v3.manager import *
-
-Address = Tuple[str, int]
 
 class NoDefaultUser(SNMPException):
     pass
@@ -29,11 +26,11 @@ class Engine:
     }
 
     def __init__(self,
-        defaultVersion: ProtocolVersion = ProtocolVersion.SNMPv3,
-        defaultDomain: TransportDomain = TransportDomain.UDP_IPv4,
-        defaultCommunity: bytes = b"public",
-        verboseLogging: bool = False,
-        autowait: bool = True,
+        defaultVersion = ProtocolVersion.SNMPv3,
+        defaultDomain = TransportDomain.UDP_IPv4,
+        defaultCommunity = b"public",
+        verboseLogging = False,
+        autowait = True,
     ):
         self.defaultVersion         = defaultVersion
         self.defaultDomain          = defaultDomain
@@ -58,22 +55,19 @@ class Engine:
         self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
         self.decoder.register(ProtocolVersion.SNMPv3, self.v3_sorter)
 
-        self.transports: Dict[
-            TransportDomain,
-            Dict[Address, Transport[Address]]
-        ] = {}
+        self.transports = {}
 
     def addUser(self,
-        user: str,
-        namespace: str = "",
-        default: Optional[bool] = None,
-        authProtocol: Optional[Type[AuthProtocol]] = None,
-        privProtocol: Optional[Type[PrivProtocol]] = None,
-        authSecret: Optional[bytes] = None,
-        privSecret: Optional[bytes] = None,
-        secret: Optional[bytes] = None,
-        defaultSecurityLevel: Optional[SecurityLevel] = None,
-    ) -> None:
+        user,
+        namespace = "",
+        default = None,
+        authProtocol = None,
+        privProtocol = None,
+        authSecret = None,
+        privSecret = None,
+        secret = None,
+        defaultSecurityLevel = None,
+    ):
         self.usm.addUser(
             user.encode(),
             namespace,
@@ -119,11 +113,7 @@ class Engine:
 
         return TransportChannel(transport, address)
 
-    def v1Manager(self,
-        channel: TransportChannel[Address],
-        autowait: bool,
-        community: Optional[bytes] = None,
-    ) -> SNMPv1Manager:
+    def v1Manager(self, channel, autowait, community = None):
         if community is None:
             community = self.defaultCommunity
 
@@ -134,11 +124,7 @@ class Engine:
             autowait,
         )
 
-    def v2cManager(self,
-        channel: TransportChannel[Address],
-        autowait: bool,
-        community: Optional[bytes] = None,
-    ) -> SNMPv2cManager:
+    def v2cManager(self, channel, autowait, community = None):
         if community is None:
             community = self.defaultCommunity
 
@@ -150,12 +136,12 @@ class Engine:
         )
 
     def v3Manager(self,
-        channel: TransportChannel[Address],
-        autowait: bool,
-        engineID: Optional[bytes] = None,
-        defaultSecurityLevel: Optional[SecurityLevel] = None,
-        defaultUser: Optional[str] = None,
-        namespace: str = "",
+        channel,
+        autowait,
+        engineID = None,
+        defaultSecurityLevel = None,
+        defaultUser = None,
+        namespace = "",
     ):
         if defaultUser is None:
             defaultUserName = self.usm.defaultUserName(namespace)
@@ -196,18 +182,14 @@ class Engine:
         )
 
     def Manager(self,
-        address: Any,
-        version: Optional[ProtocolVersion] = None,
-        domain: Optional[TransportDomain] = None,
-        localAddress: Any = None,
-        mtu: Optional[int] = None,
-        autowait: Optional[bool] = None,
-        **kwargs: Any,
-    ) -> Union[
-        SNMPv1Manager,
-        SNMPv2cManager,
-        SNMPv3Manager,
-    ]:
+        address,
+        version = None,
+        domain = None,
+        localAddress = None,
+        mtu = None,
+        autowait = None,
+        **kwargs,
+    ):
         if version is None:
             version = self.defaultVersion
         elif not isinstance(version, ProtocolVersion):

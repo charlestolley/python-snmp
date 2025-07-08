@@ -3,18 +3,12 @@ __all__ = ["Scheduler", "SchedulerTask"]
 import heapq
 import time
 
-from snmp.typing import *
-
 class SchedulerTask:
-    def run(self) -> Optional["SchedulerTask"]:
+    def run(self):
         raise NotImplementedError()
 
 class SchedulerEntry:
-    def __init__(self,
-        task: SchedulerTask,
-        timestamp: float,
-        period: Optional[float],
-    ):
+    def __init__(self, task, timestamp, period):
         if period is not None and period <= 0.0:
             raise ValueError("A repeated task must have a positive period")
 
@@ -22,7 +16,7 @@ class SchedulerEntry:
         self.timestamp = timestamp
         self.period = period
 
-    def __call__(self) -> Optional["SchedulerEntry"]:
+    def __call__(self):
         nextTask = self.task.run()
 
         if nextTask is None or self.period is None:
@@ -31,13 +25,13 @@ class SchedulerEntry:
         nextTime = self.timestamp + self.period
         return self.__class__(nextTask, nextTime, self.period)
 
-    def __lt__(self, other: "SchedulerEntry") -> bool:
+    def __lt__(self, other):
         return self.timestamp < other.timestamp
 
-    def ready(self, timestamp: float) -> bool:
+    def ready(self, timestamp):
         return self.timeToReady(timestamp) <= 0
 
-    def timeToReady(self, timestamp: float) -> float:
+    def timeToReady(self, timestamp):
         return self.timestamp - timestamp
 
 class Scheduler:
@@ -51,16 +45,13 @@ class Scheduler:
         def __exit__(self, *args, **kwargs):
             self.locked = False
 
-    def __init__(self,
-        sleep_function: Callable[[float], None] = time.sleep,
-        time_function: Callable[[], float] = time.time,
-    ) -> None:
+    def __init__(self, sleep_function = time.sleep, time_function = time.time):
         self.lock = self.ReEntrancyLock()
         self.sleep = sleep_function
         self.time = time_function
-        self.upcoming: List[SchedulerEntry] = []
+        self.upcoming = []
 
-    def runPendingTasks(self) -> None:
+    def runPendingTasks(self):
         if self.lock.locked:
             return
 
@@ -73,17 +64,13 @@ class Scheduler:
                 else:
                     heapq.heapreplace(self.upcoming, nextEntry)
 
-    def schedule(self,
-        task: SchedulerTask,
-        delay: float = 0.0,
-        period: Optional[float] = None,
-    ) -> None:
+    def schedule(self, task, delay = 0.0, period = None):
         now = self.time()
         entry = SchedulerEntry(task, now + delay, period)
         heapq.heappush(self.upcoming, entry)
         self.runPendingTasks()
 
-    def wait(self) -> None:
+    def wait(self):
         if self.upcoming:
             now = self.time()
             entry = self.upcoming[0]

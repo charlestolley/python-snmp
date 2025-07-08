@@ -3,90 +3,72 @@ __all__ = [
     "TransportDomain", "TransportListener", "TransportMultiplexor"
 ]
 
-from collections import namedtuple
-import enum
 import os
-import socket
 
-from snmp.typing import *
+from enum import Enum
+from socket import AF_INET, AF_INET6, AddressFamily
 
-AddressUsage = enum.Enum(
+AddressUsage = Enum(
     "AddressUsage",
     ["LISTENER", "TRAP_LISTENER", "SENDER"]
 )
 
-class TransportDomain(enum.Enum):
-    def __init__(self,
-        family: socket.AddressFamily,
-        loopback: str,
-        default: str,
-    ) -> None:
+class TransportDomain(Enum):
+    def __init__(self, family, loopback, default):
         self.address_family = family
         self.loopback_address = loopback
         self.default_address = default
 
-    UDP_IPv4 = socket.AF_INET, "127.0.0.1", "0.0.0.0"
-    UDP_IPv6 = socket.AF_INET6, "::1", "::"
+    UDP_IPv4 = AF_INET, "127.0.0.1", "0.0.0.0"
+    UDP_IPv6 = AF_INET6, "::1", "::"
 
-T = TypeVar("T")
-class Transport(Generic[T]):
-    DOMAIN: ClassVar[TransportDomain]
-
+class Transport:
     @classmethod
-    def normalizeAddress(cls,
-        address: Any = None,
-        usage: Optional[AddressUsage] = None,
-    ) -> T:
+    def normalizeAddress(cls, address = None, usage = None):
         raise NotImplementedError()
 
-    def close(self) -> None:
+    def close(self):
         raise NotImplementedError()
 
-    def send(self, data: bytes, address: T) -> None:
+    def send(self, data, address):
         raise NotImplementedError()
 
-class TransportChannel(Generic[T]):
-    def __init__(self,
-        transport: Transport[T],
-        address: T,
-    ) -> None:
+class TransportChannel:
+    def __init__(self, transport, address):
         self.transport = transport
         self.address = address
 
     @property
-    def domain(self) -> TransportDomain:
+    def domain(self):
         return self.transport.DOMAIN
 
     @property
-    def msgMaxSize(self) -> int:
+    def msgMaxSize(self):
         return self.transport.recvSize
 
-    def send(self, data: bytes) -> None:
+    def send(self, data):
         self.transport.send(data, self.address)
 
-class TransportListener(Generic[T]):
+class TransportListener:
     def hear(self, data, channel):
         raise NotImplementedError()
 
-class TransportMultiplexor(Generic[T]):
-    def register(self,
-        sock: Transport[T],
-        listener: TransportListener[T],
-    ) -> None:
+class TransportMultiplexor:
+    def register(self, sock, listener):
         raise NotImplementedError()
 
-    def listen(self) -> None:
+    def listen(self):
         done = False
         while not done:
             done = self.poll()
 
-    def poll(self, timeout: Optional[float] = None) -> bool:
+    def poll(self, timeout = None):
         raise NotImplementedError()
 
-    def stop(self) -> None:
+    def stop(self):
         raise NotImplementedError()
 
-    def close(self) -> None:
+    def close(self):
         raise NotImplementedError()
 
 supported = ("posix")

@@ -1,7 +1,7 @@
 __all__ = [
     "NoSuchObject", "NoSuchInstance", "EndOfMibView",
     "VarBind", "VarBindList",
-    "AnyPDU", "PDU", "BulkPDU",
+    "PDU", "BulkPDU",
     "GetRequestPDU", "GetNextRequestPDU", "GetBulkRequestPDU",
     "SetRequestPDU",
     "ResponsePDU", "ReportPDU",
@@ -10,36 +10,26 @@ __all__ = [
 ]
 
 import enum
-
-from os import linesep
+import os
 
 from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.smi import *
-from snmp.typing import *
 from snmp.utils import subbytes, typename
 
-AnyPDU = Union["PDU", "BulkPDU"]
-TPDU = TypeVar("TPDU", bound="PDU")
-TBulkPDU = TypeVar("TBulkPDU", bound="BulkPDU")
-
-@final
 class NoSuchObject(Null):
     TAG = Tag(0, cls = Tag.Class.CONTEXT_SPECIFIC)
 
-@final
 class NoSuchInstance(Null):
     TAG = Tag(1, cls = Tag.Class.CONTEXT_SPECIFIC)
 
-@final
 class EndOfMibView(Null):
     TAG = Tag(2, cls = Tag.Class.CONTEXT_SPECIFIC)
 
-@final
 class VarBind(Sequence):
     TYPES = {
-        cls.TAG: cls for cls in cast(Tuple[Primitive, ...], (
+        cls.TAG: cls for cls in (
             Integer,
             OctetString,
             Null,
@@ -53,13 +43,10 @@ class VarBind(Sequence):
             NoSuchObject,
             NoSuchInstance,
             EndOfMibView,
-        ))
+        )
     }
 
-    def __init__(self,
-        name: Union[str, OID],
-        value: Optional[ASN1] = None,
-    ) -> None:
+    def __init__(self, name, value = None):
         if not isinstance(name, OID):
             name = OID.parse(name)
 
@@ -69,21 +56,21 @@ class VarBind(Sequence):
         self.name = name
         self.value = value
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield self.name
         yield self.value
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 2
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({self.name!r}, {self.value!r})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return f"{self.name}: {self.value}"
 
     @classmethod
-    def deserialize(cls, data: Asn1Data) -> "VarBind":
+    def deserialize(cls, data):
         name, data = OID.decode(data)
         tag, _ = Tag.decode(data)
 
@@ -95,47 +82,36 @@ class VarBind(Sequence):
 
         return cls(name, valueType.decodeExact(data))
 
-@final
 class VarBindList(Sequence):
-    def __init__(self, *args: Union[str, OID, VarBind]) -> None:
+    def __init__(self, *args):
         self.variables = tuple(
             var if isinstance(var, VarBind) else VarBind(var) for var in args
         )
 
-    def __bool__(self) -> bool:
+    def __bool__(self):
         return bool(self.variables)
 
-    @overload
-    def __getitem__(self, key: int) -> VarBind:
-        ...
-
-    @overload
-    def __getitem__(self, key: slice) -> Tuple[VarBind, ...]:
-        ...
-
-    def __getitem__(self,
-        key: Union[int, slice],
-    ) -> Union[VarBind, Tuple[VarBind, ...]]:
+    def __getitem__(self, key):
         return self.variables[key]
 
-    def __iter__(self) -> Iterator[VarBind]:
+    def __iter__(self):
         return iter(self.variables)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.variables)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         args = ", ".join(repr(var) for var in self.variables)
         return f"{typename(self)}({args})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def toString(self, indent: str = "") -> str:
+    def toString(self, indent = ""):
         return "\n".join(f"{indent}{var}" for var in self.variables)
 
     @classmethod
-    def deserialize(cls, data: Asn1Data) -> "VarBindList":
+    def deserialize(cls, data):
         objects = []
 
         while data:
@@ -166,20 +142,20 @@ class ErrorStatus(enum.IntEnum):
     inconsistentName    = 18
 
 class PDU(Constructed):
-    READ_CLASS: ClassVar[bool] = False
-    WRITE_CLASS: ClassVar[bool] = False
-    RESPONSE_CLASS: ClassVar[bool] = False
-    NOTIFICATION_CLASS: ClassVar[bool] = False
-    INTERNAL_CLASS: ClassVar[bool] = False
-    CONFIRMED_CLASS: ClassVar[bool] = False
+    READ_CLASS = False
+    WRITE_CLASS = False
+    RESPONSE_CLASS = False
+    NOTIFICATION_CLASS = False
+    INTERNAL_CLASS = False
+    CONFIRMED_CLASS = False
 
     def __init__(self,
-        *args: Union[str, OID, VarBind],
-        requestID: int = 0,
-        errorStatus: ErrorStatus = ErrorStatus.noError,
-        errorIndex: int = 0,
-        variableBindings: Optional[VarBindList] = None,
-    ) -> None:
+        *args,
+        requestID = 0,
+        errorStatus = ErrorStatus.noError,
+        errorIndex = 0,
+        variableBindings = None,
+    ):
         self.requestID = requestID
         self.errorStatus = errorStatus
         self.errorIndex = errorIndex
@@ -189,16 +165,16 @@ class PDU(Constructed):
         else:
             self.variableBindings = variableBindings
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield Integer(self.requestID)
         yield Integer(self.errorStatus)
         yield Integer(self.errorIndex)
         yield self.variableBindings
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 4
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         arguments = []
         if self.requestID:
             arguments.append("requestID={}".format(self.requestID))
@@ -214,14 +190,14 @@ class PDU(Constructed):
         args = ", ".join(arguments)
         return f"{typename(self)}({args})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def checkResponse(self, response: "ResponsePDU"):
+    def checkResponse(self, response):
         if not self.validResponse(response.variableBindings):
             raise ImproperResponse(response.variableBindings)
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
@@ -239,7 +215,7 @@ class PDU(Constructed):
             subindent, self.variableBindings.toString(subindent + tab)
         )
 
-    def withRequestID(self: TPDU, requestID: int) -> TPDU:
+    def withRequestID(self, requestID):
         return self.__class__(
             requestID=requestID,
             errorStatus=self.errorStatus,
@@ -248,7 +224,7 @@ class PDU(Constructed):
         )
 
     @classmethod
-    def deserialize(cls: Type[TPDU], data: Asn1Data) -> TPDU:
+    def deserialize(cls, data):
         _requestID, errorStatusData     = Integer.decode(data)
         _errorStatus, errorIndexData    = Integer.decode(errorStatusData)
         _errorIndex, data               = Integer.decode(errorIndexData)
@@ -278,20 +254,20 @@ class PDU(Constructed):
         )
 
 class BulkPDU(Constructed):
-    READ_CLASS: ClassVar[bool] = False
-    WRITE_CLASS: ClassVar[bool] = False
-    RESPONSE_CLASS: ClassVar[bool] = False
-    NOTIFICATION_CLASS: ClassVar[bool] = False
-    INTERNAL_CLASS: ClassVar[bool] = False
-    CONFIRMED_CLASS: ClassVar[bool] = False
+    READ_CLASS = False
+    WRITE_CLASS = False
+    RESPONSE_CLASS = False
+    NOTIFICATION_CLASS = False
+    INTERNAL_CLASS = False
+    CONFIRMED_CLASS = False
 
     def __init__(self,
-        *args: Union[str, OID, VarBind],
-        requestID: int = 0,
-        nonRepeaters: int = 0,
-        maxRepetitions: int = 0,
-        variableBindings: Optional[VarBindList] = None,
-    ) -> None:
+        *args,
+        requestID = 0,
+        nonRepeaters = 0,
+        maxRepetitions = 0,
+        variableBindings = None,
+    ):
         self.requestID = requestID
         self.nonRepeaters = nonRepeaters
         self.maxRepetitions = maxRepetitions
@@ -307,16 +283,16 @@ class BulkPDU(Constructed):
                 f" in the request ({len(self.variableBindings)})"
             raise ValueError(errmsg)
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield Integer(self.requestID)
         yield Integer(self.nonRepeaters)
         yield Integer(self.maxRepetitions)
         yield self.variableBindings
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 4
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         arguments = []
         if self.requestID:
             arguments.append(f"requestID={self.requestID}")
@@ -332,14 +308,14 @@ class BulkPDU(Constructed):
         args = ", ".join(arguments)
         return f"{typename(self)}({args})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def checkResponse(self, response: "ResponsePDU"):
+    def checkResponse(self, response):
         if not self.validResponse(response.variableBindings):
             raise ImproperResponse(response.variableBindings)
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * (depth + 1)
         return "\n".join((
             "{}:",
@@ -356,7 +332,7 @@ class BulkPDU(Constructed):
             indent, self.variableBindings.toString(tab * (depth + 2))
         )
 
-    def withRequestID(self: TPDU, requestID: int) -> TPDU:
+    def withRequestID(self, requestID):
         return self.__class__(
             requestID=requestID,
             nonRepeaters=self.nonRepeaters,
@@ -365,7 +341,7 @@ class BulkPDU(Constructed):
         )
 
     @classmethod
-    def deserialize(cls: Type[TBulkPDU], data: Asn1Data) -> TBulkPDU:
+    def deserialize(cls, data):
         requestID, nrdata = Integer.decode(data)
         nonRepeaters, mrdata = Integer.decode(nrdata)
         maxRepetitions, vbdata = Integer.decode(mrdata)
@@ -385,7 +361,6 @@ class BulkPDU(Constructed):
             variableBindings=variableBindings,
         )
 
-@final
 class GetRequestPDU(PDU):
     CONFIRMED_CLASS = True
     READ_CLASS = True
@@ -401,7 +376,6 @@ class GetRequestPDU(PDU):
 
         return True
 
-@final
 class GetNextRequestPDU(PDU):
     CONFIRMED_CLASS = True
     READ_CLASS = True
@@ -420,7 +394,6 @@ class GetNextRequestPDU(PDU):
 
         return True
 
-@final
 class ResponsePDU(PDU):
     RESPONSE_CLASS = True
     TAG = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
@@ -433,7 +406,6 @@ class ResponsePDU(PDU):
 
         raise ErrorResponse(self.errorStatus, self.errorIndex, request)
 
-@final
 class SetRequestPDU(PDU):
     CONFIRMED_CLASS = True
     WRITE_CLASS = True
@@ -449,7 +421,6 @@ class SetRequestPDU(PDU):
 
         return True
 
-@final
 class GetBulkRequestPDU(BulkPDU):
     CONFIRMED_CLASS = True
     READ_CLASS = True
@@ -502,36 +473,29 @@ class GetBulkRequestPDU(BulkPDU):
 
         return True
 
-@final
 class InformRequestPDU(PDU):
     CONFIRMED_CLASS = True
     NOTIFICATION_CLASS = True
     TAG = Tag(6, True, Tag.Class.CONTEXT_SPECIFIC)
 
-@final
 class SNMPv2TrapPDU(PDU):
     NOTIFICATION_CLASS = True
     TAG = Tag(7, True, Tag.Class.CONTEXT_SPECIFIC)
 
-@final
 class ReportPDU(PDU):
     INTERNAL_CLASS = True
     RESPONSE_CLASS = True
     TAG = Tag(8, True, Tag.Class.CONTEXT_SPECIFIC)
 
 class ErrorResponse(SNMPException):
-    def __init__(self,
-        status: ErrorStatus,
-        index: int,
-        request: "AnyPDU",
-    ) -> None:
+    def __init__(self, status, index, request):
         self.status = status
         self.index = min(index, len(request.variableBindings))
         self.variableBindings = request.variableBindings
 
         if self.index == 0:
             self.oid = None
-            details = f"{linesep}{request}"
+            details = f"{os.linesep}{request}"
         else:
             self.oid = self.variableBindings[self.index-1].name
             details = f" {self.oid}"

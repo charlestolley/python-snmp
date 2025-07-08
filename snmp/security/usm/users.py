@@ -2,40 +2,30 @@ __all__ = ["UserRegistry", "UserNameCollision"]
 
 from snmp.exception import *
 from snmp.security import *
-from snmp.typing import *
 
 from ..levels import *
-from . import AuthProtocol, PrivProtocol
 from .credentials import *
 
 class UserNameCollision(ValueError):
     pass
 
 class UserConfig:
-    def __init__(self,
-        credentials: Credentials,
-        defaultSecurityLevel: SecurityLevel,
-    ) -> None:
+    def __init__(self, credentials, defaultSecurityLevel):
         self.credentials = credentials
         self.defaultSecurityLevel = defaultSecurityLevel
 
 class NamespaceConfig:
-    def __init__(self) -> None:
-        self.defaultUserName: Optional[bytes] = None
-        self.users: Dict[bytes, UserConfig] = {}
+    def __init__(self):
+        self.defaultUserName = None
+        self.users = {}
 
-    def __contains__(self, userName: bytes) -> bool:
+    def __contains__(self, userName):
         return userName in self.users
 
-    def __getitem__(self, userName: bytes) -> UserConfig:
+    def __getitem__(self, userName):
         return self.users[userName]
 
-    def addUser(self,
-        userName: bytes,
-        credentials: Credentials,
-        defaultSecurityLevel: SecurityLevel,
-        default: bool,
-    ) -> None:
+    def addUser(self, userName, credentials, defaultSecurityLevel, default):
         if userName in self.users:
             raise UserNameCollision(userName)
 
@@ -46,21 +36,21 @@ class NamespaceConfig:
             self.defaultUserName = userName
 
 class UserRegistry:
-    def __init__(self) -> None:
+    def __init__(self):
         self.localizedCredentials = {}
-        self.namespaceConfigs: Dict[str, NamespaceConfig] = {}
+        self.namespaceConfigs = {}
 
     def addUser(self,
-        userName: bytes,
-        namespace: str,
-        default: Optional[bool] = None,
-        authProtocol: Optional[Type[AuthProtocol]] = None,
-        privProtocol: Optional[Type[PrivProtocol]] = None,
-        authSecret: Optional[bytes] = None,
-        privSecret: Optional[bytes] = None,
-        secret: bytes = None,
-        defaultSecurityLevel: Optional[SecurityLevel] = None,
-    ) -> None:
+        userName,
+        namespace,
+        default = None,
+        authProtocol = None,
+        privProtocol = None,
+        authSecret = None,
+        privSecret = None,
+        secret = None,
+        defaultSecurityLevel = None
+    ):
         if not userName:
             raise ValueError(f"Empty userName")
         elif len(userName) > 32:
@@ -103,12 +93,12 @@ class UserRegistry:
         if newNamespace:
             self.namespaceConfigs[namespace] = config
 
-    def namespaces(self, userName: bytes) -> Iterable[str]:
+    def namespaces(self, userName):
         for name, config in self.namespaceConfigs.items():
             if userName in config:
                 yield name
 
-    def exists(self, userName: bytes, namespace: str):
+    def exists(self, userName, namespace):
         try:
             config = self.namespaceConfigs[namespace]
         except KeyError:
@@ -116,11 +106,7 @@ class UserRegistry:
 
         return userName in config
 
-    def credentials(self,
-        userName: bytes,
-        namespace: str,
-        engineID: bytes,
-    ) -> LocalizedCredentials:
+    def credentials(self, userName, namespace, engineID):
         try:
             return self.localizedCredentials[namespace][userName][engineID]
         except KeyError:
@@ -150,22 +136,19 @@ class UserRegistry:
         engines[engineID] = localizedCredentials
         return localizedCredentials
 
-    def defaultSecurityLevel(self,
-        userName: bytes,
-        namespace: str,
-    ) -> SecurityLevel:
+    def defaultSecurityLevel(self, userName, namespace):
         return self.namespaceConfigs[namespace][userName].defaultSecurityLevel
 
-    def defaultUserName(self, namespace) -> Optional[bytes]:
+    def defaultUserName(self, namespace):
         return self.namespaceConfigs[namespace].defaultUserName
 
     @staticmethod
     def makeCredentials(
-        authProtocol: Optional[Type[AuthProtocol]],
-        privProtocol: Optional[Type[PrivProtocol]],
-        authSecret: Optional[bytes],
-        privSecret: Optional[bytes],
-        secret:     Optional[bytes],
+        authProtocol,
+        privProtocol,
+        authSecret,
+        privSecret,
+        secret,
     ):
         if authProtocol is None:
             if (privProtocol is not None

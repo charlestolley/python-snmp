@@ -8,11 +8,9 @@ from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.models import *
 from snmp.smi import *
-from snmp.typing import *
 from snmp.utils import *
 from snmp.v3.message import *
 
-from . import AuthProtocol, PrivProtocol
 from .credentials import *
 from .parameters import *
 from .stats import *
@@ -37,11 +35,7 @@ class UsmDecryptionError(IncomingMessageError):
 class UserBasedSecurityModule(SecurityModule):
     MODEL = SecurityModel.USM
 
-    def __init__(self,
-        namespace: Optional[str] = None,
-        engineID: Optional[bytes] = None,
-        engineBoots: int = 0,
-    ):
+    def __init__(self, namespace = None, engineID = None, engineBoots = 0):
         self.timekeeper = TimeKeeper()
         self.users = UserRegistry()
 
@@ -63,16 +57,16 @@ class UserBasedSecurityModule(SecurityModule):
         self.decryptionErrors       = 0
 
     def addUser(self,
-        userName: bytes,
-        namespace: str,
-        default: Optional[bool] = None,
-        authProtocol: Optional[Type[AuthProtocol]] = None,
-        privProtocol: Optional[Type[PrivProtocol]] = None,
-        authSecret: Optional[bytes] = None,
-        privSecret: Optional[bytes] = None,
-        secret: Optional[bytes] = None,
-        defaultSecurityLevel: Optional[SecurityLevel] = None,
-    ) -> None:
+        userName,
+        namespace,
+        default = None,
+        authProtocol = None,
+        privProtocol = None,
+        authSecret = None,
+        privSecret = None,
+        secret = None,
+        defaultSecurityLevel = None,
+    ):
         self.users.addUser(
             userName,
             namespace,
@@ -85,16 +79,13 @@ class UserBasedSecurityModule(SecurityModule):
             defaultSecurityLevel,
         )
 
-    def defaultSecurityLevel(self,
-        userName: bytes,
-        namespace: str,
-    ) -> SecurityLevel:
+    def defaultSecurityLevel(self, userName, namespace):
         try:
             return self.users.defaultSecurityLevel(userName, namespace)
         except KeyError:
             return None
 
-    def defaultUserName(self, namespace: str) -> Optional[bytes]:
+    def defaultUserName(self, namespace):
         try:
             return self.users.defaultUserName(namespace)
         except KeyError:
@@ -102,7 +93,7 @@ class UserBasedSecurityModule(SecurityModule):
 
     ### Methods for outgoing messages
 
-    def outgoingNamespace(self, message: SNMPv3Message) -> str:
+    def outgoingNamespace(self, message):
         if message.securityEngineID == self.engineID:
             return self.namespace
         else:
@@ -113,17 +104,14 @@ class UserBasedSecurityModule(SecurityModule):
                 errmsg = f"No namespace given for user {userName}"
                 raise TypeError(errmsg) from err
 
-    def outgoingUser(self, message: SNMPv3Message) -> LocalizedCredentials:
+    def outgoingUser(self, message):
         return self.users.credentials(
             message.securityName.userName,
             self.outgoingNamespace(message),
             message.securityEngineID,
         )
 
-    def outgoingTime(self,
-        message: SNMPv3Message,
-        timestamp: float,
-    ) -> Tuple[int, int]:
+    def outgoingTime(self, message, timestamp):
         engineID = message.securityEngineID
         if engineID == self.engineID:
             snmpEngineBoots = self.engineTime.snmpEngineBoots
@@ -134,10 +122,7 @@ class UserBasedSecurityModule(SecurityModule):
         else:
             return 0, 0
 
-    def prepareOutgoing(self,
-        message: SNMPv3Message,
-        timestamp: Optional[float] = None,
-    ) -> bytes:
+    def prepareOutgoing(self, message, timestamp = None):
         if timestamp is None:
             timestamp = time()
 
@@ -180,7 +165,7 @@ class UserBasedSecurityModule(SecurityModule):
 
     ### Methods for incoming messages
 
-    def candidateNamespaces(self, sp: SignedUsmParameters) -> List[str]:
+    def candidateNamespaces(self, sp):
         if self.engineID is not None and sp.engineID == self.engineID:
             if self.users.exists(sp.userName, self.namespace):
                 return [self.namespace]
@@ -189,10 +174,7 @@ class UserBasedSecurityModule(SecurityModule):
         else:
             return list(self.users.namespaces(sp.userName))
 
-    def authenticate(self,
-        securityParameters: SignedUsmParameters,
-        namespaces: List[str],
-    ) -> List[str]:
+    def authenticate(self, securityParameters, namespaces):
         authMatch = None
         authEnabled = False
         authenticated = list()
@@ -227,11 +209,7 @@ class UserBasedSecurityModule(SecurityModule):
         else:
             raise UsmUnsupportedSecLevel(authNoPriv)
 
-    def decrypt(self,
-        encryptedPDU: OctetString,
-        securityParameters: SignedUsmParameters,
-        namespaces: Iterable[str],
-    ) -> Tuple[ScopedPDU, List[str]]:
+    def decrypt(self, encryptedPDU, securityParameters, namespaces):
         privMatch = None
         privEnabled = False
         successful = list()
@@ -268,11 +246,7 @@ class UserBasedSecurityModule(SecurityModule):
         else:
             raise UsmUnsupportedSecLevel(authPriv)
 
-    def verifyIncomingTime(self,
-        message: SNMPv3WireMessage,
-        sp: SignedUsmParameters,
-        timestamp: float,
-    ) -> None:
+    def verifyIncomingTime(self, message, sp, timestamp):
         if sp.engineID == self.engineID:
             if message.header.flags.authFlag:
                 self.engineTime.verifyTimeliness(
@@ -298,10 +272,7 @@ class UserBasedSecurityModule(SecurityModule):
                     sp.engineTime,
                 )
 
-    def processIncoming(self,
-        message: SNMPv3WireMessage,
-        timestamp: Optional[float] = None,
-    ) -> SNMPv3Message:
+    def processIncoming(self, message, timestamp = None):
         if timestamp is None:
             timestamp = time()
 

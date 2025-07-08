@@ -1,7 +1,6 @@
 __all__ = ["EngineTime", "TimeKeeper", "UsmNotInTimeWindow"]
 
 from snmp.exception import IncomingMessageError
-from snmp.typing import *
 
 class UsmNotInTimeWindow(IncomingMessageError):
     pass
@@ -22,57 +21,45 @@ class EngineTime:
     class TooOld(UsmNotInTimeWindow):
         pass
 
-    MAX_ENGINE_BOOTS: ClassVar[int] = (1 << 31) - 1
-    TIME_WINDOW_SIZE: ClassVar[int] = 150
+    MAX_ENGINE_BOOTS = (1 << 31) - 1
+    TIME_WINDOW_SIZE = 150
 
-    def __init__(self,
-        timestamp: float,
-        snmpEngineBoots: int = 0,
-        authoritative: bool = False,
-    ):
+    def __init__(self, timestamp, snmpEngineBoots = 0, authoritative = False):
         self.authenticated = False
         self.authoritative = authoritative
         self.latestBootTime = timestamp
         self.snmpEngineBoots = snmpEngineBoots
 
     @property
-    def snmpEngineBoots(self) -> int:
+    def snmpEngineBoots(self):
         return self._snmpEngineBoots
 
     @snmpEngineBoots.setter
-    def snmpEngineBoots(self, engineBoots: int) -> None:
+    def snmpEngineBoots(self, engineBoots):
         if engineBoots < 0:
             raise self.NegativeEngineBoots(engineBoots)
 
         self._snmpEngineBoots = min(engineBoots, self.MAX_ENGINE_BOOTS)
 
     @property
-    def valid(self) -> bool:
+    def valid(self):
         return self.snmpEngineBoots < self.MAX_ENGINE_BOOTS
 
-    def snmpEngineTime(self, timestamp: float) -> int:
+    def snmpEngineTime(self, timestamp):
         return int(timestamp - self.latestBootTime)
 
-    def setEngineTime(self, timestamp: float, engineTime: int) -> None:
+    def setEngineTime(self, timestamp, engineTime):
         self.latestBootTime = timestamp - engineTime
 
-    def computeAge(self, timestamp: float, engineTime: int) -> int:
+    def computeAge(self, timestamp, engineTime):
         return self.snmpEngineTime(timestamp) - engineTime
 
-    def hint(self,
-        timestamp: float,
-        engineBoots: int,
-        engineTime: int,
-    ) -> None:
+    def hint(self, timestamp, engineBoots, engineTime):
         if not self.authenticated:
             self.snmpEngineBoots = engineBoots
             self.setEngineTime(timestamp, engineTime)
 
-    def update(self,
-        timestamp: float,
-        engineBoots: int,
-        engineTime: int,
-    ) -> None:
+    def update(self, timestamp, engineBoots, engineTime):
         if self.authenticated:
             if engineBoots == self.snmpEngineBoots:
                 if engineTime > self.snmpEngineTime(timestamp):
@@ -85,11 +72,7 @@ class EngineTime:
             self.setEngineTime(timestamp, engineTime)
             self.authenticated = True
 
-    def verifyTimeliness(self,
-        timestamp: float,
-        msgBoots: int,
-        msgTime: int,
-    ) -> None:
+    def verifyTimeliness(self, timestamp, msgBoots, msgTime):
         if msgBoots != self.snmpEngineBoots:
             raise self.PriorToReboot()
 
@@ -102,10 +85,10 @@ class EngineTime:
             raise self.ReconfigRequired()
 
 class TimeKeeper:
-    def __init__(self) -> None:
-        self.table: Dict[bytes, EngineTime] = {}
+    def __init__(self):
+        self.table = {}
 
-    def assertEntry(self, engineID: bytes, timestamp: float) -> EngineTime:
+    def assertEntry(self, engineID, timestamp):
         try:
             et = self.table[engineID]
         except KeyError as err:
@@ -114,28 +97,15 @@ class TimeKeeper:
 
         return et
 
-    def getEngineTime(self,
-        engineID: bytes,
-        timestamp: float,
-    ) -> Tuple[int, int]:
+    def getEngineTime(self, engineID, timestamp):
         et = self.assertEntry(engineID, timestamp)
         return et.snmpEngineBoots, et.snmpEngineTime(timestamp)
 
-    def hint(self,
-        engineID: bytes,
-        timestamp: float,
-        msgBoots: int,
-        msgTime: int,
-    ) -> None:
+    def hint(self, engineID, timestamp, msgBoots, msgTime):
         et = self.assertEntry(engineID, timestamp)
         et.hint(timestamp, msgBoots, msgTime)
 
-    def updateAndVerify(self,
-        engineID: bytes,
-        timestamp: float,
-        msgBoots: int,
-        msgTime: int,
-    ) -> None:
+    def updateAndVerify(self, engineID, timestamp, msgBoots, msgTime):
         et = self.assertEntry(engineID, timestamp)
         et.update(timestamp, msgBoots, msgTime)
         et.verifyTimeliness(timestamp, msgBoots, msgTime)

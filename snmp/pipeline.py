@@ -1,11 +1,10 @@
 __all__ = ["Catcher", "VersionDecoder"]
 
 import logging
+import os
 import random
 import re
 import weakref
-
-from os import linesep
 
 from snmp.exception import *
 from snmp.message import *
@@ -19,7 +18,7 @@ class Catcher:
 
         self.packets = 0
 
-    def hear(self, data: bytes, channel) -> None:
+    def hear(self, data, channel):
         self.packets += 1
 
         try:
@@ -30,7 +29,7 @@ class Catcher:
         except IncomingMessageError as err:
             if self.verbose:
                 hexdump = re.sub(r"(?<=.{2})(.{2})", r" \1", data.hex())
-                self.logger.debug(f"{err!r}{linesep}{hexdump}")
+                self.logger.debug(f"{err!r}{os.linesep}{hexdump}")
         except Exception as exc:
             self.logger.exception(exc)
 

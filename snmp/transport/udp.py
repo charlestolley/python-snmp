@@ -1,30 +1,20 @@
-__all__ = [
-    "UdpIPv4Socket", "UdpIPv6Socket", "UdpMultiplexor",
-]
+__all__ = ["UdpIPv4Socket", "UdpIPv6Socket", "UdpMultiplexor"]
 
 import importlib
 from socket import *
 
 from snmp.transport import *
-from snmp.transport import Transport, package
-from snmp.typing import *
+from snmp.transport import package
 
-UdpListener = TransportListener[Tuple[str, int]]
-
-class UdpSocket(Transport[Tuple[str, int]]):
-    DOMAIN: ClassVar[TransportDomain]
-
-    DEFAULT_PORT: ClassVar[Mapping[AddressUsage, int]] = {
+class UdpSocket(Transport):
+    DEFAULT_PORT = {
         AddressUsage.LISTENER: 161,
         AddressUsage.SENDER: 0,
         AddressUsage.TRAP_LISTENER: 162,
     }
 
     @classmethod
-    def normalizeAddress(cls,
-        address: Any = None,
-        usage: AddressUsage = AddressUsage.SENDER,
-    ) -> Tuple[str, int]:
+    def normalizeAddress(cls, address = None, usage = AddressUsage.SENDER):
         if isinstance(address, tuple):
             addr, port = address
         else:
@@ -59,40 +49,40 @@ class UdpSocket(Transport[Tuple[str, int]]):
         return addr, port
 
     @property
-    def fileno(self) -> int:
+    def fileno(self):
         return self.socket.fileno()
 
     @property
-    def port(self) -> int:
-        return cast(int, self.socket.getsockname()[1])
+    def port(self):
+        return self.socket.getsockname()[1]
 
-    def __init__(self, recvSize: int, host: str = "", port: int = 0) -> None:
+    def __init__(self, recvSize, host = "", port = 0):
         self.recvSize = recvSize
 
         self.socket = socket(self.DOMAIN.address_family, SOCK_DGRAM)
         self.socket.setblocking(False)
         self.socket.bind((host, port))
 
-    def receive(self) -> Tuple[Tuple[str, int], bytes]:
+    def receive(self):
         data, addr = self.socket.recvfrom(self.recvSize)
         return addr, data
 
-    def send(self, data: bytes, address: Tuple[str, int]) -> None:
+    def send(self, data, address):
         self.socket.sendto(data, address)
 
-    def close(self) -> None:
+    def close(self):
         self.socket.close()
 
 class UdpIPv4Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv4
 
-    def __init__(self, *args, mtu: int = 1500, **kwargs):
+    def __init__(self, *args, mtu = 1500, **kwargs):
         super().__init__(mtu - 28, *args, **kwargs)
 
 class UdpIPv6Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv6
 
-    def __init__(self, *args, mtu: int = 1500, **kwargs):
+    def __init__(self, *args, mtu = 1500, **kwargs):
         super().__init__(mtu - 48, *args, **kwargs)
 
 module = importlib.import_module(".udp", package=package)

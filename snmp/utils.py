@@ -3,11 +3,6 @@ __all__ = ["subbytes", "typename"]
 import os
 import weakref
 
-from snmp.typing import *
-
-T = TypeVar("T")
-
-@final
 class subbytes:
     """Operate on a slice of a bytes-like object without copying any data.
 
@@ -29,11 +24,7 @@ class subbytes:
         a bytes-like object directly.
     """
 
-    def __init__(self,
-        data: Union[bytes, "subbytes"],
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
-    ) -> None:
+    def __init__(self, data, start = None, stop = None):
         self._data: bytes
         if isinstance(data, subbytes):
             self._data = data.data
@@ -51,22 +42,22 @@ class subbytes:
         self._stop  = newstop
 
     @property
-    def data(self) -> bytes:
+    def data(self):
         return self._data
 
     @property
-    def start(self) -> int:
+    def start(self):
         return self._start
 
     @property
-    def stop(self) -> int:
+    def stop(self):
         return self._stop
 
-    def __bool__(self) -> bool:
+    def __bool__(self):
         """Indicate that the sequence is non-empty."""
         return self.stop > self.start
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         """Compare two sequences of bytes for equality."""
         try:
             # TypeError if other is not Sized
@@ -82,15 +73,7 @@ class subbytes:
 
         return True
 
-    @overload
-    def __getitem__(self, key: int) -> int:
-        ...
-
-    @overload
-    def __getitem__(self, key: slice) -> bytes:
-        ...
-
-    def __getitem__(self, key: Union[int, slice]) -> Union[int, bytes]:
+    def __getitem__(self, key):
         """Retrieve an individual byte or copy a sub-sequence."""
         if isinstance(key, int):
             key = self.translate(key)
@@ -105,12 +88,12 @@ class subbytes:
 
         return self.data[key]
 
-    def __iter__(self) -> Iterator[int]:
+    def __iter__(self):
         """Produce an iterator for this sequence."""
         for index in range(self.start, self.stop):
             yield self.data[index]
 
-    def __len__(self) -> int:
+    def __len__(self):
         """Query the length of the sequence."""
         return self.stop - self.start
 
@@ -128,7 +111,7 @@ class subbytes:
 
         return os.linesep.join(lines)
 
-    def __str__(self) -> str:
+    def __str__(self):
         sections = []
 
         if self.start > 0:
@@ -153,7 +136,7 @@ class subbytes:
         footer = 33 * "=" +  " end subbytes "  + 33 * "="
         return os.linesep.join((header, body, footer))
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         """Provide an eval()-able representation of this object."""
         args = [repr(self.data)]
 
@@ -165,7 +148,7 @@ class subbytes:
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def translate(self, index: int, clamp: bool = False) -> int:
+    def translate(self, index, clamp = False):
         """Convert an index of self into an index of self.data.
 
         This method accepts an integral index of any value and translates it
@@ -203,14 +186,14 @@ class subbytes:
             else:
                 return index
 
-    def dereference(self) -> int:
+    def dereference(self):
         """Retrieve the first byte of the sequence.
 
         If the sequence is empty, an IndexError will be raised.
         """
         return self[0]
 
-    def pop_front(self) -> Tuple[int, "subbytes"]:
+    def pop_front(self):
         """Shortcut for split(1) followed by dereference().
 
         This method returns a tuple containing, first, the int value of the
@@ -222,7 +205,7 @@ class subbytes:
         a, b = self.split(1)
         return a.dereference(), b
 
-    def replace(self, replacement: bytes) -> bytes:
+    def replace(self, replacement):
         """Substitute the given string in place of the current sequence
 
         This method produces a copy of the wrapped object, in which the
@@ -231,7 +214,7 @@ class subbytes:
         """
         return self.data[:self.start] + replacement + self.data[self.stop:]
 
-    def split(self, index: int) -> Tuple["subbytes", "subbytes"]:
+    def split(self, index):
         """Split the sequence at the given index.
 
         Return two new objects, the first referencing the portion of the
@@ -241,7 +224,7 @@ class subbytes:
         """
         return subbytes(self, stop=index), subbytes(self, start=index)
 
-def typename(cls: Any, qualified: bool = False) -> str:
+def typename(cls, qualified = False):
     """Query an object to determine its type.
 
     :param cls:
@@ -258,4 +241,4 @@ def typename(cls: Any, qualified: bool = False) -> str:
     if qualified:
         return ".".join((cls.__module__, cls.__qualname__))
     else:
-        return cast(type, cls).__name__
+        return cls.__name__

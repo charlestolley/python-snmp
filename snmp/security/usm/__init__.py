@@ -1,51 +1,41 @@
 __all__ = ["AuthProtocol", "PrivProtocol", "UserBasedSecurityModule"]
 
 from snmp.exception import *
-from snmp.typing import *
 
 class AuthProtocol:
-    def __init__(self, key: bytes) -> None:
+    def __init__(self, key):
         raise NotImplementedError()
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other):
         return NotImplemented
 
     @classmethod
-    def computeKey(cls, secret: bytes) -> bytes:
+    def computeKey(cls, secret):
         raise NotImplementedError()
 
     @classmethod
-    def localizeKey(cls, key: bytes, engineID: bytes) -> bytes:
+    def localizeKey(cls, key, engineID):
         raise NotImplementedError()
 
     @classmethod
-    def localize(cls, secret: bytes, engineID: bytes) -> bytes:
+    def localize(cls, secret, engineID):
         return cls.localizeKey(cls.computeKey(secret), engineID)
 
     @property
-    def msgAuthenticationParameters(self) -> bytes:
+    def msgAuthenticationParameters(self):
         raise NotImplementedError()
 
-    def sign(self, data: bytes) -> bytes:
+    def sign(self, data):
         raise NotImplementedError()
 
 class PrivProtocol:
-    def __init__(self, key: bytes) -> None:
+    def __init__(self, key):
         raise NotImplementedError()
 
-    def decrypt(self,
-        data: bytes,
-        engineBoots: int,
-        engineTime: int,
-        salt: bytes,
-    ) -> bytes:
+    def decrypt(self, data, engineBoots, engineTime, salt):
         raise NotImplementedError()
 
-    def encrypt(self,
-        data: bytes,
-        engineBoots: int,
-        engineTime: int,
-    ) -> Tuple[bytes, bytes]:
+    def encrypt(self, data, engineBoots, engineTime):
         raise NotImplementedError()
 
 from .implementation import *

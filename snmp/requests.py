@@ -25,7 +25,7 @@ class RequestIDAuthority(NumberAuthority):
             super().__init__(errmsg)
 
     class RequestIDDeallocationFailure(SNMPLibraryBug):
-        def __init__(self, requestID: int):
+        def __init__(self, requestID):
             errmsg = f"Failed to release request ID {requestID}" \
                 " because it is not currently reserved"
             super().__init__(errmsg)

@@ -1,10 +1,9 @@
 __all__ = ["SecurityLevel", "noAuthNoPriv", "authNoPriv", "authPriv"]
 
-from snmp.typing import *
 from snmp.utils import typename
 
 class SecurityLevel:
-    def __init__(self, auth: Any = False, priv: Any = False) -> None:
+    def __init__(self, auth = False, priv = False):
         a = bool(auth)
         p = bool(priv)
 
@@ -14,42 +13,42 @@ class SecurityLevel:
         self._auth = a
         self._priv = p
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return "{}(auth={}, priv={})".format(
             typename(self),
             self.auth,
             self.priv
         )
 
-    def __str__(self) -> str:
+    def __str__(self):
         return "{}{}".format(
             "auth" if self.auth else "noAuth",
             "Priv" if self.priv else "NoPriv"
         )
 
     @property
-    def auth(self) -> bool:
+    def auth(self):
         return self._auth
 
     @property
-    def priv(self) -> bool:
+    def priv(self):
         return self._priv
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         try:
             result = (self.auth == other.auth and self.priv == other.priv)
         except AttributeError:
             return NotImplemented
         else:
-            return cast(bool, result)
+            return result
 
-    def __lt__(self, other: "SecurityLevel") -> bool:
+    def __lt__(self, other):
         if self.auth:
             return other.priv and not self.priv
         else:
             return other.auth
 
-    def __ge__(self, other: "SecurityLevel") -> bool:
+    def __ge__(self, other):
         return not self < other
 
 noAuthNoPriv = SecurityLevel()

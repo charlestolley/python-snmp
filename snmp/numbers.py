@@ -2,9 +2,6 @@ __all__ = ["NumberAuthority", "NumberGenerator"]
 
 from random import randint
 
-from snmp.typing import *
-
-@final
 class NumberGenerator:
     """Generate integers spanning a specific range.
 
@@ -19,7 +16,7 @@ class NumberGenerator:
     inclusive), or unsigned encoding (0 to 2^n-1).
     """
 
-    def __init__(self, n: int, signed: bool = True) -> None:
+    def __init__(self, n, signed = True):
         half = 1 << (n-1)
 
         self.previous = 0
@@ -30,10 +27,10 @@ class NumberGenerator:
         if signed:
             self.wrap -= half
 
-    def __iter__(self) -> Iterator[int]:
+    def __iter__(self):
         return self
 
-    def __next__(self) -> int:
+    def __next__(self):
         """Return the next number in the sequence."""
         self.previous += self.step
 
@@ -48,13 +45,13 @@ class NumberAuthority:
         self.generator = self.newGenerator()
         self.reserved = set()
 
-    def release(self, number: int) -> None:
+    def release(self, number):
         try:
             self.reserved.remove(number)
         except KeyError as err:
             raise self.DeallocationFailure(number) from err
 
-    def reserve(self) -> int:
+    def reserve(self):
         for attempt in range(self.attempts):
             number = next(self.generator)
 

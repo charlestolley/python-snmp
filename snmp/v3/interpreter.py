@@ -4,9 +4,8 @@ import weakref
 
 from snmp.ber import Tag
 from snmp.smi import OID
-from snmp.pdu import AnyPDU, ReportPDU
+from snmp.pdu import ReportPDU
 from snmp.security import SecurityModel
-from snmp.typing import Type
 from snmp.v3.message import ReportMessage
 
 from .message import *
@@ -17,11 +16,11 @@ class SNMPv3Interpreter:
     def __init__(self, usm):
         self.usm = usm
 
-    def decode(self, data: bytes) -> SNMPv3Message:
+    def decode(self, data):
         message = SNMPv3WireMessage.decodeExact(data)
         return self.usm.processIncoming(message)
 
-    def encode(self, message: SNMPv3Message) -> bytes:
+    def encode(self, message):
         return self.usm.prepareOutgoing(message)
 
     def makeReport(self, message, *varbinds):
@@ -44,7 +43,7 @@ class SNMPv3Interpreter:
             message.securityName,
         )
 
-    def pduType(self, message: SNMPv3Message) -> Type[AnyPDU]:
+    def pduType(self, message):
         return type(message.scopedPDU.pdu)
 
 class SNMPv3MessageSorter:

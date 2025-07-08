@@ -7,27 +7,23 @@ import hashlib
 import hmac
 
 from snmp.security.usm import AuthProtocol
-from snmp.typing import *
 from snmp.utils import *
 
 class HmacAuthProtocol(AuthProtocol):
-    ALGORITHM:  ClassVar[Callable[..., "hashlib._Hash"]]
-    N:          ClassVar[int]
-
-    def __init__(self, key: bytes) -> None:
+    def __init__(self, key):
         self.key = key
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other):
         if type(other) != type(self):
             return NotImplemented
 
         return self.key == other.key
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({self.key!r})"
 
     @classmethod
-    def computeKey(cls, secret: bytes) -> bytes:
+    def computeKey(cls, secret):
         repeat, truncate = divmod(1 << 20, len(secret))
 
         context = cls.ALGORITHM()
@@ -38,7 +34,7 @@ class HmacAuthProtocol(AuthProtocol):
         return context.digest()
 
     @classmethod
-    def localizeKey(cls, key: bytes, engineID: bytes) -> bytes:
+    def localizeKey(cls, key, engineID):
         context = cls.ALGORITHM()
         context.update(key)
         context.update(engineID)
@@ -46,10 +42,10 @@ class HmacAuthProtocol(AuthProtocol):
         return context.digest()
 
     @property
-    def msgAuthenticationParameters(self) -> bytes:
+    def msgAuthenticationParameters(self):
         return bytes(self.N)
 
-    def sign(self, data: bytes) -> bytes:
+    def sign(self, data):
         context = hmac.new(self.key, digestmod=self.ALGORITHM)
         context.update(data)
         return context.digest()[:self.N]

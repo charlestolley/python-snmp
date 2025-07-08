@@ -6,7 +6,6 @@ from snmp.asn1 import *
 from snmp.ber import *
 from snmp.exception import *
 from snmp.smi import *
-from snmp.typing import *
 from snmp.utils import *
 
 class BadVersion(IncomingMessageErrorWithPointer):
@@ -20,24 +19,21 @@ class ProtocolVersion(enum.IntEnum):
     # Python 3.11 changes IntEnum.__str__()
     __str__ = enum.Enum.__str__
 
-@final
 class VersionOnlyMessage(Sequence):
-    def __init__(self, version: ProtocolVersion) -> None:
+    def __init__(self, version):
         self.version = version
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield Integer(self.version)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 1
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({str(self.version)})"
 
     @classmethod
-    def deserialize(cls,
-        data: Asn1Data,
-    ) -> "VersionOnlyMessage":
+    def deserialize(cls, data):
         msgVersion, tail = Integer.decode(data)
 
         try:

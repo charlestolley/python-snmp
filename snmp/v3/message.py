@@ -9,7 +9,6 @@ from snmp.ber import *
 from snmp.message import InvalidMessage, ProtocolVersion
 from snmp.pdu import *
 from snmp.smi import *
-from snmp.typing import *
 from snmp.utils import *
 
 from snmp.security import *
@@ -29,40 +28,37 @@ pduTypes = {
 }
 
 class SecurityName:
-    def __init__(self, userName: bytes, *namespaces: str):
+    def __init__(self, userName, *namespaces):
         self.userName = userName
         self.namespaces = set(namespaces)
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other):
         try:
             return (self.userName == other.userName
             and self.namespaces == other.namespaces)
         except AttributeError:
             return NotImplemented
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         args = (repr(self.userName), *map(repr, self.namespaces))
         return f"{typename(self)}({', '.join(args)})"
 
 class MessageFlags(OctetString):
-    AUTH_FLAG: ClassVar[int]        = (1 << 0)
-    PRIV_FLAG: ClassVar[int]        = (1 << 1)
-    REPORTABLE_FLAG: ClassVar[int]  = (1 << 2)
+    AUTH_FLAG        = (1 << 0)
+    PRIV_FLAG        = (1 << 1)
+    REPORTABLE_FLAG  = (1 << 2)
 
-    def __init__(self,
-        securityLevel: SecurityLevel = noAuthNoPriv,
-        reportable: bool = False,
-    ) -> None:
+    def __init__(self, securityLevel = noAuthNoPriv, reportable = False):
         self.securityLevel = securityLevel
         self.reportableFlag = reportable
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({self.securityLevel}, {self.reportableFlag})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
 
@@ -73,7 +69,7 @@ class MessageFlags(OctetString):
         ))
 
     @classmethod
-    def construct(cls, data: Union[bytes, subbytes]) -> "MessageFlags":
+    def construct(cls, data):
         try:
             byte = data[0]
         except IndexError as err:
@@ -93,7 +89,7 @@ class MessageFlags(OctetString):
         return cls(securityLevel, reportable)
 
     @property
-    def data(self) -> bytes:
+    def data(self):
         byte = 0
 
         if self.authFlag:
@@ -108,20 +104,15 @@ class MessageFlags(OctetString):
         return bytes((byte,))
 
     @property
-    def authFlag(self) -> bool:
+    def authFlag(self):
         return self.securityLevel.auth
 
     @property
-    def privFlag(self) -> bool:
+    def privFlag(self):
         return self.securityLevel.priv
 
 class HeaderData(Sequence):
-    def __init__(self,
-        msgID: int,
-        maxSize: int,
-        flags: MessageFlags,
-        securityModel: SecurityModel,
-    ) -> None:
+    def __init__(self, msgID, maxSize, flags, securityModel):
         if msgID < 0:
             raise ValueError(f"Message ID may not be negative: {msgID}")
 
@@ -134,27 +125,27 @@ class HeaderData(Sequence):
         self.securityModel = securityModel
 
     @property
-    def id(self) -> int:
+    def id(self):
         return self.msgID
 
     @property
-    def msgID(self) -> int:
+    def msgID(self):
         return self._msgID.value
 
     @property
-    def maxSize(self) -> int:
+    def maxSize(self):
         return self._maxSize.value
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield self._msgID
         yield self._maxSize
         yield self.flags
         yield Integer(self.securityModel)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 4
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         args = (
             str(self.id),
             str(self.maxSize),
@@ -164,10 +155,10 @@ class HeaderData(Sequence):
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
         securityModel = self.securityModel
@@ -180,7 +171,7 @@ class HeaderData(Sequence):
             f"{subindent}Security Model: {securityModel.name}"
         ))
 
-    def withMessageID(self, messageID) -> "HeaderData":
+    def withMessageID(self, messageID):
         return HeaderData(
             messageID,
             self.maxSize,
@@ -189,7 +180,7 @@ class HeaderData(Sequence):
         )
 
     @classmethod
-    def deserialize(cls, data: Union[bytes, subbytes]) -> "HeaderData":
+    def deserialize(cls, data):
         msgID, msdata = Integer.decode(data)
 
         if msgID.value < 0:
@@ -221,32 +212,28 @@ class HeaderData(Sequence):
             raise ASN1.DeserializeError(err.args[0]) from err
 
 class ScopedPDU(Sequence):
-    def __init__(self,
-        pdu: AnyPDU,
-        contextEngineID: bytes,
-        contextName: bytes = b"",
-    ) -> None:
+    def __init__(self, pdu, contextEngineID, contextName = b""):
         self._contextEngineID = OctetString(contextEngineID)
         self._contextName = OctetString(contextName)
         self.pdu = pdu
 
     @property
-    def contextEngineID(self) -> bytes:
+    def contextEngineID(self):
         return self._contextEngineID.data
 
     @property
-    def contextName(self) -> bytes:
+    def contextName(self):
         return self._contextName.data
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield self._contextEngineID
         yield self._contextName
         yield self.pdu
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 3
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         args = (
             repr(self.pdu),
             repr(self.contextEngineID),
@@ -255,10 +242,10 @@ class ScopedPDU(Sequence):
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
@@ -268,11 +255,11 @@ class ScopedPDU(Sequence):
             f"{self.pdu.toString(depth=depth+1, tab=tab)}"
         ))
 
-    def withContextEngineID(self, engineID: bytes) -> "ScopedPDU":
+    def withContextEngineID(self, engineID):
         return ScopedPDU(self.pdu, engineID, self.contextName)
 
     @classmethod
-    def deserialize(cls, data: Union[bytes, subbytes]) -> "ScopedPDU":
+    def deserialize(cls, data):
         contextEngineID, data   = OctetString.decode(data)
         contextName, data       = OctetString.decode(data)
         tag, _                  = Tag.decode(data)
@@ -290,18 +277,13 @@ class ScopedPDU(Sequence):
         )
 
 class SNMPv3Message:
-    def __init__(self,
-        header: HeaderData,
-        scopedPDU: ScopedPDU,
-        securityEngineID: bytes,
-        securityName: SecurityName,
-    ) -> None:
+    def __init__(self, header, scopedPDU, securityEngineID, securityName):
         self.header = header
         self.scopedPDU = scopedPDU
         self.securityEngineID = securityEngineID
         self.securityName = securityName
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         try:
             return (self.header == other.header
                 and self.scopedPDU == other.scopedPDU
@@ -311,7 +293,7 @@ class SNMPv3Message:
         except AttributeError:
             return NotImplemented
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         args = (repr(field) for field in (
             self.header,
             self.scopedPDU,
@@ -321,10 +303,10 @@ class SNMPv3Message:
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
 
@@ -336,7 +318,7 @@ class SNMPv3Message:
             self.scopedPDU.toString(depth+1, tab),
         ))
 
-    def withEngineID(self, engineID) -> "SNMPv3Message":
+    def withEngineID(self, engineID):
         return SNMPv3Message(
             self.header,
             self.scopedPDU.withContextEngineID(engineID),
@@ -344,7 +326,7 @@ class SNMPv3Message:
             self.securityName,
         )
 
-    def withMessageID(self, messageID) -> "SNMPv3Message":
+    def withMessageID(self, messageID):
         return SNMPv3Message(
             self.header.withMessageID(messageID),
             self.scopedPDU,
@@ -355,11 +337,7 @@ class SNMPv3Message:
 class SNMPv3WireMessage(Sequence):
     VERSION = ProtocolVersion.SNMPv3
 
-    def __init__(self,
-        header: HeaderData,
-        scopedPduData: Union[ScopedPDU, OctetString],
-        securityParameters: OctetString,
-    ) -> None:
+    def __init__(self, header, scopedPduData, securityParameters):
         if header.flags.privFlag:
             if not isinstance(scopedPduData, OctetString):
                 raise TypeError(
@@ -377,16 +355,16 @@ class SNMPv3WireMessage(Sequence):
         self.scopedPduData = scopedPduData
         self.securityParameters = securityParameters
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield Integer(self.VERSION)
         yield self.header
         yield self.securityParameters
         yield self.scopedPduData
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 4;
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         args = (repr(field) for field in (
             self.header,
             self.scopedPduData,
@@ -395,10 +373,10 @@ class SNMPv3WireMessage(Sequence):
 
         return f"{typename(self)}({', '.join(args)})"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
 
@@ -415,7 +393,7 @@ class SNMPv3WireMessage(Sequence):
         ))
 
     @classmethod
-    def deserialize(cls, data: Union[bytes, subbytes]) -> "SNMPv3WireMessage":
+    def deserialize(cls, data):
         msgVersion, ptr = Integer.decode(data)
 
         try:
@@ -439,7 +417,7 @@ class SNMPv3WireMessage(Sequence):
         return cls(msgGlobalData, scopedPduData, msgSecurityData)
 
     @classmethod
-    def findSecurityParameters(self, wholeMsg: bytes) -> subbytes:
+    def findSecurityParameters(self, wholeMsg):
         tag, ptr, tail      = decode(wholeMsg)
         tag, version, ptr   = decode(ptr)
         tag, header, ptr    = decode(ptr)
@@ -447,7 +425,7 @@ class SNMPv3WireMessage(Sequence):
         return ptr
 
     @staticmethod
-    def decodePlaintext(data: Union[bytes, subbytes]) -> ScopedPDU:
+    def decodePlaintext(data):
         scopedPDU, padding = ScopedPDU.decode(data)
         return scopedPDU
 

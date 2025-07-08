@@ -5,22 +5,20 @@ import os
 import select
 
 from snmp.transport import *
-from snmp.transport.udp import UdpListener, UdpSocket
-from snmp.typing import *
 
-class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
-    def __init__(self) -> None:
+class PosixUdpMultiplexor(TransportMultiplexor):
+    def __init__(self):
         self.r, self.w = os.pipe()
-        self.sockets: Dict[int, Tuple[UdpSocket, UdpListener]] = {}
+        self.sockets = {}
 
         self.poller = select.poll()
         self.poller.register(self.r, select.POLLIN)
 
-    def register(self, sock: UdpSocket, listener: UdpListener) -> None:
+    def register(self, sock, listener):
         self.sockets[sock.fileno] = sock, listener
         self.poller.register(sock.fileno, select.POLLIN)
 
-    def poll(self, timeout: Optional[float] = None) -> bool:
+    def poll(self, timeout = None):
         msecs = math.ceil(timeout * 1000) if timeout is not None else None
 
         interrupted = False
@@ -39,10 +37,10 @@ class PosixUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
 
         return interrupted
 
-    def stop(self) -> None:
+    def stop(self):
         os.write(self.w, bytes(1))
 
-    def close(self) -> None:
+    def close(self):
         for sock, _ in self.sockets.values():
             sock.close()
 

@@ -1,37 +1,29 @@
 __all__ = ["Message"]
 
 from snmp.asn1 import ASN1
-from snmp.ber import Asn1Data, ParseError, Tag
-from snmp.pdu import AnyPDU
+from snmp.ber import ParseError, Tag
 from snmp.smi import *
-from snmp.typing import *
 from snmp.utils import *
 
 from .version import *
 
-TMessage = TypeVar("TMessage", bound="Message")
-
 class Message(Sequence):
     VERSIONS = (ProtocolVersion.SNMPv1, ProtocolVersion.SNMPv2c)
 
-    def __init__(self,
-        version: ProtocolVersion,
-        community: bytes,
-        pdu: AnyPDU,
-    ) -> None:
+    def __init__(self, version, community, pdu):
         self.version = version
         self.community = community
         self.pdu = pdu
 
-    def __iter__(self) -> Iterator[ASN1]:
+    def __iter__(self):
         yield Integer(self.version)
         yield OctetString(self.community)
         yield self.pdu
 
-    def __len__(self) -> int:
+    def __len__(self):
         return 3
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return "{}({}, {!r}, {})".format(
             typename(self),
             str(self.version),
@@ -39,10 +31,10 @@ class Message(Sequence):
             repr(self.pdu),
         )
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.toString()
 
-    def toString(self, depth: int = 0, tab: str = "    ") -> str:
+    def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
         return "\n".join((
@@ -52,14 +44,8 @@ class Message(Sequence):
         ))
 
     @classmethod
-    def deserialize(cls: Type[TMessage],
-        data: Asn1Data,
-        types: Optional[Mapping[Tag, Type[AnyPDU]]] = None,
-    ) -> TMessage:
-        msgVersion, ptr = cast(
-            Tuple[Integer, subbytes],
-            Integer.decode(data),
-        )
+    def deserialize(cls, data, types = None):
+        msgVersion, ptr = Integer.decode(data)
 
         try:
             version = ProtocolVersion(msgVersion.value)

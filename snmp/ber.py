@@ -1,20 +1,15 @@
-__all__ = ["Asn1Data", "ParseError", "Tag", "decode", "decodeExact", "encode"]
+__all__ = ["ParseError", "Tag", "decode", "decodeExact", "encode"]
 
 from enum import IntEnum
 
 from snmp.exception import *
-from snmp.typing import *
 from snmp.utils import *
-
-Asn1Data = Union[bytes, subbytes]
 
 class ParseError(IncomingMessageErrorWithPointer):
     pass
 
-@final
 class Tag:
     """Represents an ASN.1 BER tag."""
-    @final
     class Class(IntEnum):
         """Named constants for the class bits of an ASN.1 BER tag."""
         UNIVERSAL         = 0
@@ -22,16 +17,12 @@ class Tag:
         CONTEXT_SPECIFIC  = 2
         PRIVATE           = 3
 
-    def __init__(self,
-        number: int,
-        constructed: bool = False,
-        cls: Class = Class.UNIVERSAL,
-    ) -> None:
+    def __init__(self, number, constructed = False, cls = Class.UNIVERSAL):
         self.cls = cls
         self.constructed = constructed
         self.number = number
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         if other.__class__ != self.__class__:
             return NotImplemented
 
@@ -41,14 +32,14 @@ class Tag:
         and self.number == other.number
         )
 
-    def __hash__(self) -> int:
+    def __hash__(self):
         return hash((self.cls, self.constructed, self.number))
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"Tag({self.number}, {self.constructed}, {self.cls})"
 
     @classmethod
-    def decode(cls, data: subbytes) -> Tuple["Tag", subbytes]:
+    def decode(cls, data):
         """Extract the tag from an ASN.1 BER string.
 
         This function decodes the tag portion of a BER string an returns it as
@@ -78,7 +69,7 @@ class Tag:
 
         return cls(number, constructed, cls.Class(class_)), ptr
 
-    def encode(self) -> bytes:
+    def encode(self):
         """Encode a Tag under ASN.1 Basic Encoding Rules."""
         byte = (self.cls << 6) & 0xc0
 
@@ -101,7 +92,7 @@ class Tag:
         arr.append(byte)
         return bytes(reversed(arr))
 
-def decode_length(data: subbytes) -> Tuple[int, subbytes]:
+def decode_length(data):
     """Decode the length field of an ASN.1 BER string.
 
     The provided data argument should contain most of a BER string, starting
@@ -129,7 +120,7 @@ def decode_length(data: subbytes) -> Tuple[int, subbytes]:
 
     return length, ptr
 
-def encode_length(length: int) -> bytes:
+def encode_length(length):
     """Encode the length of a message under ASN.1 Basic Encoding Rules."""
     if length < 0x80:
         return bytes([length])
@@ -145,7 +136,7 @@ def encode_length(length: int) -> bytes:
     arr.append(0x80 | len(arr))
     return bytes(reversed(arr))
 
-def decode(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
+def decode(data):
     original = subbytes(data)
     tag, ptr = Tag.decode(original)
     length, ptr = decode_length(ptr)
@@ -156,7 +147,7 @@ def decode(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes, subbytes]:
     body, tail = ptr.split(length)
     return tag, body, tail
 
-def decodeExact(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes]:
+def decodeExact(data):
     tag, body, tail = decode(data)
 
     if tail:
@@ -164,6 +155,6 @@ def decodeExact(data: Union[bytes, subbytes]) -> Tuple[Tag, subbytes]:
 
     return tag, body
 
-def encode(tag: Tag, data: bytes) -> bytes:
+def encode(tag, data):
     """Encode a message under ASN.1 Basic Encoding Rules."""
     return tag.encode() + encode_length(len(data)) + data

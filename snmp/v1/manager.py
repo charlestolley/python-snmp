@@ -8,7 +8,6 @@ from snmp.pdu import *
 from snmp.scheduler import *
 from snmp.smi import *
 from snmp.transport import *
-from snmp.typing import *
 from snmp.utils import *
 
 class SNMPv1Manager:
@@ -45,24 +44,15 @@ class SNMPv1Manager:
         else:
             return handle
 
-    def get(self, *oids: Union[str, OID], **kwargs):
+    def get(self, *oids, **kwargs):
         pdu = GetRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
-    def getNext(self, *oids: Union[str, OID], **kwargs):
+    def getNext(self, *oids, **kwargs):
         pdu = GetNextRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
-    def set(self,
-        *varbinds: Union[
-            Tuple[
-                Union[str, OID],
-                Optional[ASN1],
-            ],
-            VarBind,
-        ],
-        **kwargs: Any,
-    ):
+    def set(self, *varbinds, **kwargs):
         vbList = (VarBind(*varbind) for varbind in varbinds)
         pdu = SetRequestPDU(*vbList)
         return self.sendRequest(pdu, **kwargs)

@@ -2,39 +2,33 @@ __all__ = ["AES_128_CFB128", "DES_CBC", "Decryptor", "Encryptor"]
 
 from snmp.cffi import *
 from snmp.openssl import *
-from snmp.typing import *
 
 class Cipher:
-    def __init__(self,
-        cipher: Callable[[], "Pointer[EVP_CIPHER]"],
-        blocklen: int,
-    ) -> None:
+    def __init__(self, cipher, blocklen):
         self.BLOCKLEN = blocklen
         self.cipher = cipher
 
-    def __call__(self) -> "Pointer[EVP_CIPHER]":
+    def __call__(self):
         return self.cipher()
 
 AES_128_CFB128 = Cipher(lib.EVP_aes_128_cfb128, 16)
 DES_CBC = Cipher(lib.EVP_des_cbc, 8)
 
 class EnvelopeContext:
-    def __init__(self) -> None:
+    def __init__(self):
         self.ctx = lib.EVP_CIPHER_CTX_new()
 
         if self.ctx == ffi.NULL:
             raise RuntimeError("Failed to allocate EVP_CIPHER_CTX")
 
-    def __enter__(self) -> "Pointer[EVP_CIPHER_CTX]":
+    def __enter__(self):
         return self.ctx
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args):
         lib.EVP_CIPHER_CTX_free(self.ctx)
 
 class Envelope:
-    ENCRYPT: ClassVar[bool]
-
-    def __init__(self, cipher: Cipher) -> None:
+    def __init__(self, cipher):
         self.cipher = cipher
 
         if self.ENCRYPT:
@@ -45,14 +39,11 @@ class Envelope:
             self.update = lib.EVP_DecryptUpdate
 
     @staticmethod
-    def allocateOutputBuffer(
-        datalen: int,
-        blocklen: int,
-    ) -> "UnsignedCharArray":
+    def allocateOutputBuffer(datalen, blocklen):
         length = datalen + blocklen - (datalen % blocklen)
         return ffi.new(f"unsigned char[]", length)
 
-    def process(self, data: bytes, key: bytes, iv: bytes) -> bytes:
+    def process(self, data, key, iv):
         with EnvelopeContext() as ctx:
             if not self.init(ctx, self.cipher(), key, iv):
                 raise RuntimeError("Failed to initialize cipher context")

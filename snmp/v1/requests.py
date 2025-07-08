@@ -7,15 +7,14 @@ from snmp.message import *
 from snmp.pdu import *
 from snmp.requests import *
 from snmp.scheduler import *
-from snmp.typing import *
 
 pduTypes = {
-    cls.TAG: cls for cls in cast(Tuple[Type[PDU], ...], (
+    cls.TAG: cls for cls in (
         GetRequestPDU,
         GetNextRequestPDU,
         ResponsePDU,
         SetRequestPDU,
-    ))
+    )
 }
 
 class SNMPv1RequestHandle:

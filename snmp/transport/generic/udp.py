@@ -4,14 +4,12 @@ import select
 import socket
 
 from snmp.transport import *
-from snmp.transport.udp import UdpListener, UdpSocket
-from snmp.typing import *
 
 STOPMSG = bytes(1)
 
-class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
-    def __init__(self) -> None:
-        self.sockets: Dict[int, Tuple[UdpSocket, UdpListener]] = {}
+class GenericUdpMultiplexor(TransportMultiplexor):
+    def __init__(self):
+        self.sockets = {}
 
         domain = TransportDomain.UDP_IPv4
         self.r = socket.socket(domain.address_family, socket.SOCK_DGRAM)
@@ -23,11 +21,11 @@ class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
 
         self.readfds = [self.r.fileno()]
 
-    def register(self, sock: UdpSocket, listener: UdpListener) -> None:
+    def register(self, sock, listener):
         self.readfds.append(sock.fileno)
         self.sockets[sock.fileno] = sock, listener
 
-    def poll(self, timeout: Optional[float] = None) -> bool:
+    def poll(self, timeout = None):
         interrupted = False
 
         if self.readfds:
@@ -46,11 +44,11 @@ class GenericUdpMultiplexor(TransportMultiplexor[Tuple[str, int]]):
 
         return interrupted
 
-    def stop(self) -> None:
+    def stop(self):
         if self.w is not None:
             self.w.sendto(STOPMSG, self.r.getsockname())
 
-    def close(self) -> None:
+    def close(self):
         for sock, _ in self.sockets.values():
             sock.close()
 

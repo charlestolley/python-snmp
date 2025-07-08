@@ -40,7 +40,7 @@ class SNMPv3RequestHandle:
             self.onDeactivate()
 
     @property
-    def requestID(self) -> int:
+    def requestID(self):
         return self.pdu.requestID
 
     def addCallback(self, callback):

@@ -8,7 +8,6 @@ from snmp.exception import *
 from snmp.security.levels import *
 from snmp.security.usm.parameters import UnsignedUsmParameters
 from snmp.smi import OctetString
-from snmp.typing import *
 from snmp.utils import *
 from snmp.v3.message import *
 
@@ -25,40 +24,31 @@ class WrongSignatureLength(InvalidSignature):
     pass
 
 class LocalizedCredentials:
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         if type(self) == type(other):
             return True
         else:
             return NotImplemented
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}()"
 
-    def withoutPrivacy(self) -> "LocalizedCredentials":
+    def withoutPrivacy(self):
         return self
 
-    def sign(self, message: SNMPv3WireMessage) -> bytes:
+    def sign(self, message):
         raise AuthenticationNotEnabled()
 
-    def signaturePlaceholder(self) -> bytes:
+    def signaturePlaceholder(self):
         raise AuthenticationNotEnabled()
 
-    def verifySignature(self, signature: subbytes) -> None:
+    def verifySignature(self, signature):
         raise AuthenticationNotEnabled()
 
-    def decrypt(self,
-        encryptedPDU: OctetString,
-        msgBoots: int,
-        msgTime: int,
-        salt: bytes,
-    ) -> ScopedPDU:
+    def decrypt(self, encryptedPDU, msgBoots, msgTime, salt):
         raise PrivacyNotEnabled()
 
-    def encrypt(self,
-        scopedPDU: ScopedPDU,
-        snmpEngineBoots: int,
-        snmpEngineTime: int,
-    ) -> Tuple[OctetString, bytes]:
+    def encrypt(self, scopedPDU, snmpEngineBoots, snmpEngineTime):
         raise PrivacyNotEnabled()
 
 class LocalizedAuthCredentials(LocalizedCredentials):
@@ -66,27 +56,27 @@ class LocalizedAuthCredentials(LocalizedCredentials):
         super().__init__()
         self.auth = auth
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         result = super().__eq__(other)
         if result is True:
             return self.auth == other.auth
         else:
             return result
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({self.auth!r})"
 
-    def sign(self, message: SNMPv3WireMessage) -> bytes:
+    def sign(self, message):
         wholeMsg = message.encode()
         ptr = message.findSecurityParameters(wholeMsg)
         padding = UnsignedUsmParameters.findPadding(ptr)
         signature = self.auth.sign(wholeMsg)
         return padding.replace(signature)
 
-    def signaturePlaceholder(self) -> bytes:
+    def signaturePlaceholder(self):
         return self.auth.msgAuthenticationParameters
 
-    def verifySignature(self, signature: subbytes):
+    def verifySignature(self, signature):
         padding = self.signaturePlaceholder()
 
         if len(signature) != len(padding):
@@ -103,34 +93,25 @@ class LocalizedAuthPrivCredentials(LocalizedAuthCredentials):
         super().__init__(auth)
         self.priv = priv
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         result = super().__eq__(other)
         if result is True:
             return self.priv == other.priv
         else:
             return result
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"{typename(self)}({self.auth!r}, {self.priv!r})"
 
-    def withoutPrivacy(self) -> LocalizedCredentials:
+    def withoutPrivacy(self):
         return LocalizedAuthCredentials(self.auth)
 
-    def decrypt(self,
-        encryptedPDU: OctetString,
-        msgBoots: int,
-        msgTime: int,
-        salt: bytes,
-    ) -> ScopedPDU:
+    def decrypt(self, encryptedPDU, msgBoots, msgTime, salt):
         ciphertext = encryptedPDU.data
         plaintext = self.priv.decrypt(ciphertext, msgBoots, msgTime, salt)
         return SNMPv3WireMessage.decodePlaintext(plaintext)
 
-    def encrypt(self,
-        scopedPDU: ScopedPDU,
-        snmpEngineBoots: int,
-        snmpEngineTime: int,
-    ) -> Tuple[OctetString, bytes]:
+    def encrypt(self, scopedPDU, snmpEngineBoots, snmpEngineTime):
         ciphertext, salt = self.priv.encrypt(
             scopedPDU.encode(),
             snmpEngineBoots,
@@ -143,11 +124,11 @@ class Credentials:
     def __init__(self):
         self.maxSecurityLevel = noAuthNoPriv
 
-    def localize(self, engineID: bytes) -> LocalizedCredentials:
+    def localize(self, engineID):
         return LocalizedCredentials()
 
 class AuthCredentials(Credentials):
-    def __init__(self, authProtocol, authSecret: bytes):
+    def __init__(self, authProtocol, authSecret):
         super().__init__()
         self.maxSecurityLevel = authNoPriv
         self.authProtocol = authProtocol
@@ -157,16 +138,16 @@ class AuthCredentials(Credentials):
         key = self.authProtocol.localizeKey(self.authKey, engineID)
         return self.authProtocol(key)
 
-    def localize(self, engineID) -> LocalizedCredentials:
+    def localize(self, engineID):
         return LocalizedAuthCredentials(self.localizeAuth(engineID))
 
 class AuthPrivCredentials(AuthCredentials):
     def __init__(self,
         authProtocol,
         privProtocol,
-        authSecret: Optional[bytes] = None,
-        privSecret: Optional[bytes] = None,
-        secret: Optional[bytes] = None,
+        authSecret = None,
+        privSecret = None,
+        secret = None,
     ):
         if secret is None:
             if authSecret is None:
@@ -194,7 +175,7 @@ class AuthPrivCredentials(AuthCredentials):
         key = self.authProtocol.localizeKey(self.privKey, engineID)
         return self.privProtocol(key)
 
-    def localize(self, engineID: bytes) -> LocalizedCredentials:
+    def localize(self, engineID):
         auth = self.localizeAuth(engineID)
         priv = self.localizePriv(engineID)
         return LocalizedAuthPrivCredentials(auth, priv)
