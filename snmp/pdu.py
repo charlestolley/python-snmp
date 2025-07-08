@@ -6,10 +6,12 @@ __all__ = [
     "SetRequestPDU",
     "ResponsePDU", "ReportPDU",
     "InformRequestPDU", "SNMPv2TrapPDU",
-    "ErrorStatus", "ErrorResponse",
+    "ErrorStatus", "ErrorResponse", "NoSuchName",
 ]
 
 import enum
+
+from os import linesep
 
 from snmp.asn1 import *
 from snmp.ber import *
@@ -508,17 +510,18 @@ class ErrorResponse(SNMPException):
         request: "AnyPDU",
     ) -> None:
         self.status = status
-        self.cause: Union[AnyPDU, OID, int]
+        self.index = min(index, len(request.variableBindings))
+        self.variableBindings = request.variableBindings
 
-        details = ""
-        if index == 0:
-            self.cause = request
+        if self.index == 0:
+            self.oid = None
+            details = f"{linesep}{request}"
         else:
-            try:
-                self.cause = request.variableBindings[index-1].name
-            except IndexError:
-                self.cause = index
-            else:
-                details = f": {self.cause}"
+            self.oid = self.variableBindings[self.index-1].name
+            details = f" {self.oid}"
 
-        super().__init__(f"{status.name}{details}")
+        super().__init__(f"{status.name}:{details}")
+
+class NoSuchName(ErrorResponse):
+    def __init__(self, index, request):
+        super().__init__(ErrorStatus.noSuchName, index, request)

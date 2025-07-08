@@ -2115,11 +2115,11 @@ class SNMPv3Manager3Test(unittest.TestCase):
         try:
             handle.wait()
         except ErrorResponse as err:
-            self.assertEqual(err.cause, OID(1,2,3,4,5,6))
+            self.assertEqual(err.oid, OID(1,2,3,4,5,6))
         else:
             self.assertTrue(False)
 
-    def test_ErrorResponse_cause_is_request_pdu_if_errorIndex_is_zero(self):
+    def test_ErrorResponse_oid_is_None_if_errorIndex_is_zero(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
         handle = manager.get("1.2.3.4.5.6")
@@ -2136,11 +2136,11 @@ class SNMPv3Manager3Test(unittest.TestCase):
         try:
             handle.wait()
         except ErrorResponse as err:
-            self.assertEqual(err.cause, message.scopedPDU.pdu)
+            self.assertEqual(err.oid, None)
         else:
             self.assertTrue(False)
 
-    def test_ErrorResponse_cause_is_errorIndex_if_out_of_range(self):
+    def test_ErrorResponse_request_attribute_returns_the_request_pdu(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
         handle = manager.get("1.2.3.4.5.6")
@@ -2150,14 +2150,15 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.respond(
             message,
             message.scopedPDU.pdu.variableBindings[0],
-            errorStatus=ErrorStatus.noAccess,
-            errorIndex=2,
+            errorStatus=ErrorStatus.tooBig,
+            errorIndex=0,
+            requestID=handle.requestID,
         )
 
         try:
             handle.wait()
         except ErrorResponse as err:
-            self.assertEqual(err.cause, 2)
+            self.assertEqual(err.variableBindings, VarBindList("1.2.3.4.5.6"))
         else:
             self.assertTrue(False)
 

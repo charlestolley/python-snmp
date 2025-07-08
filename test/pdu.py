@@ -1,8 +1,8 @@
 __all__ = [
     "NoSuchObjectTest", "NoSuchInstanceTest", "EndOfMibViewTest",
     "VarBindTest", "VarBindListTest",
-    "BulkPDUTest", "PDUTest",
-    "PDUClassesTest", "VarBindTest", "ErrorResponseTest",
+    "BulkPDUTest", "PDUTest", "ResponsePduTest",
+    "PDUClassesTest", "VarBindTest",
 ]
 
 import re
@@ -538,32 +538,6 @@ class PDUClassesTest(unittest.TestCase):
         self.assertTrue (InformRequestPDU().    CONFIRMED_CLASS)
         self.assertFalse(SNMPv2TrapPDU().       CONFIRMED_CLASS)
         self.assertFalse(ReportPDU().           CONFIRMED_CLASS)
-
-class ErrorResponseTest(unittest.TestCase):
-    def setUp(self):
-        self.request = GetRequestPDU("1.3.6.1.2.1.1.1")
-        self.status = ErrorStatus.noSuchName
-        self.index = 1
-
-    def test_status_attribute_reflects_status_constructor_argument(self):
-        error = ErrorResponse(self.status, self.index, self.request)
-        self.assertEqual(error.status, self.status)
-
-    def test_cause_contains_request_if_index_is_0(self):
-        error = ErrorResponse(self.status, 0, self.request)
-        self.assertEqual(error.cause, self.request)
-
-    def test_cause_contains_offending_oid_if_index_is_valid_nonzero(self):
-        error = ErrorResponse(self.status, self.index, self.request)
-        self.assertEqual(
-            error.cause,
-            OID.parse("1.3.6.1.2.1.1.1"),
-        )
-
-    def test_cause_contains_index_if_index_is_invalid(self):
-        for index in (len(self.request.variableBindings) + 1, -1):
-            error = ErrorResponse(self.status, index, self.request)
-            self.assertEqual(error.cause, index)
 
 if __name__ == '__main__':
     unittest.main()
