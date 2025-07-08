@@ -1,11 +1,10 @@
-__all__ = ["NumberGenerator", "subbytes", "typename"]
+__all__ = ["subbytes", "typename"]
 
 from os import linesep
 from random import randint
 import weakref
 
 from snmp.typing import *
-from snmp.numbers import NumberGenerator
 
 T = TypeVar("T")
 

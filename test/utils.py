@@ -1,64 +1,8 @@
-__all__ = ["NumberGeneratorTest", "SubbytesTest", "TypenameTest"]
+__all__ = ["SubbytesTest", "TypenameTest"]
 
 import unittest
 
 from snmp.utils import *
-
-class NumberGeneratorTest(unittest.TestCase):
-    def setUp(self):
-        self.n = 4
-
-    def test_length_2_to_the_n_where_each_integer_appears_exactly_once(self):
-        generator = NumberGenerator(self.n)
-        length = 2 ** self.n
-
-        generated = set()
-        for i in range(length):
-            generated.add(next(generator))
-
-        self.assertEqual(len(generated), length)
-
-    def test_the_last_number_in_the_sequence_is_always_zero(self):
-        generator = NumberGenerator(self.n)
-        length = 2 ** self.n
-
-        for i in range(length - 1):
-            _ = next(generator)
-
-        self.assertEqual(next(generator), 0)
-
-    def test_the_sequence_repeats_from_the_beginning(self):
-        generator = NumberGenerator(self.n)
-        length = 2 ** self.n
-
-        a = [next(generator) for i in range(length)]
-        b = [next(generator) for i in range(length)]
-
-        self.assertEqual(a, b)
-
-    def test_generated_numbers_should_use_twos_complement_encoding(self):
-        generator = NumberGenerator(self.n, signed=True)
-        length = 2 ** self.n
-
-        upper = length // 2
-        lower = -upper
-
-        for i in range(length):
-            n = next(generator)
-            self.assertGreaterEqual(n, lower)
-            self.assertLess(n, upper)
-
-    def test_generated_numbers_should_use_unsigned_encoding(self):
-        generator = NumberGenerator(self.n, signed=False)
-        length = 2 ** self.n
-
-        upper = length
-        lower = 0
-
-        for i in range(length):
-            n = next(generator)
-            self.assertGreaterEqual(n, lower)
-            self.assertLess(n, upper)
 
 class SubbytesTest(unittest.TestCase):
     def setUp(self):
