@@ -1,7 +1,6 @@
 __all__ = [
     "NoSuchObject", "NoSuchInstance", "EndOfMibView",
     "VarBind", "VarBindList",
-    "PDU", "BulkPDU",
     "GetRequestPDU", "GetNextRequestPDU", "GetBulkRequestPDU",
     "SetRequestPDU",
     "ResponsePDU", "ReportPDU",
@@ -12,11 +11,11 @@ __all__ = [
 import enum
 import os
 
-from snmp.asn1 import *
+from snmp.asn1 import Constructed
 from snmp.ber import *
 from snmp.exception import *
 from snmp.smi import *
-from snmp.utils import subbytes, typename
+from snmp.utils import typename
 
 class NoSuchObject(Null):
     TAG = Tag(0, cls = Tag.Class.CONTEXT_SPECIFIC)

@@ -1,7 +1,4 @@
-__all__ = [
-    "ASN1", "Constructed", "Primitive",
-    "INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE",
-]
+__all__ = ["INTEGER", "OCTET_STRING", "NULL", "OBJECT_IDENTIFIER", "SEQUENCE"]
 
 from snmp.ber import *
 from snmp.exception import *

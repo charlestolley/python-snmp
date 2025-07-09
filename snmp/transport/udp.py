@@ -1,6 +1,6 @@
 __all__ = ["UdpIPv4Socket", "UdpIPv6Socket", "UdpMultiplexor"]
 
-import importlib
+from importlib import import_module
 from socket import *
 
 from snmp.transport import *
@@ -85,5 +85,5 @@ class UdpIPv6Socket(UdpSocket):
     def __init__(self, host = "", port = 0, mtu = 1500):
         super().__init__(host, port, mtu - 48)
 
-module = importlib.import_module(".udp", package=package)
+module = import_module(".udp", package=package)
 UdpMultiplexor = module.UdpMultiplexor

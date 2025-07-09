@@ -1,6 +1,5 @@
 __all__ = ["Message"]
 
-from snmp.asn1 import ASN1
 from snmp.ber import ParseError, Tag
 from snmp.smi import *
 from snmp.utils import *

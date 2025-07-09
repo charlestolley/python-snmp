@@ -8,7 +8,6 @@ from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.models import *
 from snmp.smi import *
-from snmp.utils import *
 from snmp.v3.message import *
 
 from .credentials import *

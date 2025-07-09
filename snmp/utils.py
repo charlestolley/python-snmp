@@ -1,7 +1,6 @@
 __all__ = ["subbytes", "typename"]
 
 import os
-import weakref
 
 class subbytes:
     """Operate on a slice of a bytes-like object without copying any data.

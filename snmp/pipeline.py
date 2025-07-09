@@ -2,7 +2,6 @@ __all__ = ["Catcher", "VersionDecoder"]
 
 import logging
 import os
-import random
 import re
 import weakref
 

@@ -3,24 +3,23 @@ __all__ = [
     "TransportDomain", "TransportListener", "TransportMultiplexor"
 ]
 
+import enum
 import os
+import socket
 
-from enum import Enum
-from socket import AF_INET, AF_INET6, AddressFamily
-
-AddressUsage = Enum(
+AddressUsage = enum.Enum(
     "AddressUsage",
     ["LISTENER", "TRAP_LISTENER", "SENDER"]
 )
 
-class TransportDomain(Enum):
+class TransportDomain(enum.Enum):
     def __init__(self, family, loopback, default):
         self.address_family = family
         self.loopback_address = loopback
         self.default_address = default
 
-    UDP_IPv4 = AF_INET, "127.0.0.1", "0.0.0.0"
-    UDP_IPv6 = AF_INET6, "::1", "::"
+    UDP_IPv4 = socket.AF_INET, "127.0.0.1", "0.0.0.0"
+    UDP_IPv6 = socket.AF_INET6, "::1", "::"
 
 class Transport:
     @classmethod

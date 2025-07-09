@@ -1,8 +1,6 @@
 __all__ = ["SignedUsmParameters", "UnsignedUsmParameters"]
 
-from snmp.asn1 import ASN1
 from snmp.ber import *
-from snmp.exception import *
 from snmp.smi import *
 from snmp.utils import *
 
@@ -126,7 +124,7 @@ class UnsignedUsmParameters(Sequence):
                 salt.data,
             )
         except ValueError as err:
-            raise ASN1.DeserializeError(*err.args) from err
+            raise cls.DeserializeError(*err.args) from err
 
     @classmethod
     def findPadding(self, msgSecurityParameters):
@@ -258,4 +256,4 @@ class SignedUsmParameters(Sequence):
                 salt.data,
             )
         except ValueError as err:
-            raise ASN1.DeserializeError(*err.args) from err
+            raise cls.DeserializeError(*err.args) from err

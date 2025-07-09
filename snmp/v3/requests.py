@@ -4,7 +4,6 @@ import weakref
 
 from snmp.exception import *
 from snmp.numbers import *
-from snmp.pdu import *
 from snmp.requests import *
 
 class MessageIDAuthority(NumberAuthority):

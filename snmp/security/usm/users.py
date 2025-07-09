@@ -1,9 +1,5 @@
 __all__ = ["UserRegistry", "UserNameCollision"]
 
-from snmp.exception import *
-from snmp.security import *
-
-from ..levels import *
 from .credentials import *
 
 class UserNameCollision(ValueError):

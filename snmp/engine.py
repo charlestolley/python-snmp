@@ -3,7 +3,6 @@ from snmp.message import ProtocolVersion
 from snmp.pdu import ReportPDU, ResponsePDU
 from snmp.pipeline import *
 from snmp.scheduler import Scheduler
-from snmp.security import SecurityLevel
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *

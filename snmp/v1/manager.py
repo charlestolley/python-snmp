@@ -1,14 +1,6 @@
 __all__ = ["SNMPv1Manager"]
 
-import weakref
-
-from snmp.asn1 import *
-from snmp.message import *
 from snmp.pdu import *
-from snmp.scheduler import *
-from snmp.smi import *
-from snmp.transport import *
-from snmp.utils import *
 
 class SNMPv1Manager:
     def __init__(self, admin, channel, community, autowait = True):

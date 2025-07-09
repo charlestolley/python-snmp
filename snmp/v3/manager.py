@@ -14,13 +14,10 @@ from snmp.exception import *
 from snmp.pdu import *
 from snmp.scheduler import *
 from snmp.security import *
-from snmp.security.levels import *
 from snmp.security.usm.stats import *
-from snmp.smi import *
 from snmp.requests import *
 from snmp.v3.message import *
 from snmp.v3.requests import *
-from snmp.utils import typename
 
 class RequestError(SNMPException):
     pass

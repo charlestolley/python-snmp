@@ -1,7 +1,5 @@
 __all__ = ["AuthProtocol", "PrivProtocol", "UserBasedSecurityModule"]
 
-from snmp.exception import *
-
 class AuthProtocol:
     def __init__(self, key):
         raise NotImplementedError()

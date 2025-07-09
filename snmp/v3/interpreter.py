@@ -2,11 +2,9 @@ __all__ = ["SNMPv3Interpreter", "SNMPv3MessageSorter"]
 
 import weakref
 
-from snmp.ber import Tag
 from snmp.smi import OID
 from snmp.pdu import ReportPDU
 from snmp.security import SecurityModel
-from snmp.v3.message import ReportMessage
 
 from .message import *
 

@@ -8,7 +8,6 @@ __all__ = [
 
 from socket import inet_aton, inet_ntoa
 
-from snmp.exception import *
 from snmp.asn1 import *
 from snmp.ber import *
 from snmp.utils import *
@@ -25,7 +24,7 @@ class BoundedInteger(INTEGER):
         try:
             return cls(value)
         except ValueError as err:
-            raise ASN1.DeserializeError(err.args[0])
+            raise cls.DeserializeError(err.args[0])
 
     @classmethod
     def deserialize(cls, data):
@@ -91,7 +90,7 @@ class OctetString(OCTET_STRING):
         try:
             return cls(data)
         except ValueError as err:
-            raise ASN1.DeserializeError(err.args[0]) from err
+            raise cls.DeserializeError(err.args[0]) from err
 
 class IpAddress(OCTET_STRING):
     TAG = Tag(0, cls = Tag.Class.APPLICATION)
@@ -131,7 +130,7 @@ class IpAddress(OCTET_STRING):
         try:
             return cls.fromBytes(data[:])
         except ValueError as err:
-            raise ASN1.DeserializeError(err.args[0]) from err
+            raise cls.DeserializeError(err.args[0]) from err
 
 class Opaque(OCTET_STRING):
     TAG = Tag(4, cls = Tag.Class.APPLICATION)

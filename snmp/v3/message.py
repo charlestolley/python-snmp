@@ -4,7 +4,6 @@ __all__ = [
 ]
 
 from snmp.exception import *
-from snmp.asn1 import ASN1
 from snmp.ber import *
 from snmp.message import InvalidMessage, ProtocolVersion
 from snmp.pdu import *
@@ -74,7 +73,7 @@ class MessageFlags(OctetString):
             byte = data[0]
         except IndexError as err:
             errmsg = f"{typename(cls)} must contain at least one byte"
-            raise ASN1.DeserializeError(errmsg) from err
+            raise cls.DeserializeError(errmsg) from err
 
         try:
             securityLevel = SecurityLevel(
@@ -83,7 +82,7 @@ class MessageFlags(OctetString):
             )
         except ValueError as err:
             errmsg = f"Invalid msgFlags: {err.args[0]}"
-            raise ASN1.DeserializeError(errmsg, InvalidMessage) from err
+            raise cls.DeserializeError(errmsg, InvalidMessage) from err
 
         reportable = (byte & cls.REPORTABLE_FLAG != 0)
         return cls(securityLevel, reportable)
@@ -209,7 +208,7 @@ class HeaderData(Sequence):
         try:
             return cls(msgID.value, msgMaxSize.value, msgFlags, securityModel)
         except ValueError as err:
-            raise ASN1.DeserializeError(err.args[0]) from err
+            raise cls.DeserializeError(err.args[0]) from err
 
 class ScopedPDU(Sequence):
     def __init__(self, pdu, contextEngineID, contextName = b""):
