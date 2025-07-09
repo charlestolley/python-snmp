@@ -1,6 +1,6 @@
 __all__ = [
-    "AddressUsage", "Transport", "TransportChannel",
-    "TransportDomain", "TransportListener", "TransportMultiplexor"
+    "AddressUsage", "TransportChannel",
+    "TransportDomain", "TransportMultiplexor"
 ]
 
 import enum
@@ -21,17 +21,6 @@ class TransportDomain(enum.Enum):
     UDP_IPv4 = socket.AF_INET, "127.0.0.1", "0.0.0.0"
     UDP_IPv6 = socket.AF_INET6, "::1", "::"
 
-class Transport:
-    @classmethod
-    def normalizeAddress(cls, address = None, usage = None):
-        raise NotImplementedError()
-
-    def close(self):
-        raise NotImplementedError()
-
-    def send(self, data, address):
-        raise NotImplementedError()
-
 class TransportChannel:
     def __init__(self, transport, address):
         self.transport = transport
@@ -47,10 +36,6 @@ class TransportChannel:
 
     def send(self, data):
         self.transport.send(data, self.address)
-
-class TransportListener:
-    def hear(self, data, channel):
-        raise NotImplementedError()
 
 class TransportMultiplexor:
     def register(self, sock, listener):

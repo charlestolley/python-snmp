@@ -6,7 +6,7 @@ from socket import *
 from snmp.transport import *
 from snmp.transport import package
 
-class UdpSocket(Transport):
+class UdpSocket:
     DEFAULT_PORT = {
         AddressUsage.LISTENER: 161,
         AddressUsage.SENDER: 0,

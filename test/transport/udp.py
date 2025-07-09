@@ -5,7 +5,7 @@ from threading import Event, Thread
 import time
 import unittest
 
-from snmp.transport import AddressUsage, TransportListener
+from snmp.transport import AddressUsage
 from snmp.transport.udp import UdpIPv4Socket, UdpIPv6Socket, UdpMultiplexor
 
 from snmp.transport.generic.udp import (
@@ -112,7 +112,7 @@ def declareUdpSocketTest(socketType, testAddress):
 
 def declareUdpMultiplexorTest(Multiplexor):
     class UdpMultiplexorTest(unittest.TestCase):
-        class Listener(TransportListener):
+        class Listener:
             def __init__(self):
                 self.event = Event()
 
