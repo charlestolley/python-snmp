@@ -3,6 +3,7 @@ from snmp.message import ProtocolVersion
 from snmp.pdu import ReportPDU, ResponsePDU
 from snmp.pipeline import *
 from snmp.scheduler import Scheduler
+from snmp.security.levels import noAuthNoPriv
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
@@ -165,8 +166,7 @@ class Engine:
             )
 
             if defaultSecurityLevel is None:
-                errmsg = "Found default userName without default securityLevel"
-                raise SNMPLibraryBug(errmsg)
+                defaultSecurityLevel = noAuthNoPriv
 
         return SNMPv3Manager(
             self.scheduler,
