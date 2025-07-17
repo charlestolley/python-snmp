@@ -1,14 +1,15 @@
-__all__ = ["UserRegistry", "UserNameCollision"]
+__all__ = ["UserRegistry"]
 
 from .credentials import *
-
-class UserNameCollision(ValueError):
-    pass
 
 class UserConfig:
     def __init__(self, credentials, defaultSecurityLevel):
         self.credentials = credentials
         self.defaultSecurityLevel = defaultSecurityLevel
+
+    @property
+    def maxSecurityLevel(self):
+        return self.credentials.maxSecurityLevel
 
 class NamespaceConfig:
     def __init__(self):
@@ -22,9 +23,6 @@ class NamespaceConfig:
         return self.users[userName]
 
     def addUser(self, userName, credentials, defaultSecurityLevel, default):
-        if userName in self.users:
-            raise UserNameCollision(userName)
-
         config = UserConfig(credentials, defaultSecurityLevel)
         self.users[userName] = config
 
@@ -137,6 +135,9 @@ class UserRegistry:
 
     def defaultUserName(self, namespace):
         return self.namespaceConfigs[namespace].defaultUserName
+
+    def maxSecurityLevel(self, userName, namespace):
+        return self.namespaceConfigs[namespace][userName].maxSecurityLevel
 
     @staticmethod
     def makeCredentials(

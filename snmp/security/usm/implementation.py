@@ -90,6 +90,12 @@ class UserBasedSecurityModule:
         except KeyError:
             return None
 
+    def maxSecurityLevel(self, userName, namespace):
+        try:
+            return self.users.defaultSecurityLevel(userName, namespace)
+        except KeyError:
+            return noAuthNoPriv
+
     ### Methods for outgoing messages
 
     def outgoingNamespace(self, message):

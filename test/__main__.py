@@ -2,6 +2,7 @@ test_modules = [
     "utils",
     "ber",
     "asn1",
+    "engine",
     "smi",
     "pdu",
     "message.version",

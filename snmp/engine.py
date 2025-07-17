@@ -1,4 +1,4 @@
-from snmp.exception import SNMPException
+from snmp.exception import *
 from snmp.message import ProtocolVersion
 from snmp.pdu import ReportPDU, ResponsePDU
 from snmp.pipeline import *
@@ -56,6 +56,9 @@ class Engine:
         self.decoder.register(ProtocolVersion.SNMPv3, self.v3_sorter)
 
         self.transports = {}
+
+    def __del__(self):
+        self.multiplexor.close()
 
     def addUser(self,
         user,
@@ -147,14 +150,20 @@ class Engine:
             defaultUserName = self.usm.defaultUserName(namespace)
 
             if defaultUserName is None:
-                errmsg = "An SNMPv3 Manager requires a default userName," \
-                    " either via the 'defaultUserName' parameter, or by" \
-                    " calling the addUser() method"
+                errmsg = "An SNMPv3 Manager requires a default username." \
+                    " Before calling Manager(), you should first configure" \
+                    " the users "
 
                 if namespace:
-                    errmsg += f" for namespace \"{namespace}\""
+                    errmsg += f"in namespace \"{namespace}\""
+                else:
+                    errmsg += "for this engine"
 
-                errmsg += "."
+                errmsg += " by calling addUser(). If you prefer to" \
+                    " communicate unsecurely, you may instead pass a" \
+                    " username to Manager() via the \"defaultUser\" keyword" \
+                    " argument."
+
                 raise TypeError(errmsg)
         else:
             defaultUserName = defaultUser.encode()
@@ -166,7 +175,41 @@ class Engine:
             )
 
             if defaultSecurityLevel is None:
-                defaultSecurityLevel = noAuthNoPriv
+                if defaultUser is None:
+                    errmsg = "Successfully inferred the default username"
+
+                    if namespace:
+                        errmsg += f" for namespace \"{namespace}\""
+
+                    errmsg += ", but not the default security level"
+                    raise SNMPLibraryBug(errmsg)
+                else:
+                    defaultSecurityLevel = noAuthNoPriv
+        else:
+            maxSecurityLevel = self.usm.maxSecurityLevel(
+                defaultUserName,
+                namespace,
+            )
+
+            if defaultSecurityLevel > maxSecurityLevel:
+                errmsg = "The security configuration for user" \
+                    f" \"{defaultUserName.decode()}\""
+
+                if namespace:
+                    errmsg += f" in namespace \"{namespace}\""
+
+                errmsg += " does not include a"
+
+                if not maxSecurityLevel.auth:
+                    errmsg += "n authentication protocol"
+                elif defaultSecurityLevel.priv:
+                    errmsg += " privacy protocol"
+
+                errmsg += f"; please call the addUser() method to update" \
+                    " the configuration."
+
+                raise ValueError(errmsg)
+
 
         return SNMPv3Manager(
             self.scheduler,

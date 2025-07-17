@@ -37,15 +37,6 @@ class UserRegistryTest(unittest.TestCase):
             self.namespace,
         )
 
-    def test_addUser_ValueError_for_duplicate_userName(self):
-        self.users.addUser(self.userName, self.namespace)
-        self.assertRaises(
-            ValueError,
-            self.users.addUser,
-            self.userName,
-            self.namespace,
-        )
-
     def test_addUser_accepts_the_same_userName_in_different_namespaces(self):
         self.users.addUser(self.userName, self.namespace)
         self.users.addUser(self.userName, "a different namespace")
