@@ -6,17 +6,12 @@ Getting Started
    This document only covers SNMP version 3, there is a separate document for
    :doc:`getting_started_legacy`.
 
-The first step in any SNMP application is to create an Engine object. It is
-important to declare the Engine in a ``with`` statement, in orderly to properly
-clean up background threads and network resources.
+The first step in any SNMP application is to create an Engine object:
 
 .. code-block:: python
 
    from snmp import Engine
-
-   with Engine() as engine:
-       # This block will contain the entire SNMP application
-       ...
+   engine = Engine()
 
 In order to send SNMP requests, you will need to create a Manager object. Each
 Manager represents a communication channel between your application and a single
@@ -25,7 +20,7 @@ multiple nodes.
 
 Before creating a Manager, however, you must provide the Engine with credentials
 for the user(s) belonging to the engine that it manages. The
-``Engine.usm.addUser()`` method tells the Engine about the algorithm(s) and
+``Engine.addUser()`` method tells the Engine about the algorithm(s) and
 password(s) for each user. The :mod:`snmp.security.usm.auth` and
 :mod:`snmp.security.usm.priv` modules contain implementations of several common
 authentication and privacy (encryption) algorithms.
@@ -46,28 +41,27 @@ the password for both. Here's what the call to ``addUser()`` would look like:
    from snmp.security.usm.auth import HmacSha256
    from snmp.security.usm.priv import AesCfb128
 
-   with Engine() as engine:
-       engine.usm.addUser(
-           "admin",
-           authProtocol=HmacSha256,
-           privProtocol=AesCfb128,
-           secret=b"maplesyrup",
-       )
+   engine.addUser(
+       "admin",
+       authProtocol=HmacSha256,
+       privProtocol=AesCfb128,
+       secret=b"maplesyrup",
+   )
 
 In this example, the user has one password for both authentication and privacy.
-However, it is also possible to provide two separate passwords with the
-``authSecret`` and ``privSecret`` arguments, rather than using the ``secret``
-argument. Further, note that the first argument, ``userName``, accepts a
+However, it is also possible to provide two separate passwords using the
+``authSecret`` and ``privSecret`` parameters, rather than the ``secret``
+parameter. Further, note that the first parameter, ``userName``, accepts a
 :class:`str`, while all passwords are expected to be of type :class:`bytes`. A
-justification of this behavior is beyond the scope of this document.
+justification for this design is beyond the scope of this document.
 
 After providing the necessary user configuration via the ``addUser()`` method,
-you may create a Manager by calling :meth:`Engine.Manager`. For the purposes of
+you can create a Manager by calling :meth:`Engine.Manager`. For the purposes of
 this tutorial, you should provide a single argument, containing the IPv4 address
 of the remote engine. If the remote engine is listening on a non-standard port,
-then you may instead use a tuple, containing the address and port number. A
-variable containing a Manager object should use a name that clearly identifies
-the engine that it manages, such as in the following example:
+then you may instead use a tuple, containing the address and port number. The
+variable referencing the Manager object should use a name that clearly
+identifies the engine that it manages, such as in the following example:
 
 .. code-block:: python
 
@@ -75,9 +69,12 @@ the engine that it manages, such as in the following example:
 
 Finally, you may send a request using one of the Manager's four request methods:
 ``get()``, ``getNext()``, ``getBulk()``, and ``set()``. The ``get*()`` methods
-accept any number of :class:`str` or :class:`snmp.types.OID` arguments, while
-the ``set()`` method accepts arguments of type :class:`snmp.pdu.VarBind`. In all
-cases, the result will be a :class:`snmp.pdu.ResponsePDU`.
+accept any number of :class:`str` or :class:`snmp.smi.OID` arguments,
+representing the OIDs for the request. Each argument to the ``set()`` method may
+be either a :class:`snmp.pdu.VarBind`, or a ``(name, value)`` tuple, where
+``name`` is the OID (:class:`str` or :class:`snmp.smi.OID`), and ``value`` is an
+:mod:`snmp.smi` type. In all cases, the result will be a
+:class:`snmp.pdu.VarBindList`.
 
 The following example combines all the steps described above to query the
 ``sysContact`` and ``sysLocation`` of an SNMP engine listening on the loopback
@@ -97,19 +94,19 @@ address.
    from snmp import Engine
    from snmp.security.usm.auth import HmacSha512
    from snmp.security.usm.priv import AesCfb128
-   
-   with Engine() as engine:
-       engine.usm.addUser(
-           "authPrivUser",
-           authProtocol=HmacSha512,
-           authSecret=b"myauthphrase",
-           privProtocol=AesCfb128,
-           privSecret=b"myprivphrase",
-       )
-   
-       localhost = engine.Manager("127.0.0.1")
-       response = localhost.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
-       print(response)
+
+   engine = Engine()
+   engine.addUser(
+      "authPrivUser",
+      authProtocol=HmacSha512,
+      authSecret=b"myauthphrase",
+      privProtocol=AesCfb128,
+      privSecret=b"myprivphrase",
+   )
+
+   localhost = engine.Manager("127.0.0.1")
+   response = localhost.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
+   print(response)
 
 The output of this example should look something like this:
 

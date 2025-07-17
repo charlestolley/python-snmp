@@ -21,18 +21,21 @@ subdirectory to your desired installation location.
 Customization
 -------------
 
-The ``snmp`` library is written almost exclusively in Python, using only the
-standard library. The one exception is the :mod:`snmp.security.usm.priv` module,
-which relies on third-party libraries to support encryption in SNMPv3 (under the
-User-Based Security Model). There are two provided implementations, one that
-depends on the ``pycryptodome`` library, and one that uses ``OpenSSL``. The
-module initialization code will automatically select an implementation based
-on which dependencies are installed.
+Nearly the entire ``snmp`` library is written exclusively in Python, using only
+the standard library. The only exception is the :mod:`snmp.security.usm.priv`
+module, which relies on third-party libraries to support encryption in SNMPv3.
+However, this module is considered optional; all other features in the library
+will work perfectly fine without it.
+
+There are two provided implementations for :mod:`snmp.security.usm.priv`: one
+that depends on the ``pycryptodome`` library, and one that uses ``OpenSSL``.
+The module initialization code will automatically select between these
+implementations, depending on whether these dependencies are installed.
 
 pycryptodome
 ^^^^^^^^^^^^
 
-The default :mod:`snmp.security.usm.priv` implementation uses ``pycryptodome``
+The standard :mod:`snmp.security.usm.priv` implementation uses ``pycryptodome``
 to perform the encryption and decryption. ``pycryptodome`` will be installed
 automatically when you install ``snmp`` with ``pip``. There is also a
 ``requirements.txt`` file provided in ``snmp/security/usm/priv/pycryptodome``,
@@ -80,7 +83,6 @@ location, then set ``CPPFLAGS="-isystem <prefix>/include"`` and
 Python interactive shell.
 
 If installing OpenSSL headers doesn't fix your issue, or you get stuck, please
-file a GitHub issue or find my email address in ``pyproject.toml`` and email me
-directly.
+file a GitHub issue or email me directly at charlescdtolley@protonmail.com.
 
 .. _download: https://www.openssl.org/source/
