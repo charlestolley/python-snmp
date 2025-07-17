@@ -1,6 +1,5 @@
 __all__ = ["AES_128_CFB128", "DES_CBC", "Decryptor", "Encryptor"]
 
-from snmp.cffi import *
 from snmp.openssl import *
 
 class Cipher:
