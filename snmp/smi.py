@@ -222,9 +222,11 @@ class VarBind(Sequence):
         return cls(name, valueType.decodeExact(data))
 
 class VarBindList(Sequence):
-    def __init__(self, *args):
+    def __init__(self, *args, unpack=False):
         self.variables = tuple(
-            var if isinstance(var, VarBind) else VarBind(var) for var in args
+            vb if isinstance(vb, VarBind) else
+            VarBind(*vb) if unpack else VarBind(vb)
+            for vb in args
         )
 
     def __bool__(self):
