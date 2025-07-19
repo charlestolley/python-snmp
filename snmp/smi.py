@@ -3,7 +3,8 @@ __all__ = [
     "Counter32", "Gauge32", "TimeTicks", "Counter64",
     "OctetString", "IpAddress", "Opaque",
     "NULL", "Null", "OID", "zeroDotZero",
-    "Sequence",
+    "Sequence", "VarBind", "VarBindList",
+    "NoSuchObject", "NoSuchInstance", "EndOfMibView",
 ]
 
 from socket import inet_aton, inet_ntoa
@@ -137,6 +138,15 @@ class Opaque(OCTET_STRING):
 
 Null = NULL
 
+class NoSuchObject(Null):
+    TAG = Tag(0, cls = Tag.Class.CONTEXT_SPECIFIC)
+
+class NoSuchInstance(Null):
+    TAG = Tag(1, cls = Tag.Class.CONTEXT_SPECIFIC)
+
+class EndOfMibView(Null):
+    TAG = Tag(2, cls = Tag.Class.CONTEXT_SPECIFIC)
+
 class OID(OBJECT_IDENTIFIER):
     def __init__(self, *subidentifiers):
         if len(subidentifiers) > 128:
@@ -155,3 +165,96 @@ zeroDotZero = OID(0, 0)
 
 class Sequence(SEQUENCE):
     pass
+
+class VarBind(Sequence):
+    TYPES = {
+        cls.TAG: cls for cls in (
+            Integer,
+            OctetString,
+            Null,
+            OID,
+            IpAddress,
+            Counter32,
+            Gauge32,
+            TimeTicks,
+            Opaque,
+            Counter64,
+            NoSuchObject,
+            NoSuchInstance,
+            EndOfMibView,
+        )
+    }
+
+    def __init__(self, name, value = None):
+        if not isinstance(name, OID):
+            name = OID.parse(name)
+
+        if value is None:
+            value = Null()
+
+        self.name = name
+        self.value = value
+
+    def __iter__(self):
+        yield self.name
+        yield self.value
+
+    def __len__(self):
+        return 2
+
+    def __repr__(self):
+        return f"{typename(self)}({self.name!r}, {self.value!r})"
+
+    def __str__(self):
+        return f"{self.name}: {self.value}"
+
+    @classmethod
+    def deserialize(cls, data):
+        name, data = OID.decode(data)
+        tag, _ = Tag.decode(data)
+
+        try:
+            valueType = cls.TYPES[tag]
+        except KeyError as err:
+            errmsg = f"Invalid variable value type: {tag}"
+            raise ParseError(errmsg, data) from err
+
+        return cls(name, valueType.decodeExact(data))
+
+class VarBindList(Sequence):
+    def __init__(self, *args):
+        self.variables = tuple(
+            var if isinstance(var, VarBind) else VarBind(var) for var in args
+        )
+
+    def __bool__(self):
+        return bool(self.variables)
+
+    def __getitem__(self, key):
+        return self.variables[key]
+
+    def __iter__(self):
+        return iter(self.variables)
+
+    def __len__(self):
+        return len(self.variables)
+
+    def __repr__(self):
+        args = ", ".join(repr(var) for var in self.variables)
+        return f"{typename(self)}({args})"
+
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, indent = ""):
+        return "\n".join(f"{indent}{var}" for var in self.variables)
+
+    @classmethod
+    def deserialize(cls, data):
+        objects = []
+
+        while data:
+            var, data = VarBind.decode(data)
+            objects.append(var)
+
+        return cls(*objects)
