@@ -613,5 +613,5 @@ class SNMPv3Manager:
         return self.makeRequest(pdu, **kwargs)
 
     def set(self, *varbinds, **kwargs):
-        pdu = SetRequestPDU(*(VarBind(*vb) for vb in varbinds))
+        pdu = SetRequestPDU(*varbinds)
         return self.makeRequest(pdu, **kwargs)

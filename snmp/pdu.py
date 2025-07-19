@@ -410,6 +410,12 @@ class SetRequestPDU(PDU):
     WRITE_CLASS = True
     TAG = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *(vb if isinstance(vb, VarBind) else VarBind(*vb) for vb in args),
+            **kwargs,
+        )
+
     def validResponse(self, vblist):
         if len(vblist) != len(self.variableBindings):
             return False

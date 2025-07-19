@@ -54,6 +54,5 @@ class SNMPv2cManager:
         return self.sendRequest(pdu, **kwargs)
 
     def set(self, *varbinds, **kwargs):
-        vbList = (VarBind(*varbind) for varbind in varbinds)
-        pdu = SetRequestPDU(*vbList)
+        pdu = SetRequestPDU(*varbinds)
         return self.sendRequest(pdu, **kwargs)

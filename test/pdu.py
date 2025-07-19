@@ -1,7 +1,7 @@
 __all__ = [
     "NoSuchObjectTest", "NoSuchInstanceTest", "EndOfMibViewTest",
     "VarBindTest", "VarBindListTest",
-    "BulkPDUTest", "PDUTest", "ResponsePduTest",
+    "BulkPDUTest", "PDUTest", "SetRequestPduTest", "ResponsePduTest",
     "PDUClassesTest", "VarBindTest",
 ]
 
@@ -510,6 +510,13 @@ class BulkPDUTest(unittest.TestCase):
         )
 
         self.assertRaises(ImproperResponse, request.checkResponse, response)
+
+class SetRequestPduTest(unittest.TestCase):
+    def test_constructor_converts_tuples_to_VarBinds(self):
+        pdu = SetRequestPDU(("1.2.3.4.5.6", Integer(123456)))
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, OID(1,2,3,4,5,6))
+        self.assertEqual(pdu.variableBindings[0].value, Integer(123456))
 
 class ResponsePduTest(unittest.TestCase):
     def test_checkErrorStatus_returns_for_noError(self):
