@@ -29,8 +29,8 @@ class Engine:
         defaultVersion = ProtocolVersion.SNMPv3,
         defaultDomain = TransportDomain.UDP_IPv4,
         defaultCommunity = b"public",
-        verboseLogging = False,
         autowait = True,
+        verboseLogging = False,
     ):
         self.defaultVersion         = defaultVersion
         self.defaultDomain          = defaultDomain
