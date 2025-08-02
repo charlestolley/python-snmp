@@ -422,6 +422,11 @@ class OBJECT_IDENTIFIERTest(unittest.TestCase):
             implied=True,
         )
 
+    def test_decodeIndex_accepts_int_for_position_instead_of_prefix(self):
+        oid = OBJECT_IDENTIFIER.parse("1.3.6.1.2.1.2.2.1.2.35")
+        index, = oid.decodeIndex(10, INTEGER)
+        self.assertEqual(index, INTEGER(35))
+
     def test_null_OID_decodes_to_zero_dot_zero(self):
         oid = OBJECT_IDENTIFIER.decodeExact(b"\x06\x01\x00")
         self.assertEqual(oid, OBJECT_IDENTIFIER(0, 0))

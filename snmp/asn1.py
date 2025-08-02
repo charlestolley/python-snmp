@@ -308,12 +308,19 @@ class OBJECT_IDENTIFIER(Primitive):
     def startswith(self, prefix):
         return self.subidentifiers[:len(prefix)] == prefix[:]
 
-    def decodeIndex(self, prefix, *types, implied = False):
-        if not self.startswith(prefix):
-            errmsg = f"\"{self}\" does not begin with \"{prefix}\""
-            raise self.BadPrefix(errmsg)
+    def decodeIndex(self, prefix_or_position, *types, implied = False):
+        if isinstance(prefix_or_position, int):
+            position = prefix_or_position
+        else:
+            prefix = prefix_or_position
 
-        nums = self.CountingIterator(self.subidentifiers, len(prefix))
+            if not self.startswith(prefix):
+                errmsg = f"\"{self}\" does not begin with \"{prefix}\""
+                raise self.BadPrefix(errmsg)
+
+            position = len(prefix)
+
+        nums = self.CountingIterator(self.subidentifiers, position)
 
         index = []
         for cls in types[:-1]:
