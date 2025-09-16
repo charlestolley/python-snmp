@@ -16,6 +16,7 @@ from snmp.scheduler import *
 from snmp.security import *
 from snmp.security.usm.stats import *
 from snmp.requests import *
+from snmp.utils import typename
 from snmp.v3.message import *
 from snmp.v3.requests import *
 
@@ -540,7 +541,7 @@ class SNMPv3Manager:
 
     def makeRequest(self,
         pdu,
-        userName=None,
+        user=None,
         securityLevel=None,
         context=b"",
         wait=None,
@@ -553,8 +554,14 @@ class SNMPv3Manager:
         if securityLevel is None:
             securityLevel = self.defaultSecurityLevel
 
-        if userName is None:
+        if user is None:
             userName = self.defaultUserName
+        else:
+            try:
+                userName = user.encode()
+            except AttributeError as err:
+                errmsg = f"'user' must be a str, not {typename(user)}"
+                raise TypeError(errmsg) from err
 
         handle = self.openRequest(pdu, timeout)
 

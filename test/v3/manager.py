@@ -1587,7 +1587,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")
 
-        handle = manager.get("1.2.3.4.5.6", userName=b"???", refreshPeriod=9/8)
+        handle = manager.get("1.2.3.4.5.6", user="???", refreshPeriod=9/8)
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
@@ -1600,7 +1600,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
 
-        handle = manager.get("1.2.3.4.5.6", userName=b"???", refreshPeriod=9/8)
+        handle = manager.get("1.2.3.4.5.6", user="???", refreshPeriod=9/8)
         self.assertEqual(len(pcap.messages), 1)
         message = pcap.messages.pop()
 
@@ -1959,6 +1959,27 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.incoming.send(reply)
         vblist = handle.wait()
         self.assertEqual(len(vblist), 1)
+
+    def test_user_parameter_uses_native_string(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6", user=self.userName.decode())
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.assertEqual(message.securityName.userName, self.userName)
+
+    def test_user_parameter_raises_TypeError_for_bytes(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        self.assertRaises(
+            TypeError,
+            manager.get,
+            "1.2.3.4.5.6",
+            user=self.userName,
+        )
 
     def test_IncomingMessageError_if_namespace_does_not_match_for_auth_request(self):
         pcap = self.connect(PacketCapture())
