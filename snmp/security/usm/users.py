@@ -86,6 +86,9 @@ class UserRegistry:
 
         if newNamespace:
             self.namespaceConfigs[namespace] = config
+            self.localizedCredentials[namespace] = {}
+
+        self.localizedCredentials[namespace][userName] = {}
 
     def namespaces(self, userName):
         for name, config in self.namespaceConfigs.items():
@@ -114,21 +117,9 @@ class UserRegistry:
                 f" in namespace \"{namespace}\""
             ) from err
 
-        try:
-            users = self.localizedCredentials[namespace]
-        except KeyError:
-            users = {}
-            self.localizedCredentials[namespace] = users
-
-        try:
-            engines = users[userName]
-        except KeyError:
-            engines = {}
-            users[userName] = engines
-
-        localizedCredentials = creds.localize(engineID)
-        engines[engineID] = localizedCredentials
-        return localizedCredentials
+        localized = creds.localize(engineID)
+        self.localizedCredentials[namespace][userName][engineID] = localized
+        return localized
 
     def defaultSecurityLevel(self, userName, namespace):
         return self.namespaceConfigs[namespace][userName].defaultSecurityLevel
