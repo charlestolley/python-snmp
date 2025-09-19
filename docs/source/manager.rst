@@ -66,103 +66,148 @@ configures how often to retry (resend) an unanswered request.
    attack. When the request expires, it will raise an exception that indicates
    the reported error, instead of the usual :class:`snmp.manager.Timeout`.
 
-.. class:: SNMPv3UsmManager
+Manager Interface (Complete)
+----------------------------
 
-   .. method:: get( \
-         * oids, \
+A Manager object represents a relationship with a single remote Agent. The transport configuration is stored internally, so that you do not need to specify the IP address for each request. An application that manages multiple nodes will use multiple Manager objects.
+
+The interface varies slightly between SNMP versions, but the design is essentially the same. Each request method generates a request handle. The wait() method of that handle blocks until a response is received, or until the timeout expires. In the default case, the request method will call wait() internally, and return the resulting VarBindList (assuming the request is successful). However, the wait parameter gives the caller the option to return the handle immediately after the request has been sent. This allows an application to send multiple requests at once, rather than automatically awaiting the response to each request before sending the next one.
+
+.. py:class:: SNMPv3Manager
+
+   If the response indicates an error, the call will raise an
+   :class:`ErrorResponse<snmp.ErrorResponse>` exception. If the error-status is
+   ``noSuchName``, the error will be an instance of
+   :class:`NoSuchName<snmp.NoSuchName>`, which is a subclass of
+   :class:`ErrorResponse<snmp.ErrorResponse>`.
+
+   If the variables in the response do not match up correctly with the OIDs in
+   the request, then the call will raise an
+   :class:`ImproperResponse<snmp.ImproperResponse>` exception. A corollary
+   to this requirement is that that the caller can trust that a
+   :class:`VarBindList<snmp.smi.VarBindList>` returned by one of these request
+   methods will always have the expected number of entries, in the correct
+   order.
+
+   Finally, an unanswered request will eventually result in a
+   :class:`Timeout<snmp.Timeout>`.
+
+   For completeness, there is one last type of exception that can be thrown, but
+   only to indicate a problem that requires manual intervention (e.g. the
+   security credentials are invalid). This type of exception should usually be
+   allowed to propagate to the highest level, so that a human can fix the code.
+   However, if you must absolutely eliminate all possibility of an exception
+   breaking through, then you should use ``except Exception``.
+
+   .. py:method:: get([ \
+         oid(s), ..., \
+         userName=None, \
          securityLevel=None, \
-         user=None, \
+         context=b"", \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: getBulk( \
-         * oids, \
+   .. py:method:: getBulk([ \
+         oid(s), ..., \
          nonRepeaters=0, \
          maxRepetitions=0, \
+         userName=None, \
          securityLevel=None, \
-         user=None, \
+         context=b"", \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: getNext( \
-         * oids, \
+   .. py:method:: getNext([ \
+         oid(s), ..., \
+         userName=None, \
          securityLevel=None, \
-         user=None, \
+         context=b"", \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: set(* varbinds, \
+   .. py:method:: set([ \
+         varbind1, varbind2, ..., \
+         userName=None, \
          securityLevel=None, \
-         user=None, \
+         context=b"", \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-.. class:: SNMPv2cManager
+.. py:class:: SNMPv2cManager
 
-   .. method:: get( \
-         * oids, \
+   .. py:method:: get([ \
+         oid(s), ..., \
          community=None, \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: getBulk( \
-         * oids, \
+   .. py:method:: getBulk([ \
+         oid(s), ..., \
          nonRepeaters=0, \
          maxRepetitions=0, \
          community=None, \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: getNext( \
-         * oids, \
+   .. py:method:: getNext([ \
+         oid(s), ..., \
          community=None, \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: set( \
-         * varbinds, \
+   .. py:method:: set([ \
+         varbind1, varbind2, ..., \
          community=None, \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-.. class:: SNMPv1Manager
+.. py:class:: SNMPv1Manager
 
-   .. method:: get( \
-         * oids, \
+   .. py:method:: get([ \
+         oid(s), ..., \
          community=None, \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: getNext( \
-         * oids, \
+   .. py:method:: getNext([ \
+         oid(s), ..., \
          community=None, \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
 
-   .. method:: set( \
-         * varbinds, \
+   .. py:method:: set([ \
+         varbind1, varbind2, ..., \
          community=None, \
          wait=None, \
          timeout=10.0, \
-         refreshPeriod=1.0, \
-      )
+         refreshPeriod=1.0 \
+      ])
+
+.. py:class:: RequestHandle
+
+   .. py:method:: wait()
+      raise ErrorResponse
+      raise ImproperResponse
+      - variableBindings
+      raise NoSuchName (SNMPv1)
+      raise Timeout

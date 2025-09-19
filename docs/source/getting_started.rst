@@ -84,7 +84,7 @@ address.
 
    This code will run out of the box on an Ubuntu machine with just a few simple
    setup steps (as the root user). First, install the snmp daemon with ``apt
-   install snmpd``. Then edit ``/etc/snmp/snmpd.conf``, and uncomment the line
+   install snmpd``. Then open ``/etc/snmp/snmpd.conf``, and uncomment the line
    that says ``createuser authPrivUser SHA-512 myauthphrase AES myprivphrase``
    (or add it, if it's not there). Save and exit that file, and then run
    ``systemctl restart snmpd``.

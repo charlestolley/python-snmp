@@ -4,9 +4,10 @@ SNMP with Python
 Welcome to the ``snmp`` library documentation! This library focuses on making
 the Simple Network Management Protocol as simple-to-use as possible. If you are
 new to ``snmp``, you can see the basic usage in the examples below. For an
-explanation of these examples, see the :doc:`getting_started` section. For an
-in-depth description of all available features, consult the ``snmp``
-:doc:`Library Reference<snmp>`, which details the full public API.
+explanation of these examples, see the :doc:`getting_started` section.
+
+For a complete list of available features, and a precise description of their
+behavior, consult the :doc:`Library Reference<library>`.
 
 Installation
 ------------
@@ -22,18 +23,17 @@ See the :doc:`installation` section for advanced options.
 Examples
 --------
 
+SNMPv3 Example
+**************
+
 .. note::
 
    This code will run out of the box on an Ubuntu machine with just a few simple
-   setup steps (as the root user). To run the SNMPv1/SNMPv2c example, simply
-   install the snmp daemon with ``apt install snmpd``. To run the SNMPv3
-   example, you then need to edit ``/etc/snmp/snmpd.conf``, and uncomment the
-   line that says ``createuser authPrivUser SHA-512 myauthphrase AES
-   myprivphrase`` (or add it, if it's not there). Save and exit that file, and
-   then run ``systemctl restart snmpd``.
-
-SNMPv3 Example
-**************
+   setup steps (as the root user). First, install the snmp daemon with ``apt
+   install snmpd``. Then open ``/etc/snmp/snmpd.conf``, and uncomment the line
+   that says ``createuser authPrivUser SHA-512 myauthphrase AES myprivphrase``
+   (or add it, if it's not there). Save and exit that file, and then run
+   ``systemctl restart snmpd``.
 
 .. code-block:: python
 
@@ -64,6 +64,11 @@ The output of this example should look like this:
 SNMPv1/SNMPv2c Example
 **********************
 
+.. note::
+
+   This code will run out of the box on an Ubuntu machine. Simply install the
+   snmp daemon with ``apt install snmpd``.
+
 .. code-block:: python
 
    from snmp import *
@@ -84,7 +89,7 @@ Similarly, you can give the ``Engine`` a default community string with the
 ``Engine(SNMPv1, defaultCommunity=b"private")``. The default value for
 ``defaultCommunity`` is ``b"public"``.
 
-The output should look like this (same as the other example):
+The expected output is the same as that of the SNMPv3 example:
 
 .. code-block:: console
 
@@ -96,4 +101,4 @@ The output should look like this (same as the other example):
 
    installation
    getting_started
-   snmp
+   library
