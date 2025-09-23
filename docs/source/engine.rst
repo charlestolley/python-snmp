@@ -5,27 +5,63 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
 .. module:: snmp
 
+.. data:: SNMPv1
+
+   SNMP version 1.
+
+.. data:: SNMPv2c
+
+   SNMP version 2 with community-based authentication.
+
+.. data:: SNMPv3
+
+   SNMP version 3.
+
+.. data:: UDP_IPv4
+
+   Messages in this transport domain are sent as UDP datagrams over an IPv4
+   network.
+
+.. data:: UDP_IPv6
+
+   Messages in this transport domain are sent as UDP datagrams over an IPv6
+   network.
+
+.. data:: noAuthNoPriv
+
+   Messages at this security level are neither encrypted nor signed.
+
+.. data:: authNoPriv
+
+   Messages at this security level are signed but not encrypted.
+
+.. data:: authPriv
+
+   Messages at this security level are signed and their payloads are encrypted.
+
 .. class:: Engine( \
-      defaultVersion = SNMPv3, \
-      defaultDomain = UDP_IPv4, \
-      defaultCommunity = b"public", \
-      autowait = True, \
-      verboseLogging = False, \
+      defaultVersion: SNMPv1 | SNMPv2c | SNMPv3 = SNMPv3, \
+      defaultDomain: UDP_IPv4 | UDP_IPv6 = UDP_IPv4, \
+      defaultCommunity: bytes = b"public", \
+      autowait: bool = True, \
+      verboseLogging: bool = False, \
    )
 
    .. warning::
 
       This constructor does not allow positional arguments except for the `defaultVersion` parameter; all other arguments must be passed by keyword. Any future changes to the ordering of these keyword-only parameters will be considered non-breaking.
 
-   The defaultVersion, defaultDomain, defaultCommunity, and autowait parameters assign the default arguments for the Manager factory method. The corresponding parameters for that method are called version, domain, community, and autowait, respectively.
+   The `defaultVersion`, `defaultDomain`, `defaultCommunity`, and `autowait` parameters set the default `version`, `domain`, `community`, and `autowait` arguments (respectively) for the :meth:`Manager` method.
 
-   The verboseLogging parameter causes the Engine to generate a detailed log message for each incoming packet that it discards. This message contains a representation of the packet, as well as the reason for discarding it. This feature is implemented using the logging module; more specifically, the messages are effectively logged with logging.getLogger("snmp").debug(). The caller will likely have to configure the logging module to enable DEBUG messages. In the simplest case, this can be accomplished with logging.basicConfig():
+   The `verboseLogging` parameter causes the ``Engine`` to generate a detailed log message for each incoming packet that it discards. Each log message contains a representation of the packet, as well as an explanation of why it was discarded. These messages are then logged using ``logging.getLogger("snmp").debug()``. You, the caller are responsible for configuring the ``logging`` module to output these messages to the location, and in the format, of your choosing. This must be done prior to creating the ``Engine``. In the simplest case, you can simply call ``logging.basicConfig()``:
 
    .. code-block:: python
 
       import logging
+      import snmp
+
       logging.basicConfig(level=logging.DEBUG)
-      engine = Engine(verboseLogging=True)
+      engine = snmp.Engine(verboseLogging=True)
 
    .. py:method:: addUser( \
          user, \
@@ -78,7 +114,7 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
          namespace = "", \
          defaultUser = None, \
          defaultSecurityLevel = None, \
-      )
+      ) -> SNMPv3Manager
       Manager( \
          address, \
          version = SNMPv2c, \
@@ -87,7 +123,7 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
          mtu = None, \
          autowait = None, \
          community = None, \
-      )
+      ) -> SNMPv2cManager
       Manager( \
          address, \
          version = SNMPv1, \
@@ -96,7 +132,7 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
          mtu = None, \
          autowait = None, \
          community = None, \
-      )
+      ) -> SNMPv1Manager
 
       .. warning::
 

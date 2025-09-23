@@ -1,5 +1,158 @@
-Management Operations
-=====================
+The Manager Interface (Complete)
+================================
+
+.. note::
+
+   The classes described in this section do not correspond to specific class implementations. Instead, they describe the public interface of possible types of Manager object returned by the :meth:`Engine.Manager()<snmp.Engine.Manager>` factory method.
+
+.. py:class:: SnmpManager
+
+   This class describes the common interface of both the SNMPv3Manager and the SNMPv2cManager. Application code using this interface should not need to differentiate between SNMPv3 and SNMPv2c machines. The SNMPv1Manager conforms to the same interface (with the exception of the :meth:`getBulk` method), but an SNMPv1 application will require additional code to handle noSuchName errors.
+
+   .. py:method:: get( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+      )
+   .. py:method:: getBulk( \
+         *oids, \
+         nonRepeaters = 0, \
+         maxRepetitions = 0, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+      )
+
+   .. py:method:: getNext( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+      )
+
+   .. py:method:: set( \
+         *varbinds, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+      )
+
+.. py:class:: SNMPv3Manager
+
+   .. py:method:: get( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      )
+
+   .. py:method:: getBulk( \
+         *oids, \
+         nonRepeaters = 0, \
+         maxRepetitions = 0, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      )
+
+   .. py:method:: getNext( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      )
+
+   .. py:method:: set( \
+         *varbinds, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      )
+
+.. py:class:: SNMPv2cManager
+
+   .. py:method:: get( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
+
+   .. py:method:: getBulk( \
+         *oids, \
+         nonRepeaters = 0, \
+         maxRepetitions = 0, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
+
+   .. py:method:: getNext( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
+
+   .. py:method:: set( \
+         *varbinds, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
+
+.. py:class:: SNMPv1Manager
+
+   .. py:method:: get( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
+
+   .. py:method:: getBulk( \
+         *oids, \
+         nonRepeaters = 0, \
+         maxRepetitions = 0, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
+
+   .. py:method:: getNext( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
+
+   .. py:method:: set( \
+         *varbinds, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         wait = None, \
+         community = None, \
+      )
 
 SNMP defines four management operations: Get, Get-Next, Get-Bulk (since v2c),
 and Set. With this library, management operations require a Manager object,
@@ -74,6 +227,7 @@ A Manager object represents a relationship with a single remote Agent. The trans
 The interface varies slightly between SNMP versions, but the design is essentially the same. Each request method generates a request handle. The wait() method of that handle blocks until a response is received, or until the timeout expires. In the default case, the request method will call wait() internally, and return the resulting VarBindList (assuming the request is successful). However, the wait parameter gives the caller the option to return the handle immediately after the request has been sent. This allows an application to send multiple requests at once, rather than automatically awaiting the response to each request before sending the next one.
 
 .. py:class:: SNMPv3Manager
+   :noindex:
 
    If the response indicates an error, the call will raise an
    :class:`ErrorResponse<snmp.ErrorResponse>` exception. If the error-status is
@@ -108,6 +262,7 @@ The interface varies slightly between SNMP versions, but the design is essential
          timeout=10.0, \
          refreshPeriod=1.0 \
       ])
+      :noindex:
 
    .. py:method:: getBulk([ \
          oid(s), ..., \
@@ -120,6 +275,7 @@ The interface varies slightly between SNMP versions, but the design is essential
          timeout=10.0, \
          refreshPeriod=1.0 \
       ])
+      :noindex:
 
    .. py:method:: getNext([ \
          oid(s), ..., \
@@ -130,6 +286,7 @@ The interface varies slightly between SNMP versions, but the design is essential
          timeout=10.0, \
          refreshPeriod=1.0 \
       ])
+      :noindex:
 
    .. py:method:: set([ \
          varbind1, varbind2, ..., \
@@ -140,6 +297,7 @@ The interface varies slightly between SNMP versions, but the design is essential
          timeout=10.0, \
          refreshPeriod=1.0 \
       ])
+      :noindex:
 
 .. py:class:: SNMPv2cManager
 

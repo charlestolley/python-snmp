@@ -2,28 +2,50 @@ Dummy Title
 ===========
 
 .. module:: snmp
+   :noindex:
 
-.. data:: SNMPv1
-.. data:: SNMPv2c
-.. data:: SNMPv3
+.. py:class:: ErrorStatus
 
-   These enumerated values represent SNMP protocol versions in any method that
-   accepts a `version` parameter. Their numerical values match those used in the
-   `msgVersion` field of an SNMP message.
+   This class enumerates the possible (valid) values of the error-status field
+   of a PDU. These names and values are defined by RFC 3416, Section 3.
 
-.. data:: UDP_IPv4
-.. data:: UDP_IPv6
+   .. data:: noError = 0
 
-.. data:: noAuthNoPriv
-   :canonical: snmp.security.levels.noAuthNoPriv
+   .. data:: tooBig = 1
 
-.. data:: authNoPriv
-   :canonical: snmp.security.levels.authNoPriv
+   .. data:: noSuchName = 2
 
-.. data:: authPriv
-   :canonical: snmp.security.levels.authPriv
+   .. data:: badValue = 3
 
-   These objects represent the three possible security levels in SNMP version 3.
+   .. data:: readOnly = 4
+
+   .. data:: genErr = 5
+
+   .. data:: noAccess = 6
+
+   .. data:: wrongType = 7
+
+   .. data:: wrongLength = 8
+
+   .. data:: wrongEncoding = 9
+
+   .. data:: wrongValue = 10
+
+   .. data:: noCreation = 11
+
+   .. data:: inconsistentValue = 12
+
+   .. data:: resourceUnavailable = 13
+
+   .. data:: commitFailed = 14
+
+   .. data:: undoFailed = 15
+
+   .. data:: authorizationError = 16
+
+   .. data:: notWritable = 17
+
+   .. data:: inconsistentName = 18
 
 .. py:exception:: ErrorResponse
 
@@ -89,6 +111,11 @@ Dummy Title
 
       See :data:`ErrorResponse.variableBindings`
 
+.. py:exception:: Timeout
+
+   This exception type indicates that a request has expired without a valid
+   response.
+
 .. py:exception:: ImproperResponse
 
    This exception type indicates that the variable-bindings of a Response-PDU
@@ -101,51 +128,3 @@ Dummy Title
       :type: VarBindList
 
       The list of variable bindings from the Response-PDU.
-
-.. py:exception:: Timeout
-
-   This exception type indicates that a request has expired without a valid
-   response.
-
-.. py:class:: ErrorStatus
-
-   An enumeration of the valid values for the error-status field of a PDU.
-   These names and values come from RFC 3416, Section 3.
-
-   .. data:: noError = 0
-
-   .. data:: tooBig = 1
-
-   .. data:: noSuchName = 2
-
-   .. data:: badValue = 3
-
-   .. data:: readOnly = 4
-
-   .. data:: genErr = 5
-
-   .. data:: noAccess = 6
-
-   .. data:: wrongType = 7
-
-   .. data:: wrongLength = 8
-
-   .. data:: wrongEncoding = 9
-
-   .. data:: wrongValue = 10
-
-   .. data:: noCreation = 11
-
-   .. data:: inconsistentValue = 12
-
-   .. data:: resourceUnavailable = 13
-
-   .. data:: commitFailed = 14
-
-   .. data:: undoFailed = 15
-
-   .. data:: authorizationError = 16
-
-   .. data:: notWritable = 17
-
-   .. data:: inconsistentName = 18

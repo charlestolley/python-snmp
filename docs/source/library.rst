@@ -5,10 +5,10 @@
    :hidden:
 
    engine
-   snmp
    manager
-   datatypes
    smi
+   snmp
+   datatypes
 
 This library implements the Simple Network Management Protocol (SNMP). In spite of it's name, SNMP has a reputation for being complicated and confusing. This library is an attempt to put the "simple" back in SNMP.
 
@@ -27,7 +27,7 @@ Note that SimplifiedSnmpManager is an abstract interface specification; there is
 
 .. py:class:: SimplifiedSnmpManager
 
-   .. py:method:: get(*oids, [timeout=10.0]) -> VarBindList
+   .. py:method:: get(*oids, timeout=10.0) -> VarBindList
 
       This method sends an SNMP Get request and awaits the response. The positional arguments give the OIDs for the request. Each argument may be either a string, formatted like ".1.3.6.1.2.1.1.1.0" or "1.3.6.1.2.1.1.1.0", or an OID object. The method will block until a response is received, up to a maximum of timeout seconds.
 
@@ -67,7 +67,7 @@ Note that SimplifiedSnmpManager is an abstract interface specification; there is
          except Exception as err:
              print(err)
 
-   .. py:method:: getBulk(*oids, [nonRepeaters=0, maxRepetitions=0, timeout=10.0]) -> VarBindList
+   .. py:method:: getBulk(*oids, nonRepeaters=0, maxRepetitions=0, timeout=10.0) -> VarBindList
 
       .. note::
 
@@ -75,11 +75,11 @@ Note that SimplifiedSnmpManager is an abstract interface specification; there is
 
       Send an SNMP GetBulk request and await the response. The behavior of this method is the same as the get() method, aside from the request type, and the addition of the nonRepeaters and maxRepetitions parameters. These parameters correspond to the similarly-named fields in the GetBulkRequest-PDU. See `RFC 3416, Section 4.2.3`_ for an explanation of the GetBulk request, and the meaning of these fields.
 
-   .. py:method:: getNext(*oids, [timeout=10.0]) -> VarBindList
+   .. py:method:: getNext(*oids, timeout=10.0) -> VarBindList
 
       Send an SNMP GetNext request, and await the response. The behavior of this method is the same as the get() method, aside from the request type.
 
-   .. py:method:: set(*varbinds, [timeout=10.0]) -> VarBindList
+   .. py:method:: set(*varbinds, timeout=10.0) -> VarBindList
 
       Send an SNMP Set request, and await the response. The behavior of this method is the same as the get() method, aside from the request type and the format of the positional arguments.
 
