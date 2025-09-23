@@ -1,5 +1,6 @@
 __all__ = ["SNMPv3Manager3Test"]
 
+import gc
 import unittest
 import weakref
 
@@ -614,6 +615,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.respond(message, VarBind("1.2.3.4.5.6", Integer(123456)))
 
         vblist = handle.wait()
+        gc.collect()
         self.assertEqual(len(manager.requestIDAuthority.reserved), 0)
 
     def test_request_messages_refresh_every_refreshPeriod(self):
@@ -2047,14 +2049,8 @@ class SNMPv3Manager3Test(unittest.TestCase):
         handle = manager.get("1.2.3.4.5.6")
         handle_ref = weakref.ref(handle)
 
-        canary = self.makeManager()
-        canary_ref = weakref.ref(canary)
-
-        del canary
-        if canary_ref() is not None:
-            self.skipTest("Canary object was not immediately destroyed")
-
         del handle
+        gc.collect()
         self.assertIsNone(handle_ref())
 
         self.assertEqual(len(pcap.messages), 1)
@@ -2072,6 +2068,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
         manager = self.makeManager()
         manager.get("1.2.3.4.5.6")
         _ = pcap.messages.pop()
+        gc.collect()
 
         handle = manager.get("1.3.6.1.2.1.1.1.0")
 

@@ -1,5 +1,6 @@
 __all__ = ["VersionDecoderTest"]
 
+import gc
 import unittest
 import weakref
 
@@ -56,21 +57,15 @@ class VersionDecoderTest(unittest.TestCase):
         self.assertEqual(v2c_listener.messages, [v2c_message])
 
     def test_decoder_does_not_own_listeners(self):
-        canary = self.Listener()
         listener = self.Listener()
-
         reference = weakref.ref(listener)
-        canary_reference = weakref.ref(canary)
 
         decoder = VersionDecoder()
         version = ProtocolVersion.SNMPv1
         decoder.register(version, listener)
 
         del listener
-        del canary
-
-        if canary_reference() is not None:
-            self.skipTest("Listener was not immediately destroyed")
+        gc.collect()
 
         self.assertIsNone(reference())
         self.assertTrue(decoder.register(version, self.Listener()))

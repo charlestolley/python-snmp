@@ -1,7 +1,7 @@
 __all__ = ["SNMPv1RequestAdminTest", "SNMPv1RequestHandleTest"]
 
+import gc
 import unittest
-import weakref
 
 from snmp.exception import *
 from snmp.smi import *
@@ -79,17 +79,11 @@ class SNMPv1RequestHandleTest(unittest.TestCase):
     def test_handle_calls_callback_before_object_is_finalized(self):
         callback = self.Callback()
         self.handle.addCallback(callback, 89)
-
-        canary = self.Callback()
-        reference = weakref.ref(self.handle)
-        canary_reference = weakref.ref(canary)
-
-        del canary
-        if canary_reference() is not None:
-            self.skipTest("Canary object was not immediately destroyed")
-
         self.assertIsNone(callback.requestID)
+
         del self.handle
+        gc.collect()
+
         self.assertTrue(callback.requestID, 89)
 
     def test_multiple_callbacks_are_called_in_reverse_order(self):

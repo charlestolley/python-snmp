@@ -1,5 +1,6 @@
 __all__ = ["SchedulerTest"]
 
+import gc
 import unittest
 import weakref
 
@@ -179,22 +180,16 @@ class SchedulerTest(unittest.TestCase):
 
     def test_task_object_reference_is_dropped_after_task_runs(self):
         task = self.Task()
-        canary = self.Task()
-
         reference = weakref.ref(task)
-        canary_reference = weakref.ref(canary)
-
         self.scheduler.schedule(task, 1.0)
         self.assertFalse(task.hasRun)
 
         del task
-        del canary
-
-        if canary_reference() is not None:
-            self.skipTest("Task was not immediately destroyed")
+        gc.collect()
 
         self.assertIsNotNone(reference())
         self.scheduler.wait()
+        gc.collect()
         self.assertIsNone(reference())
 
     def test_a_tasks_run_function_may_schedule_other_tasks(self):

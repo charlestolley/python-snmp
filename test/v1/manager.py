@@ -1,5 +1,6 @@
 __all__ = ["SNMPv1ManagerTest"]
 
+import gc
 import unittest
 import weakref
 
@@ -338,15 +339,7 @@ class SNMPv1ManagerTest(unittest.TestCase):
 
     def test_no_more_resends_after_handle_is_dropped(self):
         handle = self.manager.get(self.oid, wait=False)
-        canary = self.Channel()
-
         reference = weakref.ref(handle)
-        canary_reference = weakref.ref(canary)
-
-        del canary
-
-        if canary_reference() is not None:
-            self.skipTest("Canary object was not immediately destroyed")
 
         self.scheduler.schedule(self.DelayTask(), 1.5)
         self.scheduler.schedule(self.DelayTask(), 10.0)
@@ -357,6 +350,8 @@ class SNMPv1ManagerTest(unittest.TestCase):
         self.assertEqual(len(self.channel.messages), 2)
 
         del handle
+        gc.collect()
+
         while self.time() < 10.0:
             self.scheduler.wait()
 
