@@ -148,6 +148,22 @@ class BulkPDUTest(unittest.TestCase):
     def setUp(self):
         self.oid = OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1)
 
+    def test_raise_ValueError_if_nonRepeaters_is_negative(self):
+        self.assertRaises(
+            ValueError,
+            GetBulkRequestPDU,
+            self.oid,
+            nonRepeaters=-1,
+        )
+
+    def test_raise_ValueError_if_maxRepetitions_is_negative(self):
+        self.assertRaises(
+            ValueError,
+            GetBulkRequestPDU,
+            self.oid,
+            maxRepetitions=-1,
+        )
+
     def test_variableBindings_takes_precedence_over_positional_args(self):
         pdu = GetBulkRequestPDU(
             "nonsense argument for BulkPDU",

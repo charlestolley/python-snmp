@@ -163,6 +163,14 @@ class BulkPDU(Constructed):
         maxRepetitions = 1,
         variableBindings = None,
     ):
+        if nonRepeaters < 0:
+            errmsg = f"nonRepeaters may not be less than 0: {nonRepeaters}"
+            raise ValueError(errmsg)
+
+        if maxRepetitions < 0:
+            errmsg = f"maxRepetitions may not be less than 0: {maxRepetitions}"
+            raise ValueError(errmsg)
+
         self.requestID = requestID
         self.nonRepeaters = nonRepeaters
         self.maxRepetitions = maxRepetitions
