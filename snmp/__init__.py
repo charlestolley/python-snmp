@@ -4,7 +4,7 @@ __all__ = [
     "SNMPv1", "SNMPv2c", "SNMPv3",
     "UDP_IPv4", "UDP_IPv6",
     "noAuthNoPriv", "authNoPriv", "authPriv",
-    "NoSuchObject", "NoSuchInstance", "EndOfMibView",
+    "NoSuchObject", "NoSuchInstance", "EndOfMibView", "OID",
 ]
 
 from snmp.engine import Engine
@@ -12,6 +12,7 @@ from snmp.message import ProtocolVersion
 from snmp.requests import Timeout
 from snmp.transport import TransportDomain
 from snmp.security.levels import noAuthNoPriv, authNoPriv, authPriv
+from snmp.smi import OID
 from snmp.pdu import (
     EndOfMibView, NoSuchInstance, NoSuchObject,
     ErrorStatus, ErrorResponse, NoSuchName, ImproperResponse,
