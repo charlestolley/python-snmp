@@ -404,7 +404,7 @@ PDU Data Types
       * varbinds, \
       requestID=0, \
       nonRepeaters=0, \
-      maxRepetitions=0, \
+      maxRepetitions=1, \
    )
 
    .. property:: requestID

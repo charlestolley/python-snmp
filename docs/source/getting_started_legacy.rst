@@ -56,7 +56,7 @@ address.
 
    from snmp import *
 
-   engine = Engine(SNMPv1)
+   engine = Engine(SNMPv1)  # or SNMPv2c
    localhost = engine.Manager("127.0.0.1", community=b"public")
    response = localhost.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
    print(response)

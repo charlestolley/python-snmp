@@ -84,7 +84,7 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       - privacy password
       - default security level
 
-      Each user name is unique (within a namespace), so calling addUser() twice with the same user name (and namespace) will overwrite the previous security configuration.
+      Each user name is unique (within a namespace). Calling addUser() twice with the same user name (and namespace) will overwrite the previous security configuration.
 
       The namespace is a made-up construct, specific to this library, that enables you to distinguish between different security configurations with the same user name. This is only useful for an application that manages multiple nodes with different credentials for the same user name (e.g. host1 defines user1, using HmacMd5 with password "foo", while host2 defines user1 using HmacSha with password "bar"). If the nodes in your network all use the same algorithms and passwords for each user name, then you should simply ignore the namespace argument.
 

@@ -14,14 +14,14 @@ This library implements the Simple Network Management Protocol (SNMP). In spite 
 
 An SNMP manager is a machine or an application that generates and sends SNMP requests to other machines in a network. An SNMP agent, running on one of these other machines, processes each request, and sends back a response. There are four available request types: Get, GetNext, GetBulk (as of SNMPv2), and Set. The Get* request types are generally used to query information without affecting the state of the machine, whereas the Set request is generally meant to update a machine's configuration.
 
-Each request contains a list of "variable bindings," (varbinds), which is a fancy term for a name/value pair. The "name" of a varbind is formatted as an ASN.1 Object Identifier (OID), which is basically a sequence of numbers, printed with dots between them (e.g. "1.3.6.1.2.1.1.1.0"). Once you know the name, data type, and meaning of a variable, the protocol is quite simple to use. The hard part is determining the exact OID that corresponds to the variable you want. This is where SNMP gets its reputation for being complicated and confusing. (TODO: Make a page explaining how to do that).
+Each request contains a list of "variable bindings," (varbinds), which is a fancy term for a name/value pair. The "name" of a varbind is formatted as an ASN.1 Object Identifier (OID), such as "1.3.6.1.2.1.1.1.0". Once you know the name, data type, and meaning of a variable, the protocol is quite simple to use. The hard part is determining the exact OID that corresponds to the variable you want. This is where SNMP gets its reputation for being complicated and confusing. (TODO: Make a page explaining how to do that).
 
 .. _manager:
 
 The Manager Interface (Simplified)
 ----------------------------------
 
-The Manager interface defines a method for each of the four request types. Each Manager object communicates with a single remote machine, eliminating the need for an an IP address argument in every request. This section documents the essential arguments and behavior of this interface; the Manager Interface (Complete) section documents the interface in full.
+The Manager interface defines a method for each of the four request types (listed above). Each Manager object communicates with a single remote machine, so that you, the caller, only need to configure the IP address once, rather than including it in the argument list of every request. This section documents the essential arguments and behavior of this interface; the Manager Interface (Complete) section documents the interface in full.
 
 Note that SimplifiedSnmpManager is an abstract interface specification; there is no class with that name in the snmp library. To instantiate a concrete Manager object, you must use the Engine.Manager() factory method.
 
@@ -29,7 +29,7 @@ Note that SimplifiedSnmpManager is an abstract interface specification; there is
 
    .. py:method:: get(*oids, timeout=10.0) -> VarBindList
 
-      This method sends an SNMP Get request and awaits the response. The positional arguments give the OIDs for the request. Each argument may be either a string, formatted like ".1.3.6.1.2.1.1.1.0" or "1.3.6.1.2.1.1.1.0", or an OID object. The method will block until a response is received, up to a maximum of timeout seconds.
+      This method sends an SNMP Get request and awaits the response. The positional arguments give the OIDs for the request. Each argument may be either a string, formatted like ".1.3.6.1.2.1.1.1.0" or "1.3.6.1.2.1.1.1.0" (i.e. with or without the leading dot), or an OID object. The method will block until a response is received, up to a maximum of timeout seconds.
 
       When successful, the call returns the variable bindings as a VarBindList.
 
@@ -37,20 +37,20 @@ Note that SimplifiedSnmpManager is an abstract interface specification; there is
 
          vblist = manager.get("1.3.6.1.2.1.1.1.0", "1.3.6.1.2.1.1.3.0")
 
-         # VarBind -> OctetString -> bytes -> str
+         # VarBindList -> VarBind -> OctetString -> bytes -> str
          descr = vblist[0].value.data.decode()
 
-         # VarBind -> TimeTicks -> int -> float
+         # VarBindList -> VarBind -> TimeTicks -> int -> float
          uptime = vblist[1].value.value / 100
 
          print(f"System Description: \"{descr}\"")
          print(f"System Up-Time: {uptime} seconds")
 
-      The call raises an ErrorResponse exception when it receives a response with a non-zero error-status. This indicates that the remote agent encountered an error while processing the request. The call raises the more specific NoSuchName exception (a subtype of ErrorResponse) when the error-status is "noSuchName." This allows you to handle this error status, which has a special meaning in SNMPv1, in its own except block.
+      This method raises an ErrorResponse exception when it receives a response with a non-zero error-status, indicating that the agent was able to understand the request, but not able to fulfill it. In the case of a "noSuchName" error, the call raises the more specific NoSuchName exception, a sub-class of ErrorResponse, so that you may handle it in a dedicated except block.
 
-      If the Manager does not receive a response within timeout seconds, the call raises a Timeout exception.
+      If the Manager does not receive a response within timeout seconds, it will raise a Timeout exception.
 
-      In some cases, the method may raise an Exception type other than those listed here. See the complete interface documentation for more details.
+      In some cases, this method may raise an Exception type other than those listed here. See the complete interface documentation for more details.
 
       .. code-block:: python
 
@@ -67,7 +67,7 @@ Note that SimplifiedSnmpManager is an abstract interface specification; there is
          except Exception as err:
              print(err)
 
-   .. py:method:: getBulk(*oids, nonRepeaters=0, maxRepetitions=0, timeout=10.0) -> VarBindList
+   .. py:method:: getBulk(*oids, nonRepeaters=0, maxRepetitions=1, timeout=10.0) -> VarBindList
 
       .. note::
 
@@ -210,6 +210,8 @@ Privacy Protocols
 
 Drafts (DELETE ME)
 ------------------
+
+The problem with this design is that an error for a single variable will invalidate the entire request. With the introduction of the Get-Bulk request (which is particularly susceptible to this flaw), SNMPv2 also introduced three new special value types: :class:`NoSuchObject<snmp.smi.NoSuchObject>`, :class:`NoSuchInstance<snmp.smi.NoSuchInstance>`, or :class:`EndOfMibView<snmp.smi.EndOfMibView>`.
 
 :mod:`snmp`: The top level module exports all the basic components to create a manager object, make a request, and handle the possible responses.
 

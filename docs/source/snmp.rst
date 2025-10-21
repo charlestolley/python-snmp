@@ -72,9 +72,7 @@ Dummy Title
 
 .. py:exception:: NoSuchName(ErrorResponse)
 
-   A special case of :class:`ErrorResponse` to make it easy for an SNMPv1
-   application to handle ``noSuchName`` responses separately from other error
-   statuses. Here is a simple example:
+   A special case of :class:`ErrorResponse` to make it easy for an SNMPv1 application to handle ``noSuchName`` responses. Whereas most error-status values indicate an exception, SNMPv1 uses ``noSuchName`` as part of normal operation. Since this is a sub-type of :class:`ErrorResponse`, it must be handled by an earlier ``except`` block:
 
    .. code-block:: python
 

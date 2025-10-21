@@ -73,21 +73,10 @@ SNMPv1/SNMPv2c Example
 
    from snmp import *
 
-   engine = Engine(SNMPv1)
+   engine = Engine(SNMPv1)  # or SNMPv2c
    localhost = engine.Manager("127.0.0.1", community=b"public")
    response = localhost.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
    print(response)
-
-Note that the ``SNMPv1`` argument to ``Engine()`` simply sets the default
-version for the ``Manager()`` factory method. You can still create an
-``SNMPv2c`` or ``SNMPv3`` manager, with the ``version`` keyword parameter to the
-``Manager()`` method (e.g.
-``Manager("127.0.0.1", version=SNMPv2c, community=b"public")``).
-
-Similarly, you can give the ``Engine`` a default community string with the
-``defaultCommunity`` keyword parameter (e.g.
-``Engine(SNMPv1, defaultCommunity=b"private")``. The default value for
-``defaultCommunity`` is ``b"public"``.
 
 The expected output is the same as that of the SNMPv3 example:
 
