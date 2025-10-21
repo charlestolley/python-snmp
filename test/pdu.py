@@ -171,7 +171,7 @@ class BulkPDUTest(unittest.TestCase):
         i = iter(pdu)
         self.assertEqual(next(i), Integer(requestID))
         self.assertEqual(next(i), Integer(nonRepeaters))
-        self.assertEqual(next(i), Integer(0))
+        self.assertEqual(next(i), Integer(1))
         self.assertEqual(next(i), pdu.variableBindings)
         self.assertRaises(StopIteration, next, i)
 

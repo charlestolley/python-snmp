@@ -160,7 +160,7 @@ class BulkPDU(Constructed):
         *args,
         requestID = 0,
         nonRepeaters = 0,
-        maxRepetitions = 0,
+        maxRepetitions = 1,
         variableBindings = None,
     ):
         self.requestID = requestID

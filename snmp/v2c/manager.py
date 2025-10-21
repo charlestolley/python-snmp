@@ -40,7 +40,7 @@ class SNMPv2cManager:
         pdu = GetRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
-    def getBulk(self, *oids, nonRepeaters = 0, maxRepetitions = 0, **kwargs):
+    def getBulk(self, *oids, nonRepeaters=0, maxRepetitions=1, **kwargs):
         pdu = GetBulkRequestPDU(
             *oids,
             nonRepeaters=nonRepeaters,

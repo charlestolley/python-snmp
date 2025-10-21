@@ -606,7 +606,7 @@ class SNMPv3Manager:
         pdu = GetRequestPDU(*oids)
         return self.makeRequest(pdu, **kwargs)
 
-    def getBulk(self, *oids, nonRepeaters=0, maxRepetitions=0, **kwargs):
+    def getBulk(self, *oids, nonRepeaters=0, maxRepetitions=1, **kwargs):
         pdu = GetBulkRequestPDU(
             *oids,
             nonRepeaters=nonRepeaters,
