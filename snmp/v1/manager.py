@@ -40,6 +40,20 @@ class SNMPv1Manager:
         pdu = GetRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)
 
+    def getBulk(self, *oids, nonRepeaters=0, maxRepetitions=1, **kwargs):
+        # Validate arguments
+        _ = GetBulkRequestPDU(
+            *oids,
+            nonRepeaters=nonRepeaters,
+            maxRepetitions=maxRepetitions,
+        )
+
+        if maxRepetitions == 0:
+            oids = oids[:nonRepeaters]
+
+        pdu = GetNextRequestPDU(*oids)
+        return self.sendRequest(pdu, **kwargs)
+
     def getNext(self, *oids, **kwargs):
         pdu = GetNextRequestPDU(*oids)
         return self.sendRequest(pdu, **kwargs)

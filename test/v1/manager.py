@@ -357,6 +357,58 @@ class SNMPv1ManagerTest(unittest.TestCase):
 
         self.assertEqual(len(self.channel.messages), 2)
 
+    def test_getBulk_with_maxRepetitions_0_omits_repeaters(self):
+        self.channel.scheduleResponse(self.response)
+
+        oid = OID(*self.oid[:-1])
+        vblist = self.manager.getBulk(
+            oid,
+            "1.3.6.1.2.1.2.2.1.1",
+            "1.3.6.1.2.1.2.2.1.2",
+            nonRepeaters=1,
+            maxRepetitions=0,
+        )
+
+        self.assertEqual(len(self.channel.messages), 1)
+        self.assertEqual(self.time(), 0.0)
+        self.assertEqual(vblist, self.response.variableBindings)
+
+        pdu = self.channel.messages[0].pdu
+        self.assertIsInstance(pdu, GetNextRequestPDU)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, oid)
+        self.assertEqual(pdu.variableBindings[0].value, Null())
+
+    def test_getBulk_with_maxRepetitions_1_send_GetNextRequestPDU(self):
+        self.channel.scheduleResponse(self.response)
+
+        oid = OID(*self.oid[:-1])
+        vblist = self.manager.getBulk(oid)
+        self.assertEqual(len(self.channel.messages), 1)
+        self.assertEqual(self.time(), 0.0)
+        self.assertEqual(vblist, self.response.variableBindings)
+
+        pdu = self.channel.messages[0].pdu
+        self.assertIsInstance(pdu, GetNextRequestPDU)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, oid)
+        self.assertEqual(pdu.variableBindings[0].value, Null())
+
+    def test_getBulk_with_maxRepetitions_2_sends_GetNextRequestPDU(self):
+        self.channel.scheduleResponse(self.response)
+
+        oid = OID(*self.oid[:-1])
+        vblist = self.manager.getBulk(oid, maxRepetitions=2)
+        self.assertEqual(len(self.channel.messages), 1)
+        self.assertEqual(self.time(), 0.0)
+        self.assertEqual(vblist, self.response.variableBindings)
+
+        pdu = self.channel.messages[0].pdu
+        self.assertIsInstance(pdu, GetNextRequestPDU)
+        self.assertEqual(len(pdu.variableBindings), 1)
+        self.assertEqual(pdu.variableBindings[0].name, oid)
+        self.assertEqual(pdu.variableBindings[0].value, Null())
+
     def test_getNext_sends_GetNextRequestPDU(self):
         self.channel.scheduleResponse(self.response)
 
