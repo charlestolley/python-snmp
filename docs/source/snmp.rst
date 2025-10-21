@@ -9,43 +9,43 @@ Dummy Title
    This class enumerates the possible (valid) values of the error-status field
    of a PDU. These names and values are defined by RFC 3416, Section 3.
 
-   .. data:: noError = 0
+   .. data:: noError
 
-   .. data:: tooBig = 1
+   .. data:: tooBig
 
-   .. data:: noSuchName = 2
+   .. data:: noSuchName
 
-   .. data:: badValue = 3
+   .. data:: badValue
 
-   .. data:: readOnly = 4
+   .. data:: readOnly
 
-   .. data:: genErr = 5
+   .. data:: genErr
 
-   .. data:: noAccess = 6
+   .. data:: noAccess
 
-   .. data:: wrongType = 7
+   .. data:: wrongType
 
-   .. data:: wrongLength = 8
+   .. data:: wrongLength
 
-   .. data:: wrongEncoding = 9
+   .. data:: wrongEncoding
 
-   .. data:: wrongValue = 10
+   .. data:: wrongValue
 
-   .. data:: noCreation = 11
+   .. data:: noCreation
 
-   .. data:: inconsistentValue = 12
+   .. data:: inconsistentValue
 
-   .. data:: resourceUnavailable = 13
+   .. data:: resourceUnavailable
 
-   .. data:: commitFailed = 14
+   .. data:: commitFailed
 
-   .. data:: undoFailed = 15
+   .. data:: undoFailed
 
-   .. data:: authorizationError = 16
+   .. data:: authorizationError
 
-   .. data:: notWritable = 17
+   .. data:: notWritable
 
-   .. data:: inconsistentName = 18
+   .. data:: inconsistentName
 
 .. py:exception:: ErrorResponse
 
