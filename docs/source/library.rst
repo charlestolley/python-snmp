@@ -6,6 +6,7 @@
 
    engine
    manager
+   exceptions
    smi
    snmp
    datatypes
@@ -14,7 +15,7 @@ This library implements the Simple Network Management Protocol (SNMP). In spite 
 
 An SNMP manager is a machine or an application that generates and sends SNMP requests to other machines in a network. An SNMP agent, running on one of these other machines, processes each request, and sends back a response. There are four available request types: Get, GetNext, GetBulk (as of SNMPv2), and Set. The Get* request types are generally used to query information without affecting the state of the machine, whereas the Set request is generally meant to update a machine's configuration.
 
-Each request contains a list of "variable bindings," (varbinds), which is a fancy term for a name/value pair. The "name" of a varbind is formatted as an ASN.1 Object Identifier (OID), such as "1.3.6.1.2.1.1.1.0". Once you know the name, data type, and meaning of a variable, the protocol is quite simple to use. The hard part is determining the exact OID that corresponds to the variable you want. This is where SNMP gets its reputation for being complicated and confusing. (TODO: Make a page explaining how to do that).
+Each request contains a list of "variable bindings," (varbinds), which is a fancy term for a name/value pair. The "name" of a varbind is formatted as an ASN.1 Object Identifier (OID), such as "1.3.6.1.2.1.1.1.0". Once you know the name, data type, and meaning of a variable, the protocol is quite simple to use. The hard part is determining the exact OID that corresponds to the variable you want. This is probably where SNMP gets its reputation for being complicated and confusing.
 
 .. _manager:
 

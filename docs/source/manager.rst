@@ -188,7 +188,7 @@ The Manager Interface
 
       Send an SNMP Set request containing the provided list of VarBinds.
 
-      Each item in the `varbinds` argument list may be either a :class:`snmp.smi.VarBind`, or a tuple containing first the OID (either as an :class:`snmp.smi.OID`, or as a string) and then the requested value for the variable.
+      Each item in the `varbinds` argument list may be either a :class:`snmp.smi.VarBind`, or a tuple containing first the OID (either as an :class:`snmp.smi.OID`, or as a string) and then the requested value for the variable, as an :mod:`snmp.smi` type.
 
       Aside from the `varbinds` argument, the usage and behavior of this method is exactly the same as the :meth:`get` method.
 
