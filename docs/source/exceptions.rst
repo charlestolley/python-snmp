@@ -1,13 +1,12 @@
-Exception Types
----------------
+Exceptions
+----------
 
 .. module:: snmp
    :noindex:
 
 .. py:class:: ErrorStatus
 
-   This class enumerates the possible (valid) values of the error-status field
-   of a PDU. These names and values are defined by RFC 3416, Section 3.
+   This class enumerates the possible error-status values of a PDU. These names correspond to the definitions in `RFC 3416, Section 3`_\ .
 
    .. data:: noError
 
@@ -51,28 +50,28 @@ Exception Types
 
    This exception type indicates a non-zero error-status in a Response-PDU.
 
-   .. py:data:: status
+   .. property:: status
       :type: ErrorStatus
 
       The error-status from the Response-PDU.
 
-   .. py:data:: index
+   .. property:: index
       :type: int
 
       The error-index from the Response-PDU.
 
       The value of this attribute is guaranteed to be between zero and the
       length of the ``variableBindings`` (inclusive), even if the value from
-      the Response-PDU is outside of that range.
+      the Response-PDU is (illegally) outside of that range.
 
-   .. py:data:: variableBindings
+   .. property:: variableBindings
       :type: VarBindList
 
-      The list of variable bindings from the Response-PDU.
+      The :class:`VarBindList<snmp.smi.VarBindList>` from the Response-PDU.
 
 .. py:exception:: NoSuchName(ErrorResponse)
 
-   A special case of :class:`ErrorResponse` to make it easy for an SNMPv1 application to handle ``noSuchName`` responses. Whereas most error-status values indicate an exception, SNMPv1 uses ``noSuchName`` as part of normal operation. Since this is a sub-type of :class:`ErrorResponse`, it must be handled by an earlier ``except`` block:
+   A special case of :class:`ErrorResponse` to make it easy for an SNMPv1 application to handle ``noSuchName`` responses. Whereas most error-status values indicate an exception, SNMPv1 uses ``noSuchName`` as part of normal operation. In order to handle the two types separately, the ``except NoSuchName`` block must come first.
 
    .. code-block:: python
 
@@ -94,17 +93,17 @@ Exception Types
       else:
           print(vblist)
 
-   .. py:data:: status
+   .. property:: status
       :type: ErrorStatus
 
-      See :data:`ErrorResponse.status`
+      This value will always be :data:`ErrorStatus.noSuchName`.
 
-   .. py:data:: index
+   .. property:: index
       :type: int
 
       See :data:`ErrorResponse.index`
 
-   .. py:data:: variableBindings
+   .. property:: variableBindings
       :type: VarBindList
 
       See :data:`ErrorResponse.variableBindings`
@@ -117,13 +116,14 @@ Exception Types
 .. py:exception:: ImproperResponse
 
    This exception type indicates that the variable-bindings of a Response-PDU
-   do not constitute a valid response to the request. For example, if a GET
+   do not constitute a valid response to the request. For example, if a Get
    request contains two OIDs, and the Response-PDU returns the two variables
-   in the wrong order, then the request method (or the
+   in the wrong order, then the :meth:`SnmpManager.get` method (or the
    :meth:`RequestHandle.wait` method) will raise this error.
 
-   .. py:data:: variableBindings
+   .. property:: variableBindings
       :type: VarBindList
 
       The list of variable bindings from the Response-PDU.
 
+.. _RFC 3416, Section 3: https://datatracker.ietf.org/doc/html/rfc3416.html#section-3

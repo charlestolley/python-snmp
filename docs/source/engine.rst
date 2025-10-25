@@ -1,31 +1,29 @@
 The SNMP Engine
 ===============
 
-It's difficult to give a good definition for the term "SNMP Engine." The important thing to understand is that the first step in any SNMP application is to instantiate an Engine object. You should never need more than one.
+It's difficult to give a good definition for the term "SNMP Engine." The important thing to understand is that the first step in any SNMP application is to instantiate an :class:`Engine` object. You should never need more than one.
 
 .. module:: snmp
 
 .. data:: SNMPv1
 
-   SNMP version 1.
+   Protocol ID for SNMP version 1.
 
 .. data:: SNMPv2c
 
-   SNMP version 2 with community-based authentication.
+   Protocol ID for SNMP version 2 with community-based authentication.
 
 .. data:: SNMPv3
 
-   SNMP version 3.
+   Protocol ID for SNMP version 3.
 
 .. data:: UDP_IPv4
 
-   Messages in this transport domain are sent as UDP datagrams over an IPv4
-   network.
+   Transport domain ID for UDP over IPv4.
 
 .. data:: UDP_IPv6
 
-   Messages in this transport domain are sent as UDP datagrams over an IPv6
-   network.
+   Transport domain ID for UDP over IPv6.
 
 .. data:: noAuthNoPriv
 
@@ -53,7 +51,7 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
    The `defaultVersion`, `defaultDomain`, `defaultCommunity`, and `autowait` parameters set the default `version`, `domain`, `community`, and `autowait` arguments (respectively) for the :meth:`Manager` method.
 
-   The `verboseLogging` parameter causes the ``Engine`` to generate a detailed log message for each incoming packet that it discards. Each log message contains a representation of the packet, as well as an explanation of why it was discarded. These messages are then logged using ``logging.getLogger("snmp").debug()``. You, the caller are responsible for configuring the ``logging`` module to output these messages to the location, and in the format, of your choosing. This must be done prior to creating the ``Engine``. In the simplest case, you can simply call ``logging.basicConfig()``:
+   The `verboseLogging` parameter causes the :class:`Engine` to generate a detailed log message for each incoming packet that it discards. Each log message contains a representation of the packet, as well as an explanation of why it was discarded. These messages are then logged using ``logging.getLogger("snmp").debug()``. You, the caller, are responsible for configuring the :mod:`logging` module to output these messages to the location, and in the format, of your choosing. This must be done prior to creating the :class:`Engine`. In the simplest case, you can simply call ``logging.basicConfig()``:
 
    .. code-block:: python
 
@@ -64,45 +62,83 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       engine = snmp.Engine(verboseLogging=True)
 
    .. py:method:: addUser( \
-         user, \
-         namespace = "", \
-         default = None, \
+         user: str, \
+         namespace: str = "", \
+         default: bool = None, \
          authProtocol = None, \
          privProtocol = None, \
-         authSecret = None, \
-         privSecret = None, \
-         secret = None, \
+         authSecret: bytes = None, \
+         privSecret: bytes = None, \
+         secret: bytes = None, \
          defaultSecurityLevel = None, \
       )
 
-      Store the (User-Based Security Model) security configuration for a user. As used here, the phrase "security configuration" refers to the combination of
+      Store the authentication and privacy algorithms and passwords for a `user`. If the `user` is already defined, calling :meth:`addUser` will overwrite the stored configuration.
 
-      - user name
-      - authentication algorithm
-      - privacy algorithm
-      - authentication password
-      - privacy password
-      - default security level
+      The `authProtocol` and `authSecret` parameters configure the authentication algorithm and password, and the `privProtocol` and `privSecret` parameters configure the privacy algorithm and password. If the `user` only has one password (either because the two passwords are the same, or because the user does not support privacy), you can omit `authSecret` and `privSecret`, and just use `secret`. Here are some examples of valid ways to configure users.
 
-      Each user name is unique (within a namespace). Calling addUser() twice with the same user name (and namespace) will overwrite the previous security configuration.
+      .. code-block:: python
 
-      The namespace is a made-up construct, specific to this library, that enables you to distinguish between different security configurations with the same user name. This is only useful for an application that manages multiple nodes with different credentials for the same user name (e.g. host1 defines user1, using HmacMd5 with password "foo", while host2 defines user1 using HmacSha with password "bar"). If the nodes in your network all use the same algorithms and passwords for each user name, then you should simply ignore the namespace argument.
+         from snmp import *
+         from snmp.security.usm.auth import *
+         from snmp.security.usm.priv import *
 
-      .. note::
+         engine = Engine()
 
-         The purpose of the namespace construct is not to organize the security configurations, but to organize the managed nodes (i.e. remote engines) in the network. A namespace should represent the set of all nodes that share the same set of security configurations.
+         engine.addUser(
+            "user1",
+            authProtocol=HmacSha256,
+            authSecret=b"auth secret",
+         )
 
-      Each namespace (including the default "" namespace) has a default user name. The first user added to a namespace automatically becomes the default. To override the default in a later call to addUser(), simply use default=True.
+         engine.addUser(
+            "user2",
+            authProtocol=HmacSha384,
+            secret=b"auth secret",
+         )
 
-      The authProtocol and privProtocol parameters assign the authentication and privacy algorithms for the security configuration. Each parameter expects a class, and not an instance of a class. The snmp.security.usm.auth and snmp.security.usm.priv modules define classes for each of the standard algorithms.
+         engine.addUser(
+            "user3",
+            authProtocol=HmacSha,
+            privProtocol=AesCfb128,
+            authSecret=b"authentication secret",
+            privSecret=b"privacy secret",
+         )
 
-      .. note::
+         engine.addUser(
+            "user4",
+            authProtocol=HmacMd5,
+            privProtocol=DesCbc,
+            authSecret=b"12345",
+            privSecret=b"12345",
+         )
 
-         Consult the Installation page if you are unable to import snmp.security.usm.priv.
+         engine.addUser(
+            "user5",
+            authProtocol=HmacSha224,
+            privProtocol=AesCfb128,
+            secret=b"shared secret",
+         )
 
-      The authSecret and privSecret parameters assign the authentication and privacy passwords to go along with the configured algorithms. Each password must be a byte string, and not a unicode string (i.e. it's type must be bytes). If the two passwords are the same, you can optionally use the secret parameter in place of authSecret and privSecret. Similarly, if privProtocol is None, you can use secret in place of authSecret.
+      .. warning::
 
-      Finally, the default security level for the security configuration can be manually assigned using the defaultSecurityLevel parameter. If this parameter is None, then the highest supported security level will be selected as the default (e.g. if privProtocol is None, but authProtocol is not None, then the highest supported security level is authNoPriv).
+         While the `user` and `namespace` parameters are both :class:`str`\ s, all passwords must be :class:`bytes`.
+
+      Defaults
+      --------
+
+      The `default` parameter sets the `user` as the default user name for new SNMPv3 Managers. The first user added to a new :class:`Engine` automatically becomes the default, but you can override this in any future :meth:`addUser` call by setting `default` to ``True``.
+
+      The :class:`Engine` also keeps track of the default security level for each user. By default, it select the highest available security level (e.g. if `authProtocol` is `HmacSha512`, but `privProtocol` is ``None``, the default security level will be ``authNoPriv``), but you can override this (with a lower security level only) using the `defaultSecurityLevel` parameter.
+
+      Namespaces
+      ----------
+
+      Everything I've read about SNMP security seems to assume that a user only has one set of algorithms and passwords, which are deployed on every machine in your network. In real life, however, there are plenty of reasons why this might not be the case, like if you inherit hardware from another department, or if you are in the process of updating 100 machines, but you've only finished 9 so far.
+
+      Under the namespace model (which I believe is unique to this library), you should sort all the machines in your network into groups, so that every machine in a group has compatible credentials. Give each group a name. In each call to :meth:`addUser`, give, as the `namespace` argument, the name of the group that accepts those credentials. Then, when you call :meth:`Manager`, give, as the `namespace` argument, the name of the group that the machine belongs to. Each time the Manager has to prepare a request for that machine, it will pass the user name and namespace to the :class:`Engine`, and it will find the version of that user's credentials that will work on that machine.
+
+      Note that an :class:`Engine` does not simply have one default user name, but in fact has a default user name for each namespace. If you ignore the existence of the `namespace` argument, then every user will be added to the default ``""`` namespace, giving the illusion of a single default for the whole :class:`Engine`.
 
    .. py:method:: Manager( \
          address, \
@@ -136,18 +172,18 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
       .. warning::
 
-         This method only allows positional arguments for the `address` and `version` parameters; all other arguments must be passed by keyword. Any future changes to the ordering of these keyword-only parameters will be considered non-breaking.
+         This method allows positional arguments for the `address` and `version` parameters only; all other arguments must be passed by keyword. Any future changes to the ordering of these keyword-only parameters will be considered non-breaking.
 
-      This `Factory Method`_ creates Manager objects (i.e. objects implementing the Manager Interface), which you can use to send SNMP requests to remote engines. This section does not explain how to use a Manager object -- there are two other sections dedicated to that -- it simply explains how to create one. There are three different signatures for this method, depending on the version argument. Several parameters are common to all three signatures; the other parameters are version-specific.
+      This `Factory Method`_ creates Manager objects (i.e. objects implementing the :class:`SnmpManager` interface), which you can use to send SNMP requests to remote engines. There are three different signatures for this method, depending on the version argument. Several parameters are common to all three signatures; the other parameters are version-specific.
 
       Version-Independent Parameters
       ------------------------------
 
-      The domain parameter selects the transport domain over which the Manager will communicate. The possible values are UDP_IPv4 or UDP_IPv6. The address parameter provides the transport address of the remote engine with which the Manager will communicate. As explained in the Manager Interface section, each Manager object communicates with exactly one remote engine. The localAddress allows you to select a specific interface on your local machine. These parameters both accept either a str, or a (str, int) tuple. The str contains the network address, and the int portion (if included) gives the port number. The default port number for the address parameter is 161, which is the standard well-known UDP port for SNMP requests. The default localAddress is ("0.0.0.0", 0) for UDP_IPv4, and ("::", 0) for UDP_IPv6. The zero port number causes the Manager to select a random available port number to use as the source port for requests. This selection happens only once; after that, the port number does not change. The string portion of the default localAddress instructs the Manager to listen on all network interfaces for the remote engine's reply.
+      The `domain` parameter selects the transport domain over which the Manager will communicate. The possible values are :data:`UDP_IPv4` and :data:`UDP_IPv6`. The `address` parameter provides the transport address of the remote engine with which the Manager will communicate (as mentioned elsewhere, each Manager object communicates with exactly one remote engine). The `localAddress` allows you to select a specific IP address and port on your local machine from which to send requests. These parameters both accept either a :class:`str`, or a :class:`tuple[str, int]`. The :class:`str` contains the network address, and the :class:`int` (if included) gives the port number. The default port number for the `address` parameter is ``161``, which is the standard well-known UDP port for SNMP requests. The default `localAddress` is ``("0.0.0.0", 0)`` for :data:`UDP_IPv4`, and ``("::", 0)`` for :data:`UDP_IPv6`. The port number ``0`` causes the Manager to select a random available port to use as the source port for requests. This selection happens only once; after that, the port number does not change. The :class:`str` in the default `localAddress` instructs the Manager to listen on all network interfaces for the remote engine's reply.
 
-      The mtu parameter allows you to tell the Manager about the Maximum Transmission Unit size of the network interface that corresponds to your selected localAddress. This impacts the maximum SNMP message size that the Manager will accept in a reply. The default value is 1500, which is the maximum payload size of a standard Ethernet frame, and should be suitable for nearly all use-cases. The mtu argument must have the same value for all Managers with the same localAddress.
+      The `mtu` parameter allows you to tell the Manager about the Maximum Transmission Unit size of the network interface that corresponds to your selected `localAddress`. This impacts the maximum SNMP message size that the Manager will accept in a reply. The default value is ``1500``, which is the maximum payload size of a standard Ethernet frame, and should be suitable for nearly all use-cases. The `mtu` argument must have the same value for all Managers with the same `localAddress`.
 
-      The autowait parameter sets the default wait argument for the Manager's request functions (see the complete Manager Interface documentation). The default for autowait comes from the Engine constructor, with a default of False. Consequently, the default behavior is for every request method call to block until the response is received, at which point it will return the VarBindList from the response.
+      The `autowait` parameter sets the default `wait` argument for the Manager's request functions (see :meth:`SnmpManager.get`). The default for `autowait` comes from the :class:`Engine` constructor, which has ``True`` as the default value. Consequently, the default behavior is for every request method call to block until the response is received, and then return the :class:`VarBindList<snmp.smi.VarBindList>` from the response.
 
       .. code-block:: python
 
@@ -165,46 +201,24 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       SNMPv3
       ******
 
-      The addUser() method allows you to organize the users and credentials into namespaces. This method's namespace parameter allows you to select a namespace for this Manager. When you send a request with authentication or privacy, the Manager will look up the security configuration within this namespace, and use those credentials to sign and/or encrypt the message, and to verify and/or decrypt the response.
+      See the Namespaces_ section, above, for an explanation of the `namespace` parameter.
+
+      .. warning::
+
+         Before creating a Manager, you should call :meth:`addUser` to configure all the credentials your Manager will need.
 
       .. note::
 
-         In order to use security features, you must define at least one user in the Manager's namespace, by calling Engine.addUser(), before creating your Manager object. In spite of the "at least" in the previous sentence, it's best to just add all security configurations up front. If you are not using security, then you do not need to call Engine.addUser(), so long as you specify a defaultUser when you create your Manager.
+         It is not necessary to call :meth:`addUser` before :meth:`Manager` if the Manager will only be used to make ``noAuthNoPriv`` requests. In this case, however, the `defaultUser` argument is required.
 
-      The defaultUser and defaultSecurityLevel parameters assign default values for the user name and securityLevel arguments to the request methods. If you do not specify a defaultUser, but there is at least one user configured in the chosen namespace, then the Manger will inherit the default user from the namespace. Otherwise, if no defaultUser is given, the method will raise a TypeError. The defaultSecurityLevel will be inferred in all cases, based on the highest securityLevel that the defaultUser supports. The Manager stores both of these defaults internally, meaning that later calls to Engine.addUser() will not affect the default user name or securityLevel of existing Manager objects.
+      The `defaultUser` parameter sets the default user name for the Manager. If the `defaultUser` argument is ``None``, the Manager will use the default user name configured for this namespace (see the Defaults_ section above, as well as the last paragraph of the Namespaces_ section).
 
-      On the other hand (and as a bit of an aside), be aware that changes to the configured algorithms and passwords WILL be reflected in subsequent requests. The following example changes all of these things, to highlight which changes matter to the Manager, and which don't.
-
-      .. code-block:: python
-
-         from snmp import *
-         from snmp.security.usm.auth import *
-         from snmp.security.usm.priv import *
-
-         engine = Engine()
-         engine.addUser("chuck", authProtocol=HmacSha256, authSecret=b"wrong")
-
-         manager = engine.Manager("127.0.0.1")
-
-         try:
-            print(manager.getNext("1.3.6.1.2.1.2.2.1.2"))
-         except Exception:
-            engine.addUser(
-               "chuck",
-               authProtocol=HmacSha256,
-               privProtocol=AesCfb128,
-               secret=b"right",
-            )
-
-            engine.addUser("other", default=True)
-            print(manager.getNext("1.3.6.1.2.1.2.2.1.2"))
-
-      If you were to run this example (substituting the user name, authProtocol, and authSecret for valid ones), along with a packet capture, you would see two requests, both for user "chuck", and both with authNoPriv. This demonstrates that the addition of the "other" user does not change the Manager's default user name or securityLevel, nor does the addition of a privProtocol for user "chuck" change the default securityLevel. As for the responses, the first would indicate an invalid digest (signature), and the second would succeed. This demonstrates that the new authProtocol and secret are both being used. Note that if the second getNext() request had manually specified a securityLevel of authPriv, then the new privProtocol would have been used as well.
+      The `defaultSecurityLevel` parameter sets the default security level for the Manager. If the `defaultSecurityLevel` is ``None``, the Manager will use the default security level configured for this user (see the Defaults_ section above).
 
       SNMPv1/SNMPv2c
       **************
 
-      The `community` parameter sets the default community name for all request methods. The default for this parameter is to use the defaultCommunity from the Engine constructor.
+      The `community` parameter sets the default community name for all request methods. The default for this parameter is to use the `defaultCommunity` from the :class:`Engine` constructor.
 
 .. _Factory Method: https://en.wikipedia.org/wiki/Factory_method_pattern
 

@@ -3,9 +3,50 @@ Data Types
 
 .. module:: snmp.smi
 
-.. class:: snmp.smi.OID(* subidentifiers)
+This section describes several classes that implement types defined in `RFC 3416, Section 3`_\ .
 
-   A representation of an ASN.1 Object Identifier.
+``SimpleSyntax``
+----------------
+
+.. py:class:: Integer
+
+   An alias for :class:`Integer32`.
+
+.. py:class:: Integer32(value: int)
+
+   The default ``INTEGER`` type for SNMP.
+
+   The constructor raises a :class:`ValueError` if the `value` is not in the range of a 32-bit two's complement number.
+
+   .. property:: value
+      :type: int
+
+      This object's value as a native :class:`int`.
+
+   .. method:: __eq__ (self, other: object) -> bool
+
+      Compare two ``INTEGER``\ s for equality both in value and in ASN.1 type.
+      An :class:`Integer32` and an :class:`Unsigned32` with the same value are
+      not equal because they differ in type.
+
+.. py:class:: OctetString(data: bytes)
+
+   A representation of an ASN.1 ``OCTET STRING``.
+
+   The constructor raises a :class:`ValueError` if the `data` is longer than 65535 bytes.
+
+   .. property:: data
+      :type: bytes
+
+      The object's raw data as a native :class:`bytes`.
+
+   .. method:: __eq__ (self, other: object) -> bool
+
+      Compare two ``OCTET STRIGS`` for equality both in value and in ASN.1 type. An :class:`OctetString` and an :class:`Opaque` containing the same data are not equal because they differ in type.
+
+.. class:: OID(* subidentifiers)
+
+   A representation of an ASN.1 ``OBJECT IDENTIFIER``.
 
    The `subidentifiers` argument list accepts between 0 and 128 integers. The first sub-identifier must be between ``0`` and ``2``, the second must be between ``0`` and ``39``, and the rest must be between ``0`` to ``(2^32)-1``. The encoding rules do not support OIDs with less than 2 sub-identifiers, so when sent over the wire, the objects ``OID()``, ``OID(0)``, ``OID(1)``, and ``OID(2)`` become ``OID(0, 0)``, ``OID(0, 0)``, ``OID(1, 0)``, and ``OID(2, 0)``, respectively.
 
@@ -15,7 +56,8 @@ Data Types
       :classmethod:
 
       Convert a string like ``"1.3.6.1.2.1.1.1.0"`` or ``".1.3.6.1.2.1.1.1.0"``
-      into an :class:`OID`.
+      into an :class:`OID`. Raise a :class:`ValueError` if `oid` does not
+      represent a valid :class:`OID`.
 
    .. method:: __str__() -> str
 
@@ -39,10 +81,7 @@ Data Types
 
    .. method:: __getitem__(n: int | slice) -> int | tuple[int, ...]
 
-      If `n` is an :class:`int`, return the sub-identifier at position `n`, or
-      raise an :class:`IndexError`, if `n` is out of range. If `n` is a
-      :class:`slice`, return a range of sub-identifiers as a :class:`tuple` of
-      :class:`int`\ s.
+      Retrieve the sub-identifier(s) at index (or slice) `n`.
 
    .. method:: __iter__() -> Iterator[int]
 
@@ -50,14 +89,14 @@ Data Types
 
    .. method:: extend(* subidentifiers: int) -> OID
 
-      Append the given `subidentifiers`.
+      Append the given `subidentifiers`. Raise a :class:`ValueError` if the result would be longer than 128 sub-identifiers.
 
    .. method:: startswith(prefix: OID) -> bool
 
       Similar to :meth:`str.startswith`.
 
    .. method:: withIndex( \
-         * index: Integer | OctetString | OID | IpAddress, \
+         * index: Integer | OctetString | OID, \
          implied: bool = False \
       ) -> OID
 
@@ -89,6 +128,18 @@ Data Types
              ::= { snmpNotifyFilterTable 1 }
 
       When encoding such an index, you must set the `implied` argument to ``True``.
+
+      This method raises a :class:`ValueError` if the result would be longer than 128 sub-identifiers.
+
+      Additional Reading
+      ******************
+
+      `RFC 1157, Section 3.2.6.3`_ explains the relationship between the
+      "names" of object types, and the "names" of the instances of an object
+      type. The word "names" means OIDs.
+
+      `RFC 2578, Section 7.7`_ specifies how an object is encoded as an
+      ``INDEX``, including the meaning of the ``IMPLIED`` keyword.
 
    .. method:: getIndex(prefix: OID, cls=Integer, implied=False)
 
@@ -159,7 +210,7 @@ Data Types
                         ipAddressPrefixPrefix, ipAddressPrefixLength }
              ::= { ipAddressPrefixTable 1 }
 
-      Notice that there are four variables in the ``INDEX``. You can determine the data type of each variable their ``SYNTAX`` clauses until you get to a primitive type. You can then decode the index by passing the corresponding classes to :meth:`decodeIndex` via the `types` argument list. Here is some code that does just that:
+      Notice that there are four variables in the ``INDEX``. You can determine the data type of each variable by tracing their ``SYNTAX`` clauses until you get to a primitive type. You can then decode the index by passing the corresponding classes to :meth:`decodeIndex` via the `types` argument list. Here is a code sample that does just that:
 
       .. code-block:: python
 
@@ -204,45 +255,168 @@ Data Types
 
    .. exception:: IndexDecodeError
 
-.. py:data:: zeroDotZero
+``ApplicationSyntax``
+---------------------
 
-   The :class:`OID` representing "0.0". This is the OID equivalent of ``NULL``.
+.. py:class:: IpAddress(addr: str)
 
-.. py:class:: OctetString
+   An IPv4 address. The constructor raises a :class:`ValueError` if the `addr` is not a valid IPv4 address string.
 
-.. py:class:: Integer
+   This is an ``OCTET STRING`` type, so it implements the same interface as :class:`OctetString`.
 
-.. py:class:: Integer32
+   .. property:: addr
+      :type: str
+
+      The address in human-readable ``"X.X.X.X"`` format.
+
+   .. property:: data
+      :type: bytes
+
+      A byte string encoding the address in network format.
+
+   .. method:: __eq__ (self, other: object) -> bool
+
+      Two :class:`IpAddress`\es are equal if they represent the same address.
+
+.. py:class:: Counter32(value: int)
+
+   This class is exactly like :class:`Integer32`, but allows only 32-bit unsigned values.
+
+   .. property:: value
+      :type: int
+
+      This object's value as a native :class:`int`.
+
+   .. method:: __eq__ (self, other: object) -> bool
+
+      Compare two ``INTEGER``\ s for equality both in value and in ASN.1 type.
 
 .. py:class:: Unsigned
 
-.. py:class:: Unsigned32
+   An alias for :class:`Unsigned32`.
 
-.. py:class:: Counter32
+.. py:class:: Unsigned32(value: int)
 
-.. py:class:: Counter64
+   This class is exactly like :class:`Integer32`, but allows only 32-bit unsigned values.
 
-.. py:class:: Gauge32
+   .. property:: value
+      :type: int
 
-.. py:class:: TimeTicks
+      This object's value as a native :class:`int`.
 
-.. py:class:: Null
+   .. method:: __eq__ (self, other: object) -> bool
 
-.. py:class:: IpAddress
+      Compare two ``INTEGER``\ s for equality both in value and in ASN.1 type.
 
-.. py:class:: Opaque
+.. py:class:: Gauge32(value: int)
 
-.. py:class:: NoSuchObject
+   Indistinguishable from :class:`Unsigned32` in all but name.
 
-.. py:class:: NoSuchInstance
+.. py:class:: TimeTicks(value: int)
 
-.. py:class:: EndOfMibView
+   This class is exactly like :class:`Integer32`, but allows only 32-bit unsigned values.
 
-Integer Types:
+   .. property:: value
+      :type: int
 
+      This object's value as a native :class:`int`.
 
-OctetString Types:
+   .. method:: __eq__ (self, other: object) -> bool
 
-.. py:class:: VarBind
+      Compare two ``INTEGER``\ s for equality both in value and in ASN.1 type.
 
-.. py:class:: VarBindList
+.. py:class:: Opaque(data: bytes)
+
+   This class is exactly like :class:`OctetString`.
+
+   .. property:: data
+      :type: bytes
+
+      The object's raw data as a native :class:`bytes`.
+
+   .. method:: __eq__ (self, other: object) -> bool
+
+      Compare two ``OCTET STRIGS`` for equality both in value and in ASN.1 type.
+
+.. py:class:: Counter64(value: int)
+
+   This class is exactly like :class:`Integer32`, but allows only 64-bit unsigned values.
+
+   .. property:: value
+      :type: int
+
+      This object's value as a native :class:`int`.
+
+   .. method:: __eq__ (self, other: object) -> bool
+
+      Compare two ``INTEGER``\ s for equality both in value and in ASN.1 type.
+
+Variable Bindings
+-----------------
+
+.. py:class:: Null()
+
+   A placeholder value for requests.
+
+.. py:class:: NoSuchObject()
+
+   A special value in a response that means that the requested OID does not refer to a known object type.
+
+   .. method:: __eq__(self, other: object) -> bool
+
+      Check if `other` is an instance of :class:`NoSuchObject`.
+
+.. py:class:: NoSuchInstance()
+
+   A special value in a response meaning that the OID refers to a known object type, but there is no instance with the requested OID index.
+
+   .. method:: __eq__(self, other: object) -> bool
+
+      Check if `other` is an instance of :class:`NoSuchInstance`.
+
+.. py:class:: EndOfMibView()
+
+   A special value in a response to a GetNext or GetBulk request meaning that there are no variables following the requested OID.
+
+   .. method:: __eq__(self, other: object) -> bool
+
+      Check if `other` is an instance of :class:`EndOfMibView`.
+
+.. py:class:: VarBind(oid: OID | str, value: Optional[Integer | OctetString | OID] = None)
+
+   .. property:: name
+      :type: OID
+
+      The variable name, as an :class:`OID`.
+
+   .. property:: value
+      :type: Integer | OctetString | Null | OID
+
+      The variable value, which will be one of the types described on this page.
+
+.. py:class:: VarBindList(*varbinds: VarBind)
+
+   A ``SEQUENCE`` of :class:`VarBind`\ s.
+
+   .. method:: __len__() -> int
+
+      Count the number of variable bindings in this list.
+
+   .. method:: __getitem__(n: int | slice) -> VarBind | tuple[VarBind, ...]
+
+      Retrieve the :class:`VarBind`\ (s) at index (or slice) `n`.
+
+   .. method:: __iter__() -> Iterator[VarBind]
+
+      Iterate through the :class:`VarBind`\ s.
+
+Constants
+---------
+
+.. py:data:: zeroDotZero
+
+   The :class:`OID` representing ``"0.0"``. This is the OID equivalent of ``NULL``.
+
+.. _RFC 1157, Section 3.2.6.3: https://datatracker.ietf.org/doc/html/rfc1157.html#section-3.2.6.3
+.. _RFC 2578, Section 7.7: https://datatracker.ietf.org/doc/html/rfc2578.html#section-7.7
+.. _RFC 3416, Section 3: https://datatracker.ietf.org/doc/html/rfc3416.html#section-3
