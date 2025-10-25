@@ -61,6 +61,8 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       logging.basicConfig(level=logging.DEBUG)
       engine = snmp.Engine(verboseLogging=True)
 
+   The :class:`Engine` class is not thread-safe. All method calls to Managers and :class:`RequestHandle`\ s must be done in a single thread.
+
    .. py:method:: addUser( \
          user: str, \
          namespace: str = "", \
