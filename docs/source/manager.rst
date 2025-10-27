@@ -204,6 +204,19 @@ The Manager Interface
 
    Use the :meth:`Engine.poll()<snmp.Engine.poll>` method to create a :class:`RequestPoller` object.
 
+   .. py:method:: __bool__() -> bool
+
+      Return ``True`` if there are one or more handles registered, and ``False`` if there are none. The :meth:`wait` method automatically unregisters handles as it returns them, so this feature allows you to detect when all handles have been returned.
+
+      .. code-block:: python
+
+         poller = engine.poll(*handles)
+
+         while poller:
+             ready = poller.wait()
+             for handle in ready:
+                 print(handle.wait())
+
    .. py:method:: register(handle: RequestHandle)
 
       Register a `handle` for monitoring by the :meth:`wait` method.
@@ -213,6 +226,8 @@ The Manager Interface
       Return the list of handles that are ready, or block until one becomes ready.
 
       If a handle is "ready", then its :meth:`RequestHandle.wait` method will return immediately, or raise an exception.
+
+      Each :class:`RequestHandle` is automatically unregistered after it is returned.
 
       If `timeout` is not ``None``, and no handles become ready within `timeout` seconds, then the call will return an empty :class:`list`.
 
