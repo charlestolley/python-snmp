@@ -198,6 +198,24 @@ The Manager Interface
 
       See :meth:`SnmpManager.get`.
 
+.. py:class:: RequestPoller
+
+   Similar to the standard library `Polling Objects`_, a :class:`RequestPoller` can monitor several :class:`RequestHandle`\ s and tell you when they are ready to be :meth:`wait()<RequestHandle.wait>`\ ed on.
+
+   Use the :meth:`Engine.poll()<snmp.Engine.poll>` method to create a :class:`RequestPoller` object.
+
+   .. py:method:: register(handle: RequestHandle)
+
+      Register a `handle` for monitoring by the :meth:`wait` method.
+
+   .. py:method:: wait(timeout: float = None) -> List[RequestHandle]
+
+      Return the list of handles that are ready, or block until one becomes ready.
+
+      If a handle is "ready", then its :meth:`RequestHandle.wait` method will return immediately, or raise an exception.
+
+      If `timeout` is not ``None``, and no handles become ready within `timeout` seconds, then the call will return an empty :class:`list`.
+
 .. py:class:: SNMPv3Manager
 
    .. py:method:: get( \
@@ -347,3 +365,4 @@ The Manager Interface
       See :meth:`SnmpManager.set` and :meth:`get`.
 
 .. _Exception: https://docs.python.org/3/library/exceptions.html#Exception
+.. _Polling Objects: https://docs.python.org/3/library/select.html#polling-objects
