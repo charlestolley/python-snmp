@@ -1,4 +1,6 @@
-__all__ = ["SNMPv3ManagerAddUserTest", "SNMPv3ManagerNoAddUserTest"]
+__all__ = [
+    "SNMPv3ManagerAddUserTest", "SNMPv3ManagerNoAddUserTest", "EnginePollTest",
+]
 
 import unittest
 
@@ -93,6 +95,29 @@ class SNMPv3ManagerAddUserTest(unittest.TestCase):
             defaultUser = self.otherUser,
             defaultSecurityLevel = authNoPriv,
         )
+
+class EnginePollTest(unittest.TestCase):
+    class Handle:
+        def __init__(self):
+            self.answered = False
+
+        def active(self):
+            return not self.answered
+
+        def answer(self):
+            self.answered = True
+
+    def test_poll_method_registers_handles(self):
+        engine = Engine()
+        h1 = self.Handle()
+        h2 = self.Handle()
+        poller = engine.poll(h1, h2)
+
+        h2.answer()
+        ready = poller.wait()
+        self.assertEqual(len(ready), 1)
+        self.assertIn(h2, ready)
+        self.assertTrue(poller)
 
 if __name__ == "__main__":
     unittest.main()

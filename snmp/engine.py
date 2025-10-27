@@ -2,6 +2,7 @@ from snmp.exception import *
 from snmp.message import ProtocolVersion
 from snmp.pdu import ReportPDU, ResponsePDU
 from snmp.pipeline import *
+from snmp.requests import RequestPoller
 from snmp.scheduler import Scheduler
 from snmp.security.levels import noAuthNoPriv
 from snmp.security.usm import *
@@ -253,3 +254,11 @@ class Engine:
             return self.v1Manager(channel, autowait, **kwargs)
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")
+
+    def poll(self, *handles):
+        poller = RequestPoller(self.scheduler)
+
+        for handle in handles:
+            poller.register(handle)
+
+        return poller

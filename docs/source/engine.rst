@@ -222,5 +222,11 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
       The `community` parameter sets the default community name for all request methods. The default for this parameter is to use the `defaultCommunity` from the :class:`Engine` constructor.
 
+   .. py:method:: poll(*handles: RequestHandle) -> RequestPoller
+
+      Create a poller object to :meth:`wait()<RequestPoller.wait>` on multiple :class:`RequestHandle`\ s at once.
+
+      If you provide one or more `handles` in the argument list, the call will :meth:`register()<RequestPoller.register>` them for you before returning the :class:`RequestPoller` object.
+
 .. _Factory Method: https://en.wikipedia.org/wiki/Factory_method_pattern
 
