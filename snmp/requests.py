@@ -1,7 +1,8 @@
-__all__ = ["RequestIDAuthority", "Timeout"]
+__all__ = ["RequestIDAuthority", "RequestPoller", "Timeout"]
 
 from snmp.exception import *
 from snmp.numbers import *
+from snmp.scheduler import *
 
 class Timeout(SNMPException):
     pass
@@ -35,3 +36,46 @@ class RequestIDAuthority(NumberAuthority):
 
     def newGenerator(self) -> NumberGenerator:
         return NumberGenerator(32, signed=True)
+
+class RequestPoller:
+    class ExpireTask(SchedulerTask):
+        def __init__(self):
+            self.expired = False
+
+        def __bool__(self):
+            return self.expired
+
+        def run(self):
+            self.expired = True
+
+    def __init__(self, scheduler):
+        self.handles = set()
+        self.scheduler = scheduler
+
+    def __bool__(self):
+        return bool(self.handles)
+
+    def ready(self):
+        ready = set()
+        for handle in self.handles:
+            if not handle.active():
+                ready.add(handle)
+
+        return ready
+
+    def register(self, handle):
+        self.handles.add(handle)
+
+    def wait(self, timeout=None):
+        expired = self.ExpireTask()
+
+        if timeout is not None:
+            self.scheduler.schedule(expired, timeout)
+
+        ready = self.ready()
+        while self.handles and not ready and not expired:
+            self.scheduler.wait()
+            ready = self.ready()
+
+        self.handles -= ready
+        return list(ready)
