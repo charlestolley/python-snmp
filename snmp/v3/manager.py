@@ -64,7 +64,7 @@ class UnhandledReport(RequestError):
         self.report = varbind
         errmsg = "The remote engine raised a report that the manager" \
             f" does not know how to handle: {varbind}"
-        super().__init__()
+        super().__init__(errmsg)
 
 class InvalidResponseField(IncomingMessageError):
     def __init__(self, field_name, response_value, request_value):
