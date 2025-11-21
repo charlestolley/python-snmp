@@ -73,9 +73,12 @@ class RequestPoller:
             self.scheduler.schedule(expired, timeout)
 
         ready = self.ready()
-        while self.handles and not ready and not expired:
+        while self.handles and not ready:
             self.scheduler.wait()
             ready = self.ready()
+
+            if expired:
+                break
 
         self.handles -= ready
         return list(ready)

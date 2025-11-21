@@ -1,5 +1,6 @@
 __all__ = ["RequestIDAuthorityTest", "RequestPollerTest"]
 
+import heapq
 import unittest
 
 from snmp.exception import *
@@ -38,10 +39,26 @@ class RequestIDAuthorityTest(unittest.TestCase):
 class RequestPollerTest(unittest.TestCase):
     class SleepFunction:
         def __init__(self, timeFunction):
+            self.handles = []
             self.timeFunction = timeFunction
 
-        def __call__(self, delay):
-            self.timeFunction.advance(delay)
+        def __call__(self, delay, poll=True):
+            if (poll
+            and self.handles
+            and self.handles[0][0] <= self.timeFunction() + delay):
+                wake_time, handle = heapq.heappop(self.handles)
+                delay = wake_time - self.timeFunction()
+
+                if delay >= 0.0:
+                    self.timeFunction.advance(delay)
+
+                handle.answer()
+            else:
+                self.timeFunction.advance(delay)
+
+        def register(self, handle, delay=0.0):
+            wake_time = self.timeFunction() + delay
+            heapq.heappush(self.handles, (wake_time, handle))
 
     class TimeFunction:
         def __init__(self):
@@ -221,6 +238,63 @@ class RequestPollerTest(unittest.TestCase):
         ready = self.poller.wait(1.0)
         self.assertEqual(ready, [])
         self.assertEqual(self.time(), 1.0)
+
+    # This is a meta-test to make sure the helper SleepFunction works properly
+    def test_SleepFunction_answers_registered_handle_at_the_right_time(self):
+        h1 = self.Handle()
+        h2 = self.Handle()
+
+        self.poller.register(h1)
+        self.poller.register(h2)
+
+        self.sleep.register(h1, 7/8)
+        self.sleep.register(h2, 1/4)
+
+        # poll=False simulates the passage of time; the default is True
+        # so that it answers the handles when called by the scheduler
+        self.sleep(3/8, poll=False)
+        self.assertEqual(self.time(), 3/8)
+        self.assertTrue(h2.active())
+
+        ready = self.poller.wait(1.0)
+        self.assertEqual(len(ready), 1)
+        self.assertIn(h2, ready)
+        self.assertEqual(self.time(), 3/8)
+
+        ready = self.poller.wait(1.0)
+        self.assertEqual(len(ready), 1)
+        self.assertIn(h1, ready)
+        self.assertEqual(self.time(), 7/8)
+
+    def test_poller_calls_scheduler_wait_when_timeout_is_zero(self):
+        h1 = self.Handle()
+        h2 = self.Handle()
+
+        self.poller.register(h1)
+        self.poller.register(h2)
+
+        self.sleep.register(h1, 3/8)
+        self.sleep.register(h2, 5/8)
+
+        ready = self.poller.wait(0.0)
+        self.assertEqual(len(ready), 0)
+        self.assertEqual(self.time(), 0.0)
+
+        self.sleep(3/8, poll=False)
+        self.assertTrue(h1.active())
+
+        ready = self.poller.wait(0.0)
+        self.assertEqual(self.time(), 3/8)
+        self.assertEqual(len(ready), 1)
+        self.assertIn(h1, ready)
+
+        self.sleep(1/4, poll=False)
+        self.assertTrue(h2.active())
+
+        ready = self.poller.wait(0.0)
+        self.assertEqual(self.time(), 5/8)
+        self.assertEqual(len(ready), 1)
+        self.assertIn(h2, ready)
 
 if __name__ == "__main__":
     unittest.main()
