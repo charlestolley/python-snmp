@@ -336,7 +336,7 @@ This section describes several classes that implement types defined in `RFC 3416
 
    .. method:: __eq__ (self, other: object) -> bool
 
-      Compare two ``OCTET STRIGS`` for equality both in value and in ASN.1 type.
+      Compare two ``OCTET STRINGS`` for equality both in value and in ASN.1 type.
 
 .. py:class:: Counter64(value: int)
 
