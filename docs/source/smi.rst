@@ -42,7 +42,7 @@ This section describes several classes that implement types defined in `RFC 3416
 
    .. method:: __eq__ (self, other: object) -> bool
 
-      Compare two ``OCTET STRIGS`` for equality both in value and in ASN.1 type. An :class:`OctetString` and an :class:`Opaque` containing the same data are not equal because they differ in type.
+      Compare two ``OCTET STRINGS`` for equality both in value and in ASN.1 type. An :class:`OctetString` and an :class:`Opaque` containing the same data are not equal because they differ in type.
 
 .. class:: OID(* subidentifiers)
 
