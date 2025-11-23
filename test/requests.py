@@ -266,7 +266,7 @@ class RequestPollerTest(unittest.TestCase):
         self.assertIn(h1, ready)
         self.assertEqual(self.time(), 7/8)
 
-    def test_poller_calls_scheduler_wait_when_timeout_is_zero(self):
+    def test_polling_for_zero_seconds_still_invokes_sleep_function(self):
         h1 = self.Handle()
         h2 = self.Handle()
 
@@ -295,6 +295,16 @@ class RequestPollerTest(unittest.TestCase):
         self.assertEqual(self.time(), 5/8)
         self.assertEqual(len(ready), 1)
         self.assertIn(h2, ready)
+
+    def test_polling_for_zero_seconds_does_not_cause_time_to_advance(self):
+        handle = self.Handle()
+        self.poller.register(handle)
+        self.sleep.register(handle, 1/2)
+
+        self.scheduler.schedule(self.NoOpTask(), 1/4)
+
+        ready = self.poller.wait(0.0)
+        self.assertEqual(self.time(), 0.0)
 
 if __name__ == "__main__":
     unittest.main()

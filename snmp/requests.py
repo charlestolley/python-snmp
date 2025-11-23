@@ -67,18 +67,17 @@ class RequestPoller:
         self.handles.add(handle)
 
     def wait(self, timeout=None):
-        expired = self.ExpireTask()
-
-        if timeout is not None:
+        if timeout is None:
+            expired = False
+        else:
+            expired = self.ExpireTask()
             self.scheduler.schedule(expired, timeout)
+            self.scheduler.trywait()
 
         ready = self.ready()
-        while self.handles and not ready:
+        while not (ready or expired) and self.handles:
             self.scheduler.wait()
             ready = self.ready()
-
-            if expired:
-                break
 
         self.handles -= ready
         return list(ready)
