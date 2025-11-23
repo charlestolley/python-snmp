@@ -92,6 +92,43 @@ class SchedulerTest(unittest.TestCase):
         self.scheduler.schedule(task)
         self.assertTrue(task.hasRun)
 
+    def test_trywait_runs_task_if_ready(self):
+        task = self.Task()
+
+        self.scheduler.schedule(task, 0.5)
+        self.sleepFunction(0.5)
+
+        self.assertFalse(task.hasRun)
+        self.scheduler.trywait()
+        self.assertTrue(task.hasRun)
+
+    def test_trywait_does_not_run_tasks_that_are_not_ready(self):
+        task = self.Task()
+
+        self.scheduler.schedule(task, 0.5)
+        self.assertFalse(task.hasRun)
+        self.scheduler.trywait()
+        self.assertFalse(task.hasRun)
+
+    def test_trywait_sleeps_0_if_task_is_ready(self):
+        task = self.Task()
+
+        self.scheduler.schedule(task, 0.5)
+        self.sleepFunction(0.5)
+
+        self.scheduler.trywait()
+        self.assertEqual(self.timeFunction(), 0.5)
+        self.assertEqual(self.sleepFunction.count, 2)
+
+    def test_trywait_sleeps_0_when_nothing_is_ready(self):
+        task = self.Task()
+
+        self.scheduler.schedule(task, 0.5)
+
+        self.scheduler.trywait()
+        self.assertEqual(self.timeFunction(), 0.0)
+        self.assertEqual(self.sleepFunction.count, 1)
+
     def test_wait_runs_task_once_its_ready(self):
         task = self.Task()
 

@@ -70,6 +70,10 @@ class Scheduler:
         heapq.heappush(self.upcoming, entry)
         self.runPendingTasks()
 
+    def trywait(self):
+        self.sleep(0.0)
+        self.runPendingTasks()
+
     def wait(self):
         if self.upcoming:
             now = self.time()
