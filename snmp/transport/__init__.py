@@ -38,13 +38,17 @@ class TransportChannel:
         self.transport.send(data, self.address)
 
 class TransportMultiplexor:
-    def register(self, sock, listener):
-        raise NotImplementedError()
-
     def listen(self):
         done = False
         while not done:
             done = self.poll()
+
+    def receive(self, sock, listener):
+        addr, data = sock.receive()
+        listener.hear(data, TransportChannel(sock, addr))
+
+    def register(self, sock, listener):
+        raise NotImplementedError()
 
     def poll(self, timeout = None):
         raise NotImplementedError()

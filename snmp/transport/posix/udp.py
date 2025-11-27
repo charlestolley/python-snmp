@@ -4,7 +4,7 @@ import math
 import os
 import select
 
-from snmp.transport import *
+from snmp.transport import TransportMultiplexor
 
 class PosixUdpMultiplexor(TransportMultiplexor):
     def __init__(self):
@@ -32,8 +32,7 @@ class PosixUdpMultiplexor(TransportMultiplexor):
                     os.read(fd, 1)
                     interrupted = True
             else:
-                addr, data = sock.receive()
-                listener.hear(data, TransportChannel(sock, addr))
+                self.receive(sock, listener)
 
         return interrupted
 
