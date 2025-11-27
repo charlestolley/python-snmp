@@ -27,12 +27,10 @@ class MessageIDAuthority(NumberAuthority):
 class SNMPv3RequestHandle:
     def __init__(self, scheduler, pdu, *callbacks):
         self.callbacks = list(callbacks)
-        self.pdu = pdu
-        self.scheduler = scheduler
-
-        self.response = None
         self.exception = None
-        self.expired = False
+        self.future = scheduler.createFuture()
+        self.pdu = pdu
+
 
     def __del__(self):
         if self.active():
@@ -41,6 +39,9 @@ class SNMPv3RequestHandle:
     @property
     def requestID(self):
         return self.pdu.requestID
+
+    def active(self):
+        return not self.future.done()
 
     def addCallback(self, callback):
         if self.active():
@@ -53,18 +54,23 @@ class SNMPv3RequestHandle:
             callback = self.callbacks.pop()
             callback(self.requestID)
 
-    def active(self):
-        return self.response is None and not self.expired
-
     def expire(self):
         if self.active():
-            self.expired = True
+            if self.exception is None:
+                self.exception = Timeout()
+
+            self.future.set_exception(self.exception)
             self.onDeactivate()
 
     def push(self, response):
         if self.active():
-            self.response = response
-            assert self.response is not None
+            try:
+                response.checkErrorStatus(self.pdu)
+                self.pdu.checkResponse(response)
+                self.future.set_result(response.variableBindings)
+            except Exception as exc:
+                self.future.set_exception(exc)
+
             self.onDeactivate()
 
     def report(self, exception):
@@ -72,21 +78,10 @@ class SNMPv3RequestHandle:
             self.exception = exception
 
     def wait(self):
-        while self.active():
-            try:
-                self.scheduler.wait()
-            except KeyboardInterrupt as interrupt:
-                if self.exception is not None:
-                    raise self.exception from interrupt
-                else:
-                    raise
-
-        if self.response is not None:
-            self.response.checkErrorStatus(self.pdu)
-            self.pdu.checkResponse(self.response)
-            return self.response.variableBindings
-        elif self.exception is not None:
-            raise self.exception
-        else:
-            assert self.expired
-            raise Timeout()
+        try:
+            return self.future.wait()
+        except KeyboardInterrupt as interrupt:
+            if self.exception is not None:
+                raise self.exception from interrupt
+            else:
+                raise
