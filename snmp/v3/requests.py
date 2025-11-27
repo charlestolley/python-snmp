@@ -31,6 +31,8 @@ class SNMPv3RequestHandle:
         self.future = scheduler.createFuture()
         self.pdu = pdu
 
+    def __await__(self):
+        return self.future.__await__()
 
     def __del__(self):
         if self.active():

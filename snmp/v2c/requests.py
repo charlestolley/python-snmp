@@ -27,6 +27,9 @@ class SNMPv2cRequestHandle:
         self.future = scheduler.createFuture()
         self.request = request
 
+    def __await__(self):
+        return self.future.__await__()
+
     def __del__(self):
         if self.active():
             self.close()
