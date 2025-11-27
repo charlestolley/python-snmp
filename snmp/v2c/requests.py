@@ -23,35 +23,16 @@ pduTypes = {
 
 class SNMPv2cRequestHandle:
     def __init__(self, scheduler, request):
-        self.scheduler = scheduler
         self.callbacks = []
-
+        self.future = scheduler.createFuture()
         self.request = request
-        self.response = None
-
-        self._expired = False
 
     def __del__(self):
         if self.active():
             self.close()
 
     def active(self):
-        return self.response is None and not self.expired
-
-    @property
-    def expired(self):
-        return self._expired
-
-    @expired.setter
-    def expired(self, expired):
-        if expired and not self._expired:
-            self._expired = True
-            self.close()
-
-    def close(self):
-        while self.callbacks:
-            callback, requestID = self.callbacks.pop()
-            callback(requestID)
+        return not self.future.done()
 
     def addCallback(self, callback, requestID):
         if self.active():
@@ -59,21 +40,30 @@ class SNMPv2cRequestHandle:
         else:
             callback(requestID)
 
+    def close(self):
+        while self.callbacks:
+            callback, requestID = self.callbacks.pop()
+            callback(requestID)
+
+    def expire(self):
+        if self.active():
+            self.future.set_exception(Timeout())
+            self.close()
+
     def push(self, message):
         if self.active():
-            self.response = message.pdu
+            try:
+                message.pdu.checkErrorStatus(self.request)
+                self.request.checkResponse(message.pdu)
+            except Exception as exc:
+                self.future.set_exception(exc)
+            else:
+                self.future.set_result(message.pdu.variableBindings)
+
             self.close()
 
     def wait(self):
-        while self.active():
-            self.scheduler.wait()
-
-        if self.response is not None:
-            self.response.checkErrorStatus(self.request)
-            self.request.checkResponse(self.response)
-            return self.response.variableBindings
-        else:
-            raise Timeout()
+        return self.future.wait()
 
 class SNMPv2cRequestAdmin:
     class ExpireTask(SchedulerTask):
@@ -83,7 +73,7 @@ class SNMPv2cRequestAdmin:
         def run(self):
             handle = self.handle_ref()
             if handle is not None:
-                handle.expired = True
+                handle.expire()
 
     class SendTask(SchedulerTask):
         def __init__(self, handle_ref, channel, community):
