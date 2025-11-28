@@ -1,11 +1,17 @@
-__all__ = ["AsyncMultiplexorTest", "AsyncSchedulerTest"]
+__all__ = ["AsyncManagerTest", "AsyncMultiplexorTest", "AsyncSchedulerTest"]
 
+import asyncio
 import gc
 import unittest
 import weakref
 
-from snmp.async_engine import AsyncMultiplexor, AsyncScheduler
+from snmp.async_engine import AsyncManager, AsyncMultiplexor, AsyncScheduler
+from snmp.message import *
+from snmp.pdu import *
 from snmp.scheduler import *
+from snmp.smi import VarBindList
+from snmp.v1.manager import SNMPv1Manager
+from snmp.v1.requests import SNMPv1RequestAdmin
 
 class AsyncSchedulerTest(unittest.TestCase):
     class SleepFunction:
@@ -242,6 +248,183 @@ class AsyncMultiplexorTest(unittest.TestCase):
         self.assertRaises(KeyError, self.loop.ready, 55)
         self.assertRaises(KeyError, self.loop.ready, 56)
         self.assertRaises(KeyError, self.loop.ready, 57)
+
+class AsyncManagerTest(unittest.TestCase):
+    class ResultIterator:
+        def __init__(self, result):
+            self.begun = False
+            self.result = result
+
+        def __next__(self):
+            if self.begun:
+                raise StopIteration(self.result)
+            else:
+                self.begun = True
+
+    class Handle:
+        def __init__(self, iterator):
+            self.awaited = False
+            self.iterator = iterator
+
+        def __await__(self):
+            self.awaited = True
+            return self.iterator
+
+    class NullChannel:
+        def send(self, message):
+            pass
+
+    class InterceptManager:
+        def __init__(self, manager, loop):
+            self.loop = loop
+            self.future = loop.create_future()
+            self.manager = manager
+
+        async def async_reply(self):
+            handle_ref = await self.future
+            gc.collect()
+
+            handle = handle_ref()
+            if handle is None:
+                self.loop.stop()
+            else:
+                pdu = ResponsePDU(requestID=handle.request.requestID)
+                message = Message(ProtocolVersion.SNMPv1, b"", pdu)
+                handle.push(message)
+
+        def get(self, *args, **kwargs):
+            handle = self.manager.get(*args, **kwargs)
+            self.future.set_result(weakref.ref(handle))
+            return handle
+
+        def getBulk(self, *args, **kwargs):
+            handle = self.manager.getBulk(*args, **kwargs)
+            self.future.set_result(weakref.ref(handle))
+            return handle
+
+        def getNext(self, *args, **kwargs):
+            handle = self.manager.getNext(*args, **kwargs)
+            self.future.set_result(weakref.ref(handle))
+            return handle
+
+        def set(self, *args, **kwargs):
+            handle = self.manager.set(*args, **kwargs)
+            self.future.set_result(weakref.ref(handle))
+            return handle
+
+    class Manager:
+        def __init__(self, handle):
+            self.handle = handle
+
+        def get(self, *args, **kwargs):
+            return self.handle
+
+        def getBulk(self, *args, **kwargs):
+            return self.handle
+
+        def getNext(self, *args, **kwargs):
+            return self.handle
+
+        def set(self, *args, **kwargs):
+            return self.handle
+
+    def setUp(self):
+        self.loop = asyncio.get_event_loop()
+
+        self.handle = self.Handle(self.ResultIterator(VarBindList()))
+        self.manager = AsyncManager(self.Manager(self.handle))
+
+    def test_get_raises_TypeError_for_wait_argument(self):
+        self.assertRaises(
+            TypeError,
+            self.loop.run_until_complete,
+            self.manager.get(wait=False),
+        )
+
+    def test_getBulk_raises_TypeError_for_wait_argument(self):
+        self.assertRaises(
+            TypeError,
+            self.loop.run_until_complete,
+            self.manager.getBulk(wait=False),
+        )
+
+    def test_getNext_raises_TypeError_for_wait_argument(self):
+        self.assertRaises(
+            TypeError,
+            self.loop.run_until_complete,
+            self.manager.getNext(wait=False),
+        )
+
+    def test_set_raises_TypeError_for_wait_argument(self):
+        self.assertRaises(
+            TypeError,
+            self.loop.run_until_complete,
+            self.manager.set(wait=False),
+        )
+
+    def test_get_awaits_the_returned_handle(self):
+        self.assertFalse(self.handle.awaited)
+        self.loop.run_until_complete(self.manager.get())
+        self.assertTrue(self.handle.awaited)
+
+    def test_getBulk_awaits_the_returned_handle(self):
+        self.assertFalse(self.handle.awaited)
+        self.loop.run_until_complete(self.manager.getBulk())
+        self.assertTrue(self.handle.awaited)
+
+    def test_getNext_awaits_the_returned_handle(self):
+        self.assertFalse(self.handle.awaited)
+        self.loop.run_until_complete(self.manager.getNext())
+        self.assertTrue(self.handle.awaited)
+
+    def test_set_awaits_the_returned_handle(self):
+        self.assertFalse(self.handle.awaited)
+        self.loop.run_until_complete(self.manager.set())
+        self.assertTrue(self.handle.awaited)
+
+    def test_get_captures_a_strong_reference_to_the_handle(self):
+        scheduler = AsyncScheduler(self.loop)
+        admin = SNMPv1RequestAdmin(scheduler)
+        channel = self.NullChannel()
+        manager = SNMPv1Manager(admin, channel, b"", False)
+        interceptor = self.InterceptManager(manager, self.loop)
+        manager = AsyncManager(interceptor)
+
+        self.loop.create_task(interceptor.async_reply())
+        self.loop.run_until_complete(manager.get())
+
+    def test_getBulk_captures_a_strong_reference_to_the_handle(self):
+        scheduler = AsyncScheduler(self.loop)
+        admin = SNMPv1RequestAdmin(scheduler)
+        channel = self.NullChannel()
+        manager = SNMPv1Manager(admin, channel, b"", False)
+        interceptor = self.InterceptManager(manager, self.loop)
+        manager = AsyncManager(interceptor)
+
+        self.loop.create_task(interceptor.async_reply())
+        self.loop.run_until_complete(manager.getBulk())
+
+    def test_getNext_captures_a_strong_reference_to_the_handle(self):
+        scheduler = AsyncScheduler(self.loop)
+        admin = SNMPv1RequestAdmin(scheduler)
+        channel = self.NullChannel()
+        manager = SNMPv1Manager(admin, channel, b"", False)
+        interceptor = self.InterceptManager(manager, self.loop)
+        manager = AsyncManager(interceptor)
+
+        self.loop.create_task(interceptor.async_reply())
+        self.loop.run_until_complete(manager.getNext())
+
+    def test_set_captures_a_strong_reference_to_the_handle(self):
+        scheduler = AsyncScheduler(self.loop)
+        admin = SNMPv1RequestAdmin(scheduler)
+        channel = self.NullChannel()
+        manager = SNMPv1Manager(admin, channel, b"", False)
+        interceptor = self.InterceptManager(manager, self.loop)
+        manager = AsyncManager(interceptor)
+
+        self.loop.create_task(interceptor.async_reply())
+        self.loop.run_until_complete(manager.set())
 
 if __name__ == "__main__":
     unittest.main()
