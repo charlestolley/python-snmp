@@ -14,16 +14,16 @@ class AsyncScheduler:
         return self.loop.create_future()
 
     def schedule(self, task, delay = 0.0, period = None):
-        def callback():
+        def callback(task):
             nextTask = task.run()
             if nextTask is not None and period is not None:
-                self.loop.call_later(period, callback)
+                self.loop.call_later(period, callback, nextTask)
 
         args = ()
         if delay == 0.0:
-            self.loop.call_soon(callback)
+            self.loop.call_soon(callback, task)
         else:
-            self.loop.call_later(delay, callback)
+            self.loop.call_later(delay, callback, task)
 
 class AsyncMultiplexor(TransportMultiplexor):
     def __init__(self, loop):
