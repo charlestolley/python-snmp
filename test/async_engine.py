@@ -1,13 +1,13 @@
-__all__ = ["AsyncSchedulerTester"]
+__all__ = ["AsyncMultiplexorTest", "AsyncSchedulerTest"]
 
 import gc
 import unittest
 import weakref
 
-from snmp.async_engine import AsyncScheduler
+from snmp.async_engine import AsyncMultiplexor, AsyncScheduler
 from snmp.scheduler import *
 
-class AsyncSchedulerTester(unittest.TestCase):
+class AsyncSchedulerTest(unittest.TestCase):
     class SleepFunction:
         def __init__(self, timeFunction):
             self.timeFunction = timeFunction
@@ -175,6 +175,73 @@ class AsyncSchedulerTester(unittest.TestCase):
 
         scheduler = AsyncScheduler(Loop())
         self.assertEqual(scheduler.createFuture(), 174)
+
+class AsyncMultiplexorTest(unittest.TestCase):
+    class Socket:
+        def __init__(self, fileno, addr, data):
+            self.addr = addr
+            self.data = data
+            self.fileno = fileno
+
+        def receive(self):
+            return self.addr, self.data
+
+    class Loop:
+        def __init__(self):
+            self.callbacks = {}
+
+        def add_reader(self, fileno, callback, *args):
+            self.callbacks[fileno] = callback, args
+
+        def remove_reader(self, fileno):
+            del self.callbacks[fileno]
+
+        def ready(self, fileno):
+            callback, args = self.callbacks[fileno]
+            callback(*args)
+
+    class Listener:
+        def __init__(self):
+            self.channel = None
+            self.message = None
+
+        def hear(self, message, channel):
+            self.message = message
+            self.channel = channel
+
+    def setUp(self):
+        self.loop = self.Loop()
+        self.mux = AsyncMultiplexor(self.loop)
+
+    def test_register_adds_reader(self):
+        sock = self.Socket(45, "1.2.3.4", b"test message")
+        listener = self.Listener()
+        self.mux.register(sock, listener)
+        self.loop.ready(45)
+
+        self.assertEqual(listener.message, b"test message")
+        self.assertEqual(listener.channel.address, "1.2.3.4")
+        self.assertIs(listener.channel.transport, sock)
+
+    def test_close_unregisters_all_readers(self):
+        s1 = self.Socket(55, "::", b"IPv6")
+        s2 = self.Socket(56, "555 N Main St.", b"Mailing")
+        s3 = self.Socket(57, "me@example.com", b"E-mail")
+
+        listener = self.Listener()
+        self.mux.register(s1, listener)
+        self.mux.register(s2, listener)
+        self.mux.register(s3, listener)
+
+        self.loop.ready(55)
+        self.loop.ready(56)
+        self.loop.ready(57)
+
+        self.mux.close()
+
+        self.assertRaises(KeyError, self.loop.ready, 55)
+        self.assertRaises(KeyError, self.loop.ready, 56)
+        self.assertRaises(KeyError, self.loop.ready, 57)
 
 if __name__ == "__main__":
     unittest.main()
