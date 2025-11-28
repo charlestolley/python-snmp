@@ -3,7 +3,7 @@ The Manager Interface
 
 .. note::
 
-   The classes described in this section do not correspond to specific class implementations. Instead, they describe the abstract interfaces of the various Manager objects returned by the :meth:`Engine.Manager()<snmp.Engine.Manager>` factory method.
+   The classes described in this section do not correspond to specific class implementations. Instead, they describe the abstract interfaces of the various Manager objects returned by the :meth:`Engine.Manager()<snmp.Engine.Manager>` and :meth:`AsyncEngine.Manager()<snmp.async_engine.AsyncEngine.Manager>` factory methods.
 
 .. py:class:: SnmpManager
 
@@ -378,6 +378,158 @@ The Manager Interface
       ) -> snmp.smi.VarBindList | RequestHandle
 
       See :meth:`SnmpManager.set` and :meth:`get`.
+
+.. py:class:: AsyncSNMPv3Manager
+
+   *New in version 1.2.*
+
+   An ``async`` version of :class:`SNMPv3Manager`, created with :meth:`AsyncEngine.Manager()<snmp.async_engine.AsyncEngine.Manager>`.
+
+   .. py:method:: get( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv3Manager.get`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: getBulk( \
+         *oids, \
+         nonRepeaters = 0, \
+         maxRepetitions = 1, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv3Manager.getBulk`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: getNext( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv3Manager.getNext`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: set( \
+         *varbinds, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         user = None, \
+         securityLevel = None, \
+         context = b"", \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv3Manager.set`. Note that this method does not support the `wait` parameter.
+
+.. py:class:: AsyncSNMPv2cManager
+
+   *New in version 1.2.*
+
+   An ``async`` version of :class:`SNMPv2cManager`, created with :meth:`AsyncEngine.Manager()<snmp.async_engine.AsyncEngine.Manager>`.
+
+   .. py:method:: get( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv2cManager.get`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: getBulk( \
+         *oids, \
+         nonRepeaters = 0, \
+         maxRepetitions = 1, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv2cManager.getBulk`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: getNext( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv2cManager.getNext`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: set( \
+         *varbinds, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv2cManager.set`. Note that this method does not support the `wait` parameter.
+
+.. py:class:: AsyncSNMPv1Manager
+
+   *New in version 1.2.*
+
+   An ``async`` version of :class:`SNMPv1Manager`, created with :meth:`AsyncEngine.Manager()<snmp.async_engine.AsyncEngine.Manager>`.
+
+   .. py:method:: get( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv1Manager.get`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: getBulk( \
+         *oids, \
+         nonRepeaters = 0, \
+         maxRepetitions = 1, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv1Manager.getBulk`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: getNext( \
+         *oids, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv1Manager.getNext`. Note that this method does not support the `wait` parameter.
+
+   .. py:method:: set( \
+         *varbinds, \
+         timeout = 10.0, \
+         refreshPeriod = 1.0, \
+         community = None, \
+      ) -> snmp.smi.VarBindList
+      :async:
+
+      See :meth:`SNMPv1Manager.set`. Note that this method does not support the `wait` parameter.
 
 .. _Exception: https://docs.python.org/3/library/exceptions.html#Exception
 .. _Polling Objects: https://docs.python.org/3/library/select.html#polling-objects

@@ -224,9 +224,66 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
    .. py:method:: poll(*handles: RequestHandle) -> RequestPoller
 
+      *New in version 1.1.*
+
       Create a poller object to :meth:`wait()<RequestPoller.wait>` on multiple :class:`RequestHandle`\ s at once.
 
       If you provide one or more `handles` in the argument list, the call will :meth:`register()<RequestPoller.register>` them for you before returning the :class:`RequestPoller` object.
 
-.. _Factory Method: https://en.wikipedia.org/wiki/Factory_method_pattern
+.. module:: snmp.async_engine
 
+.. class:: AsyncEngine( \
+      defaultVersion: SNMPv1 | SNMPv2c | SNMPv3 = SNMPv3, \
+      defaultDomain: UDP_IPv4 | UDP_IPv6 = UDP_IPv4, \
+      defaultCommunity: bytes = b"public", \
+      verboseLogging: bool = False, \
+   )
+
+   *New in version 1.2.*
+
+   This is an alternative implementation of the :class:`Engine<snmp.Engine>` class, supporting the the async/await style of programming. The API is nearly identical. The only differences are the absence of the `autowait` parameter in the constructor and in the :meth:`Manager` method, and the return type of the :meth:`Manager` method.
+
+   .. py:method:: addUser( \
+         user: str, \
+         namespace: str = "", \
+         default: bool = None, \
+         authProtocol = None, \
+         privProtocol = None, \
+         authSecret: bytes = None, \
+         privSecret: bytes = None, \
+         secret: bytes = None, \
+         defaultSecurityLevel = None, \
+      )
+
+      See :meth:`Engine.addUser()<snmp.Engine.addUser>`.
+
+   .. py:method:: Manager( \
+         address, \
+         version = SNMPv3, \
+         domain = None, \
+         localAddress = None, \
+         mtu = None, \
+         namespace = "", \
+         defaultUser = None, \
+         defaultSecurityLevel = None, \
+      ) -> AsyncSNMPv3Manager
+      Manager( \
+         address, \
+         version = SNMPv2c, \
+         domain = None, \
+         localAddress = None, \
+         mtu = None, \
+         community = None, \
+      ) -> AsyncSNMPv2cManager
+      Manager( \
+         address, \
+         version = SNMPv1, \
+         domain = None, \
+         localAddress = None, \
+         mtu = None, \
+         community = None, \
+      ) -> AsyncSNMPv1Manager
+
+      See :meth:`Engine.Manager()<snmp.Engine.Manager>`. Note that this method does not support the `autowait` parameter.
+
+.. _Factory Method: https://en.wikipedia.org/wiki/Factory_method_pattern

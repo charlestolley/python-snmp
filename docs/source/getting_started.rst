@@ -92,3 +92,30 @@ The output of this example should look something like this:
 
    1.3.6.1.2.1.1.4.0: OctetString(b'Me <me@example.org>')
    1.3.6.1.2.1.1.6.0: OctetString(b'Sitting on the Dock of the Bay')
+
+The :class:`AsyncEngine<snmp.async_engine.AsyncEngine>` class has a nearly identical API that supports ``async`` and ``await``.
+
+.. code-block:: python
+
+   import asyncio
+
+   from snmp.async_engine import AsyncEngine
+   from snmp.security.usm.auth import HmacSha512
+   from snmp.security.usm.priv import AesCfb128
+
+   engine = AsyncEngine()
+   engine.addUser(
+       "authPrivUser",
+       authProtocol=HmacSha512,
+       authSecret=b"myauthphrase",
+       privProtocol=AesCfb128,
+       privSecret=b"myprivphrase",
+   )
+
+   async def main(manager):
+       response = await manager.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
+       print(response)
+
+   loop = asyncio.get_event_loop()
+   localhost = engine.Manager("127.0.0.1")
+   loop.run_until_complete(main(localhost))
