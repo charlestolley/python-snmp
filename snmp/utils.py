@@ -1,4 +1,4 @@
-__all__ = ["subbytes", "typename"]
+__all__ = ["forbidKeywordArgument", "subbytes", "typename"]
 
 import os
 
@@ -222,6 +222,11 @@ class subbytes:
         at index and ending at the end of the current sequence.
         """
         return subbytes(self, stop=index), subbytes(self, start=index)
+
+def forbidKeywordArgument(funcname, keyword, kwargs):
+    if keyword in kwargs:
+        errmsg = f"{funcname}() got an unexpected keyword argument {keyword!r}"
+        raise TypeError(errmsg)
 
 def typename(cls, qualified = False):
     """Query an object to determine its type.

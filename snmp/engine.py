@@ -18,7 +18,7 @@ from snmp.v3.manager import *
 class NoDefaultUser(SNMPException):
     pass
 
-class Engine:
+class GenericEngine:
     TRANSPORTS = {
         cls.DOMAIN: cls for cls in [
             UdpIPv4Socket,
@@ -27,6 +27,8 @@ class Engine:
     }
 
     def __init__(self,
+        multiplexor,
+        scheduler,
         defaultVersion = ProtocolVersion.SNMPv3,
         defaultDomain = TransportDomain.UDP_IPv4,
         defaultCommunity = b"public",
@@ -38,8 +40,8 @@ class Engine:
         self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
-        self.multiplexor = UdpMultiplexor()
-        self.scheduler = Scheduler(self.multiplexor.poll)
+        self.multiplexor = multiplexor
+        self.scheduler = scheduler
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
@@ -254,6 +256,12 @@ class Engine:
             return self.v1Manager(channel, autowait, **kwargs)
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")
+
+class Engine(GenericEngine):
+    def __init__(self, *args, **kwargs):
+        multiplexor = UdpMultiplexor()
+        scheduler = Scheduler(multiplexor.poll)
+        super().__init__(multiplexor, scheduler, *args, **kwargs)
 
     def poll(self, *handles):
         poller = RequestPoller(self.scheduler)

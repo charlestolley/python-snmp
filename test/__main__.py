@@ -29,6 +29,7 @@ test_modules = [
     "v2c.requests",
     "v3.message",
     "v3.manager",
+    "async_engine",
 ]
 
 import importlib

@@ -72,8 +72,8 @@ class SNMPv1RequestHandleTest(unittest.TestCase):
         self.handle.addCallback(callback, 80)
 
         self.assertIsNone(callback.requestID)
-        self.handle.expired = True
-        self.assertTrue(self.handle.expired)
+        self.handle.expire()
+        self.assertFalse(self.handle.active())
         self.assertEqual(callback.requestID, 80)
 
     def test_handle_calls_callback_before_object_is_finalized(self):
@@ -98,12 +98,12 @@ class SNMPv1RequestHandleTest(unittest.TestCase):
         self.handle.addCallback(callback_function, 112)
 
         self.assertIsNone(c2.requestID)
-        self.handle.expired = True
+        self.handle.expire()
         self.assertEqual(c1.requestID, 112)
         self.assertEqual(c2.requestID, 112)
 
     def test_callback_added_after_expiration_is_called_immediately(self):
-        self.handle.expired = True
+        self.handle.expire()
         callback = self.Callback()
 
         self.assertIsNone(callback.requestID)

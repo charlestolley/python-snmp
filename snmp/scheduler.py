@@ -7,6 +7,35 @@ class SchedulerTask:
     def run(self):
         raise NotImplementedError()
 
+class Future:
+    def __init__(self, scheduler):
+        self._result = None
+        self._exception = None
+        self.scheduler = scheduler
+
+    def done(self):
+        return self._result is not None or self._exception is not None
+
+    def set_result(self, result):
+        self._result = result
+
+    def set_exception(self, exc):
+        self._exception = exc
+
+    def result(self):
+        if self._result is not None:
+            return self._result
+        elif self._exception is not None:
+            raise self._exception
+        else:
+            return None
+
+    def wait(self):
+        while not self.done():
+            self.scheduler.wait()
+
+        return self.result()
+
 class SchedulerEntry:
     def __init__(self, task, timestamp, period):
         if period is not None and period <= 0.0:
@@ -50,6 +79,9 @@ class Scheduler:
         self.sleep = sleep_function
         self.time = time_function
         self.upcoming = []
+
+    def createFuture(self):
+        return Future(self)
 
     def runPendingTasks(self):
         if self.lock.locked:

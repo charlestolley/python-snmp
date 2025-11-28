@@ -6,8 +6,8 @@ the Simple Network Management Protocol as simple-to-use as possible. If you are
 new to ``snmp``, you can see the basic usage in the examples below. For an
 explanation of these examples, see the :doc:`getting_started` section.
 
-For a complete list of available features, and a precise description of their
-behavior, consult the :doc:`Library Reference<library>`.
+To learn about advanced features and options, consult the
+:doc:`Library Reference<library>`.
 
 Installation
 ------------
@@ -43,11 +43,11 @@ SNMPv3 Example
 
    engine = Engine()
    engine.addUser(
-      "authPrivUser",
-      authProtocol=HmacSha512,
-      authSecret=b"myauthphrase",
-      privProtocol=AesCfb128,
-      privSecret=b"myprivphrase",
+       "authPrivUser",
+       authProtocol=HmacSha512,
+       authSecret=b"myauthphrase",
+       privProtocol=AesCfb128,
+       privSecret=b"myprivphrase",
    )
 
    localhost = engine.Manager("127.0.0.1")
@@ -60,6 +60,35 @@ The output of this example should look like this:
 
    1.3.6.1.2.1.1.4.0: OctetString(b'Me <me@example.org>')
    1.3.6.1.2.1.1.6.0: OctetString(b'Sitting on the Dock of the Bay')
+
+This example can also be written in the async/await style, using an
+:class:`AsyncEngine<snmp.async_engine.AsyncEngine>`.
+
+
+.. code-block:: python
+
+   import asyncio
+
+   from snmp.async_engine import AsyncEngine
+   from snmp.security.usm.auth import HmacSha512
+   from snmp.security.usm.priv import AesCfb128
+
+   engine = AsyncEngine()
+   engine.addUser(
+       "authPrivUser",
+       authProtocol=HmacSha512,
+       authSecret=b"myauthphrase",
+       privProtocol=AesCfb128,
+       privSecret=b"myprivphrase",
+   )
+
+   async def main(manager):
+       response = await manager.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
+       print(response)
+
+   loop = asyncio.get_event_loop()
+   localhost = engine.Manager("127.0.0.1")
+   loop.run_until_complete(main(localhost))
 
 SNMPv1/SNMPv2c Example
 **********************
@@ -84,6 +113,26 @@ The expected output is the same as that of the SNMPv3 example:
 
    1.3.6.1.2.1.1.4.0: OctetString(b'Me <me@example.org>')
    1.3.6.1.2.1.1.6.0: OctetString(b'Sitting on the Dock of the Bay')
+
+This example can also be written in the async/await style, using an
+:class:`AsyncEngine<snmp.async_engine.AsyncEngine>`.
+
+.. code-block:: python
+
+   import asyncio
+
+   from snmp import *
+   from snmp.async_engine import AsyncEngine
+
+   async def main(manager):
+       response = await manager.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
+       print(response)
+
+   engine = AsyncEngine(SNMPv1)  # or SNMPv2c
+   localhost = engine.Manager("127.0.0.1", community=b"public")
+
+   loop = asyncio.get_event_loop()
+   loop.run_until_complete(main(localhost))
 
 .. toctree::
    :hidden:

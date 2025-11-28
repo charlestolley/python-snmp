@@ -190,6 +190,17 @@ Variable Bindings:
 - :class:`VarBind<snmp.smi.VarBind>`
 - :class:`VarBindList<snmp.smi.VarBindList>`
 
+``async``/``await``
+*******************
+
+.. code-block:: python
+
+   from snmp.async_engine import *
+
+Engine Class:
+
+- :class:`AsyncEngine<snmp.async_engine.AsyncEngine>`
+
 Authentication Protocols
 ************************
 
