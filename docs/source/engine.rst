@@ -237,11 +237,14 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       defaultDomain: UDP_IPv4 | UDP_IPv6 = UDP_IPv4, \
       defaultCommunity: bytes = b"public", \
       verboseLogging: bool = False, \
+      loop = None, \
    )
 
    *New in version 1.2.*
 
-   This is an alternative implementation of the :class:`Engine<snmp.Engine>` class, supporting the the async/await style of programming. The API is nearly identical. The only differences are the absence of the `autowait` parameter in the constructor and in the :meth:`Manager` method, and the return type of the :meth:`Manager` method.
+   This is an alternative implementation of the :class:`Engine<snmp.Engine>` class, supporting the the async/await style of programming. The API is nearly identical. The only differences are the addition of the `loop` parameter in the constructor, the absence of the `autowait` parameter in the constructor and in the :meth:`Manager` method, and the return type of the :meth:`Manager` method.
+
+   The `loop` parameter (*new in version 1.2.1*) allows you to attach the :class:`AsyncEngine` to a custom event loop. By default it will use ``asyncio.get_event_loop()``.
 
    .. py:method:: addUser( \
          user: str, \
