@@ -61,7 +61,11 @@ class GenericEngine:
         self.transports = {}
 
     def __del__(self):
-        self.multiplexor.close()
+        try:
+            self.multiplexor.close()
+        except AttributeError:
+            # In case the constructor gets an invalid argument name
+            pass
 
     def addUser(self,
         user,
