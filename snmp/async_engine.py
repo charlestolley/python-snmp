@@ -1,6 +1,6 @@
 __all__ = ["AsyncEngine"]
 
-import asyncio
+import importlib
 
 from snmp.engine import GenericEngine
 from snmp.transport import TransportMultiplexor
@@ -70,9 +70,12 @@ class AsyncManager:
         return await handle
 
 class AsyncEngine(GenericEngine):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, loop=None, **kwargs):
         forbidKeywordArgument("__init__", "autowait", kwargs)
-        loop = asyncio.get_event_loop()
+
+        if loop is None:
+            asyncio = importlib.import_module("asyncio")
+            loop = asyncio.get_event_loop()
 
         super().__init__(
             AsyncMultiplexor(loop),
