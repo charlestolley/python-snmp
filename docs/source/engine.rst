@@ -136,7 +136,7 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       Namespaces
       ----------
 
-      Everything I've read about SNMP security seems to assume that a user only has one set of algorithms and passwords, which are deployed on every machine in your network. In real life, however, there are plenty of reasons why this might not be the case, like if you inherit hardware from another department, or if you are in the process of updating 100 machines, but you've only finished 9 so far.
+      Everything I've read about SNMP security seems to assume that a user only has one set of algorithms and passwords, which are deployed on every machine in your network. In real life, however, there are plenty of reasons why different hosts might require different credentials.
 
       Under the namespace model (which I believe is unique to this library), you should sort all the machines in your network into groups, so that every machine in a group has compatible credentials. Give each group a name. In each call to :meth:`addUser`, give, as the `namespace` argument, the name of the group that accepts those credentials. Then, when you call :meth:`Manager`, give, as the `namespace` argument, the name of the group that the machine belongs to. Each time the Manager has to prepare a request for that machine, it will pass the user name and namespace to the :class:`Engine`, and it will find the version of that user's credentials that will work on that machine.
 
