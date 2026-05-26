@@ -36,3 +36,6 @@ exclude = [
     "**/*.so",
     "**/.*.sw?",
 ]
+
+[tool.setuptools]
+packages = ["snmp"]
