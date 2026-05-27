@@ -7,6 +7,8 @@ import enum
 import os
 import socket
 
+from snmp.utils import typename
+
 AddressUsage = enum.Enum(
     "AddressUsage",
     ["LISTENER", "TRAP_LISTENER", "SENDER"]
@@ -25,6 +27,9 @@ class TransportChannel:
     def __init__(self, transport, address):
         self.transport = transport
         self.address = address
+
+    def __repr__(self):
+        return f"{typename(self)}({self.transport!r}, {self.address!r})"
 
     @property
     def domain(self):
