@@ -5,6 +5,7 @@ from socket import *
 
 from snmp.transport import *
 from snmp.transport import package
+from snmp.utils import typename
 
 class UdpSocket:
     DEFAULT_PORT = {
@@ -56,12 +57,17 @@ class UdpSocket:
     def port(self):
         return self.socket.getsockname()[1]
 
-    def __init__(self, host, port, recvSize):
-        self.recvSize = recvSize
+    def __init__(self, host = "", port = 0, mtu = 1500):
+        self.recvSize = mtu - self.HEADER_SIZE
 
         self.socket = socket(self.DOMAIN.address_family, SOCK_DGRAM)
         self.socket.setblocking(False)
         self.socket.bind((host, port))
+
+    def __repr__(self):
+        host, port = self.socket.getsockname()
+        mtu = self.recvSize + self.HEADER_SIZE
+        return f"{typename(self)}({host!r}, {port}, {mtu})"
 
     def receive(self):
         data, addr = self.socket.recvfrom(self.recvSize)
@@ -75,15 +81,11 @@ class UdpSocket:
 
 class UdpIPv4Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv4
-
-    def __init__(self, host = "", port = 0, mtu = 1500):
-        super().__init__(host, port, mtu - 28)
+    HEADER_SIZE = 28
 
 class UdpIPv6Socket(UdpSocket):
     DOMAIN = TransportDomain.UDP_IPv6
-
-    def __init__(self, host = "", port = 0, mtu = 1500):
-        super().__init__(host, port, mtu - 48)
+    HEADER_SIZE = 48
 
 module = import_module(".udp", package=package)
 UdpMultiplexor = module.UdpMultiplexor
