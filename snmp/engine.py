@@ -87,7 +87,7 @@ class Engine:
         try:
             transportClass = self.TRANSPORTS[domain]
         except KeyError as err:
-            errmsg = f"Unsupported transport domain: {transportClass.DOMAIN}"
+            errmsg = f"Unsupported transport domain: {domain}"
             raise ValueError(errmsg) from err
 
         address = transportClass.normalizeAddress(
