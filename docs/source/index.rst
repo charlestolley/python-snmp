@@ -73,6 +73,10 @@ This example can also be written in the async/await style, using an
    from snmp.security.usm.auth import HmacSha512
    from snmp.security.usm.priv import AesCfb128
 
+   async def main(manager):
+       response = await manager.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
+       print(response)
+
    engine = AsyncEngine()
    engine.addUser(
        "authPrivUser",
@@ -82,12 +86,9 @@ This example can also be written in the async/await style, using an
        privSecret=b"myprivphrase",
    )
 
-   async def main(manager):
-       response = await manager.get("1.3.6.1.2.1.1.4.0", "1.3.6.1.2.1.1.6.0")
-       print(response)
+   localhost = engine.Manager("127.0.0.1")
 
    loop = asyncio.get_event_loop()
-   localhost = engine.Manager("127.0.0.1")
    loop.run_until_complete(main(localhost))
 
 SNMPv1/SNMPv2c Example
