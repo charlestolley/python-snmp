@@ -7,22 +7,19 @@ from Crypto.Cipher import AES
 from snmp.smi import OID
 from snmp.security.usm import PrivProtocol
 
-class AesCfb128(PrivProtocol):
+class AesCfb(PrivProtocol):
     BYTEORDER = "big"
 
-    BITS = 128
+    BLOCKLEN = 128 // 8
     INTSIZE = 4
-    BLOCKLEN = BITS // 8
-    KEYLEN = BLOCKLEN
     SALTLEN = BLOCKLEN - (2 * INTSIZE)
     SALTWRAP = 1 << (8 * SALTLEN)
-    SEGMENT_SIZE = 128
 
     def __init__(self, key):
         if len(key) < self.KEYLEN:
             raise ValueError(f"key must be at least {self.KEYLEN} bytes long")
 
-        self.algorithm = OID.parse("1.3.6.1.6.3.10.1.2.4")
+        self.algorithm = self.ALGORITHM
         self.key = key[:self.KEYLEN]
         self.salt = int.from_bytes(os.urandom(self.SALTLEN), self.BYTEORDER)
 
@@ -37,7 +34,7 @@ class AesCfb128(PrivProtocol):
             self.key,
             AES.MODE_CFB,
             iv=iv,
-            segment_size=self.SEGMENT_SIZE,
+            segment_size=self.BLOCKLEN * 8,
         )
 
     def packIV(self, engineBoots, engineTime, salt):
@@ -62,3 +59,7 @@ class AesCfb128(PrivProtocol):
         ciphertext = self.newCipher(iv).encrypt(data)
 
         return ciphertext, salt
+
+class AesCfb128(AesCfb):
+    ALGORITHM = OID.parse("1.3.6.1.6.3.10.1.2.4")
+    KEYLEN = 128 // 8
