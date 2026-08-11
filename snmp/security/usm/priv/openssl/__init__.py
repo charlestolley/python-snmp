@@ -1,4 +1,7 @@
-__all__ = ["AES_128_CFB128", "DES_CBC", "Decryptor", "Encryptor"]
+__all__ = [
+    "AES_128_CFB128", "AES_192_CFB128", "AES_256_CFB128", "DES_CBC",
+    "Decryptor", "Encryptor",
+]
 
 from snmp.openssl import *
 
@@ -11,6 +14,8 @@ class Cipher:
         return self.cipher()
 
 AES_128_CFB128 = Cipher(lib.EVP_aes_128_cfb128, 16)
+AES_192_CFB128 = Cipher(lib.EVP_aes_192_cfb128, 16)
+AES_256_CFB128 = Cipher(lib.EVP_aes_256_cfb128, 16)
 DES_CBC = Cipher(lib.EVP_des_cbc, 8)
 
 class EnvelopeContext:
