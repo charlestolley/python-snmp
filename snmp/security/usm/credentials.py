@@ -172,7 +172,17 @@ class AuthPrivCredentials(AuthCredentials):
         self.privProtocol = privProtocol
 
     def localizePriv(self, engineID):
-        key = self.authProtocol.localizeKey(self.privKey, engineID)
+        try:
+            localizeKey = self.privProtocol.localizeKey
+        except AttributeError:
+            localizeKey = PrivProtocol.localizeKey
+
+        key = localizeKey(
+            self.authProtocol,
+            self.privKey,
+            engineID,
+        )
+
         return self.privProtocol(key)
 
     def localize(self, engineID):

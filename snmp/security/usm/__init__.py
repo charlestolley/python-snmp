@@ -30,6 +30,10 @@ class PrivProtocol:
     def __init__(self, key):
         raise NotImplementedError()
 
+    @classmethod
+    def localizeKey(cls, authProtocol, intermediateKey, engineID):
+        return authProtocol.localizeKey(intermediateKey, engineID)
+
     def decrypt(self, data, engineBoots, engineTime, salt):
         raise NotImplementedError()
 
