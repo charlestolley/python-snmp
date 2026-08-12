@@ -1,4 +1,4 @@
-__all__ = ["Catcher", "VersionDecoder"]
+__all__ = ["Catcher", "VersionDecoder", "ReceiveAddressFilter"]
 
 import logging
 import os
@@ -52,3 +52,29 @@ class VersionDecoder:
     def register(self, version, listener):
         registered = self.listeners.setdefault(version, listener)
         return registered is listener
+
+class ReceiveAddressFilter:
+    def __init__(self, listener, verbose=False):
+        self.allowed = {}
+        self.listener = listener
+        self.logger = logging.getLogger(__name__.split(".")[0])
+        self.verbose = verbose
+
+    def allow(self, transport):
+        self.allowed.setdefault(transport.DOMAIN, set()).add(transport.address)
+
+    def hear(self, message, channel):
+        try:
+            allowed = self.allowed[channel.transport.DOMAIN]
+        except KeyError:
+            pass
+        else:
+            if channel.transport.address in allowed:
+                return self.listener.hear(message, channel)
+
+        if self.verbose:
+            address = channel.transport.address
+            self.logger.info(
+                f"Ignoring message received on {address[0]}:{address[1]}:"
+                + os.linesep + str(message)
+            )

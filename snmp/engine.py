@@ -45,20 +45,26 @@ class GenericEngine:
         self.scheduler = scheduler
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
+        self.v1_filter = \
+            ReceiveAddressFilter(self.v1_admin, verbose=verboseLogging)
 
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
+        self.v2c_response_filter = \
+            ReceiveAddressFilter(self.v2c_admin, verbose=verboseLogging)
         self.v2c_sorter = SNMPv2cMessageSorter()
-        self.v2c_sorter.register(ResponsePDU, self.v2c_admin)
+        self.v2c_sorter.register(ResponsePDU, self.v2c_response_filter)
 
         self.usm = UserBasedSecurityModule()
         self.v3_sorter = SNMPv3MessageSorter(SNMPv3Interpreter(self.usm))
         self.v3_table = SNMPv3MessageTable()
-        self.v3_sorter.register(ReportPDU, self.v3_table)
-        self.v3_sorter.register(ResponsePDU, self.v3_table)
+        self.v3_response_filter = \
+            ReceiveAddressFilter(self.v3_table, verbose=verboseLogging)
+        self.v3_sorter.register(ReportPDU, self.v3_response_filter)
+        self.v3_sorter.register(ResponsePDU, self.v3_response_filter)
 
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder, verbose=verboseLogging)
-        self.decoder.register(ProtocolVersion.SNMPv1, self.v1_admin)
+        self.decoder.register(ProtocolVersion.SNMPv1, self.v1_filter)
         self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_sorter)
         self.decoder.register(ProtocolVersion.SNMPv3, self.v3_sorter)
 
@@ -123,6 +129,8 @@ class GenericEngine:
         if community is None:
             community = self.defaultCommunity
 
+        self.v1_filter.allow(channel.transport)
+
         return SNMPv1Manager(
             self.v1_admin,
             channel,
@@ -133,6 +141,8 @@ class GenericEngine:
     def v2cManager(self, channel, autowait, community = None):
         if community is None:
             community = self.defaultCommunity
+
+        self.v2c_response_filter.allow(channel.transport)
 
         return SNMPv2cManager(
             self.v2c_admin,
@@ -213,6 +223,7 @@ class GenericEngine:
 
                 raise ValueError(errmsg)
 
+        self.v3_response_filter.allow(channel.transport)
 
         return SNMPv3Manager(
             self.scheduler,

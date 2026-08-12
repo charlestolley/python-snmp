@@ -54,8 +54,12 @@ class UdpSocket:
         return self.socket.fileno()
 
     @property
+    def address(self):
+        return self.socket.getsockname()
+
+    @property
     def port(self):
-        return self.socket.getsockname()[1]
+        return self.address[1]
 
     def __init__(self, host = "", port = 0, mtu = 1500):
         self.recvSize = mtu - self.HEADER_SIZE
