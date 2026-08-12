@@ -94,38 +94,30 @@ class GenericEngine:
             defaultSecurityLevel,
         )
 
-    def createChannel(self, domain, address, localAddress, mtu):
+    def selectTransportClass(self, domain):
+        if domain is None:
+            domain = self.defaultDomain
+
         try:
-            transportClass = self.TRANSPORTS[domain]
+            return self.TRANSPORTS[domain]
         except KeyError as err:
             errmsg = f"Unsupported transport domain: {domain}"
             raise ValueError(errmsg) from err
 
-        address = transportClass.normalizeAddress(
-            address,
-            AddressUsage.LISTENER,
-        )
-
-        localAddress = transportClass.normalizeAddress(localAddress)
-
+    def findOrCreateTransport(self, cls, address, mtu=None):
         try:
-            transports = self.transports[domain]
+            return self.transports[cls.DOMAIN][address]
         except KeyError:
-            transports = {}
-            self.transports[domain] = transports
+            pass
 
-        try:
-            transport = transports[localAddress]
-        except KeyError:
-            if mtu is None:
-                transport = transportClass(*localAddress)
-            else:
-                transport = transportClass(*localAddress, mtu=mtu)
+        if mtu is None:
+            transport = cls(*address)
+        else:
+            transport = cls(*address, mtu=mtu)
 
-            self.multiplexor.register(transport, self.pipeline)
-            transports[localAddress] = transport
-
-        return TransportChannel(transport, address)
+        self.multiplexor.register(transport, self.pipeline)
+        self.transports.setdefault(cls.DOMAIN, dict())[address] = transport
+        return transport
 
     def v1Manager(self, channel, autowait, community = None):
         if community is None:
@@ -248,10 +240,11 @@ class GenericEngine:
         elif not isinstance(version, ProtocolVersion):
             version = ProtocolVersion(version)
 
-        if domain is None:
-            domain = self.defaultDomain
-
-        channel = self.createChannel(domain, address, localAddress, mtu)
+        tc = self.selectTransportClass(domain)
+        address = tc.normalizeAddress(address, AddressUsage.LISTENER)
+        localAddress = tc.normalizeAddress(localAddress)
+        transport = self.findOrCreateTransport(tc, localAddress, mtu=mtu)
+        channel = TransportChannel(transport, address)
 
         if autowait is None:
             autowait = self.autowaitDefault
