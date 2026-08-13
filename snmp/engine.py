@@ -1,3 +1,5 @@
+from collections import deque
+
 from snmp.exception import *
 from snmp.message import ProtocolVersion
 from snmp.pdu import ReportPDU, ResponsePDU, SNMPv2TrapPDU
@@ -310,6 +312,30 @@ class GenericEngine:
         trap_decoder.setHandler(handler)
         trap_filter.allow(transport)
 
+    def TrapListener(self,
+        version=None,
+        domain=None,
+        localAddress=None,
+        mtu=None,
+    ):
+        listener = self.newTrapListener()
+        self.setTrapHandler(listener, version, domain, localAddress, mtu)
+        return listener
+
+class TrapListener:
+    def __init__(self, sleep_function):
+        self.queue = deque()
+        self.sleep = sleep_function
+
+    def trap(self, vblist, **kwargs):
+        self.queue.append((vblist, kwargs))
+
+    def listen(self):
+        while len(self.queue) == 0:
+            self.sleep()
+
+        return self.queue.popleft()
+
 class Engine(GenericEngine):
     def __init__(self, *args, **kwargs):
         try:
@@ -319,6 +345,15 @@ class Engine(GenericEngine):
 
         scheduler = Scheduler(multiplexor.poll)
         super().__init__(multiplexor, scheduler, *args, **kwargs)
+
+    def newTrapListener(self):
+        return TrapListener(self.idle)
+
+    def idle(self):
+        if self.scheduler:
+            self.scheduler.wait()
+        else:
+            self.multiplexor.poll()
 
     def poll(self, *handles):
         poller = RequestPoller(self.scheduler)
