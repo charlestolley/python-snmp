@@ -23,6 +23,12 @@ class HmacAuthProtocol(AuthProtocol):
         return f"{typename(self)}({self.key!r})"
 
     @classmethod
+    def computeHash(cls, data):
+        context = cls.ALGORITHM()
+        context.update(data)
+        return context.digest()
+
+    @classmethod
     def computeKey(cls, secret):
         repeat, truncate = divmod(1 << 20, len(secret))
 
