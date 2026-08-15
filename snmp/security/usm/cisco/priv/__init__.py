@@ -6,10 +6,12 @@ from snmp.security.usm.priv import AesCfb128
 class DoubleLocalizePrivProtocol(PrivProtocol):
     @classmethod
     def localizeKey(cls, authProtocol, intermediateKey, engineID):
-        key = authProtocol.localizeKey(intermediateKey, engineID)
+        kul = authProtocol.localizeKey(intermediateKey, engineID)
+        key = kul
 
         if len(key) < cls.KEYLEN:
-            key += authProtocol.localize(key, engineID)
+            kul = authProtocol.localize(kul, engineID)
+            key += kul
 
         return key
 

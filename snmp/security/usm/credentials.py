@@ -177,12 +177,7 @@ class AuthPrivCredentials(AuthCredentials):
         except AttributeError:
             localizeKey = PrivProtocol.localizeKey
 
-        key = localizeKey(
-            self.authProtocol,
-            self.privKey,
-            engineID,
-        )
-
+        key = localizeKey(self.authProtocol, self.privKey, engineID)
         return self.privProtocol(key)
 
     def localize(self, engineID):
