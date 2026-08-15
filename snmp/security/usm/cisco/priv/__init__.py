@@ -3,7 +3,7 @@ from importlib import import_module
 from snmp.security.usm import PrivProtocol
 from snmp.security.usm.priv import AesCfb128
 
-class DoubleLocalizePrivProtocol(PrivProtocol):
+class ReederPrivProtocol(PrivProtocol):
     @classmethod
     def localizeKey(cls, authProtocol, intermediateKey, engineID):
         kul = authProtocol.localizeKey(intermediateKey, engineID)
