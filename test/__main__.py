@@ -21,6 +21,8 @@ test_modules = [
     "security.usm.priv",
     "security.usm.priv.openssl",
     "security.usm.priv.pycryptodome",
+    "security.usm.eso.priv.openssl",
+    "security.usm.eso.priv.pycryptodome",
     "transport",
     "transport.udp",
     "scheduler",
