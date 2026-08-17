@@ -1,6 +1,6 @@
 __all__ = ["EsoAesCfb192TestOpenSSL", "EsoAesCfb256TestOpenSSL"]
 
-from . import *
+from . import makeAesCfb192Test, makeAesCfb256Test
 
 try:
     from snmp.security.usm.eso.priv.openssl.aes import *

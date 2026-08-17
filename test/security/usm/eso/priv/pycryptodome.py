@@ -1,6 +1,6 @@
 __all__ = ["EsoAesCfb192TestPyCrypto", "EsoAesCfb256TestPyCrypto"]
 
-from . import *
+from . import makeAesCfb192Test, makeAesCfb256Test
 
 try:
     from snmp.security.usm.eso.priv.pycryptodome.aes import *
