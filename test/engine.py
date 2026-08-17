@@ -1,4 +1,7 @@
-__all__ = ["SNMPv3ManagerAddUserTest", "SNMPv3ManagerNoAddUserTest"]
+__all__ = [
+    "SNMPv3ManagerAddUserTest", "SNMPv3ManagerNoAddUserTest",
+    "EngineTest",
+]
 
 import unittest
 
@@ -93,6 +96,14 @@ class SNMPv3ManagerAddUserTest(unittest.TestCase):
             defaultUser = self.otherUser,
             defaultSecurityLevel = authNoPriv,
         )
+
+class EngineTest(unittest.TestCase):
+    def test_invalid_ctor_kwarg_does_not_cause_AttributeError_in_dtor(self):
+        # we can't assign the new Engine to a variable because the constructor
+        # raises a TypeError, but the interpreter keeps a reference to it
+        # somewhere, and when it's finally cleaned up, we want to be sure that
+        # the __del__() method does not raise an AttributeError
+        self.assertRaises(TypeError, Engine, asdf=4)
 
 if __name__ == "__main__":
     unittest.main()
