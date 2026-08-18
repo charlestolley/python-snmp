@@ -104,6 +104,29 @@ class SubbytesTest(unittest.TestCase):
 
         self.assertEqual(copy, data)
 
+    def test_str(self):
+        data = subbytes(self.data, self.start, self.stop)
+        lines = str(data).split("\n")
+        self.assertEqual(len(lines), 7)
+        self.assertRegex(lines[0], r"^(=+) begin subbytes \1$")
+        self.assertEqual(lines[1].rstrip(), self.data[:self.start].hex())
+        self.assertEqual(lines[2].rstrip(), "")
+        self.assertRegex(lines[3], r"^   ( [0-9a-f]{2}){21}$")
+        self.assertEqual(lines[4].rstrip(), "")
+        self.assertEqual(lines[5].rstrip(), self.data[self.stop:].hex())
+        self.assertRegex(lines[6], r"^(=+) end subbytes \1$")
+
+        data = subbytes(self.data, self.start, self.start)
+        lines = str(data).split("\n")
+        self.assertEqual(len(lines), 7)
+        self.assertRegex(lines[0], r"^(=+) begin subbytes \1$")
+        self.assertEqual(lines[1].rstrip(), self.data[:self.start].hex())
+        self.assertEqual(lines[2].rstrip(), "")
+        self.assertEqual(lines[3].rstrip(), r"    (empty)")
+        self.assertEqual(lines[4].rstrip(), "")
+        self.assertEqual(lines[5].rstrip(), self.data[self.start:].hex())
+        self.assertRegex(lines[6], r"^(=+) end subbytes \1$")
+
     # Indexing tests
 
     def test_getitem_with_a_valid_int_returns_the_byte_at_that_index(self):
