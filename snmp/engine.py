@@ -31,13 +31,17 @@ class Engine:
         defaultCommunity = b"public",
         autowait = True,
         verboseLogging = False,
+        multiplexor = None,
     ):
+        if multiplexor is None:
+            multiplexor = UdpMultiplexor()
+
         self.defaultVersion         = defaultVersion
         self.defaultDomain          = defaultDomain
         self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
-        self.multiplexor = UdpMultiplexor()
+        self.multiplexor = multiplexor
         self.scheduler = Scheduler(self.multiplexor.poll)
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
