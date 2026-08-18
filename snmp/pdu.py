@@ -50,13 +50,14 @@ class PDU(Constructed):
         errorStatus = ErrorStatus.noError,
         errorIndex = 0,
         variableBindings = None,
+        unpack = True,
     ):
         self.requestID = requestID
         self.errorStatus = errorStatus
         self.errorIndex = errorIndex
 
         if variableBindings is None:
-            self.variableBindings = VarBindList(*args)
+            self.variableBindings = VarBindList(*args, unpack=unpack)
         else:
             self.variableBindings = variableBindings
 
@@ -157,7 +158,7 @@ class BulkPDU(Constructed):
     CONFIRMED_CLASS = False
 
     def __init__(self,
-        *args,
+        *oids,
         requestID = 0,
         nonRepeaters = 0,
         maxRepetitions = 1,
@@ -176,7 +177,7 @@ class BulkPDU(Constructed):
         self.maxRepetitions = maxRepetitions
 
         if variableBindings is None:
-            self.variableBindings = VarBindList(*args)
+            self.variableBindings = VarBindList(*oids)
         else:
             self.variableBindings = variableBindings
 
@@ -264,7 +265,12 @@ class BulkPDU(Constructed):
             variableBindings=variableBindings,
         )
 
-class GetRequestPDU(PDU):
+class QueryPDU(PDU):
+    def __init__(self, *oids, **kwargs):
+        kwargs["unpack"] = False
+        super().__init__(*oids, **kwargs)
+
+class GetRequestPDU(QueryPDU):
     CONFIRMED_CLASS = True
     READ_CLASS = True
     TAG = Tag(0, True, Tag.Class.CONTEXT_SPECIFIC)
@@ -279,7 +285,7 @@ class GetRequestPDU(PDU):
 
         return True
 
-class GetNextRequestPDU(PDU):
+class GetNextRequestPDU(QueryPDU):
     CONFIRMED_CLASS = True
     READ_CLASS = True
     TAG = Tag(1, True, Tag.Class.CONTEXT_SPECIFIC)
@@ -313,13 +319,6 @@ class SetRequestPDU(PDU):
     CONFIRMED_CLASS = True
     WRITE_CLASS = True
     TAG = Tag(3, True, Tag.Class.CONTEXT_SPECIFIC)
-
-    def __init__(self, *varbinds, **kwargs):
-        if kwargs.get("variableBindings") is None:
-            vblist = VarBindList(*varbinds, unpack=True)
-            kwargs["variableBindings"] = vblist
-
-        super().__init__(**kwargs)
 
     def validResponse(self, vblist):
         if len(vblist) != len(self.variableBindings):

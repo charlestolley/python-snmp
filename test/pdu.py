@@ -145,6 +145,23 @@ class PDUTest(unittest.TestCase):
 
         self.assertRaises(ImproperResponse, request.checkResponse, response)
 
+    def test_str(self):
+        pdu = ResponsePDU(
+            ("1.3.6.1.2.1.1.1.0", OctetString(b"description")),
+            ("1.2.3.4.5.6", Null()),
+            requestID=151,
+            errorStatus=ErrorStatus.noSuchName,
+            errorIndex=2,
+        )
+
+        expected = f"ResponsePDU:{lf}" \
+            f"    Request ID: 151{lf}" \
+            f"    Error Status: noSuchName{lf}" \
+            f"    Error Index: 2{lf}" \
+            f"    Variable Bindings:{lf}" \
+            f"        1.3.6.1.2.1.1.1.0: OctetString(b'description'){lf}" \
+            f"        1.2.3.4.5.6: NULL()"
+
 class BulkPDUTest(unittest.TestCase):
     def setUp(self):
         self.oid = OID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1)
@@ -279,6 +296,23 @@ class BulkPDUTest(unittest.TestCase):
 
         self.assertRaises(ImproperResponse, request.checkResponse, response)
 
+    def test_str(self):
+        pdu = GetBulkRequestPDU(
+            "1.3.6.1.2.1.1.1.0",
+            "1.2.3.4.5.6",
+            requestID=303,
+        )
+
+        expected = f"GetBulkRequestPDU:{lf}" \
+            f"    Request ID: 303{lf}" \
+            f"    Non-Repeaters: 0{lf}" \
+            f"    Max Repetitions: 1{lf}" \
+            f"    Variable Bindings:{lf}" \
+            f"        1.3.6.1.2.1.1.1.0: NULL(){lf}" \
+            f"        1.2.3.4.5.6: NULL()"
+
+        self.assertEqual(str(pdu), expected)
+
 class SetRequestPduTest(unittest.TestCase):
     def test_constructor_converts_tuples_to_VarBinds(self):
         pdu = SetRequestPDU(("1.2.3.4.5.6", Integer(123456)))
@@ -301,7 +335,7 @@ class ResponsePduTest(unittest.TestCase):
     def test_checkErrorStatus_raises_NoSuchName_for_noSuchName(self):
         request = GetNextRequestPDU("1.3.6.1.2.1.1.1", requestID=482)
         response = ResponsePDU(
-            "1.3.6.1.2.1.1.1",
+            ("1.3.6.1.2.1.1.1", Null()),
             errorStatus=ErrorStatus.noSuchName,
             errorIndex=1,
             requestID=482,
@@ -312,7 +346,7 @@ class ResponsePduTest(unittest.TestCase):
     def test_NoSuchName_is_an_ErrorResponse_with_noSuchName_status(self):
         request = GetNextRequestPDU("1.3.6.1.2.1.1.1", requestID=504)
         response = ResponsePDU(
-            "1.3.6.1.2.1.1.1",
+            ("1.3.6.1.2.1.1.1", Null()),
             errorStatus=ErrorStatus.noSuchName,
             errorIndex=1,
             requestID=504,
@@ -329,7 +363,7 @@ class ResponsePduTest(unittest.TestCase):
     def test_checkErrorStatus_ErrorResponse_has_the_correct_errorStatus(self):
         request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=521)
         response = ResponsePDU(
-            "1.3.6.1.2.1.1.1.0",
+            ("1.3.6.1.2.1.1.1.0", Null()),
             errorStatus=ErrorStatus.noAccess,
             errorIndex=1,
             requestID=521,
@@ -346,7 +380,7 @@ class ResponsePduTest(unittest.TestCase):
     def test_checkErrorStatus_clamps_down_on_out_of_range_errorIndex(self):
         request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=538)
         response = ResponsePDU(
-            "1.3.6.1.2.1.1.1.0",
+            ("1.3.6.1.2.1.1.1.0", Null()),
             errorStatus=ErrorStatus.noAccess,
             errorIndex=2,
             requestID=538,
@@ -363,7 +397,7 @@ class ResponsePduTest(unittest.TestCase):
     def test_ErrorResponse_variableBindings_come_from_request(self):
         request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=555)
         response = ResponsePDU(
-            "1.2.3.4.5.6",
+            ("1.2.3.4.5.6", Null()),
             errorStatus=ErrorStatus.noAccess,
             errorIndex=1,
             requestID=555,
@@ -380,7 +414,7 @@ class ResponsePduTest(unittest.TestCase):
     def test_ErrorResponse_oid_is_a_shortcut_to_index_variableBindings(self):
         request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=555)
         response = ResponsePDU(
-            "1.3.6.1.2.1.1.1.0",
+            ("1.3.6.1.2.1.1.1.0", Null()),
             errorStatus=ErrorStatus.noAccess,
             errorIndex=1,
             requestID=555,
@@ -397,7 +431,7 @@ class ResponsePduTest(unittest.TestCase):
     def test_ErrorResponse_oid_is_None_if_errorIndex_is_zero(self):
         request = GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=555)
         response = ResponsePDU(
-            "1.3.6.1.2.1.1.1.0",
+            ("1.3.6.1.2.1.1.1.0", Null()),
             errorStatus=ErrorStatus.tooBig,
             errorIndex=0,
             requestID=555,
