@@ -7,7 +7,7 @@ __all__ = [
 ]
 
 import enum
-import os
+from os import linesep as lf
 
 from snmp.asn1 import Constructed
 from snmp.ber import *
@@ -95,7 +95,7 @@ class PDU(Constructed):
     def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
-        return "\n".join((
+        return lf.join((
             "{}{}:",
             "{}Request ID: {}",
             "{}Error Status: {}",
@@ -220,7 +220,7 @@ class BulkPDU(Constructed):
 
     def toString(self, depth = 0, tab = "    "):
         indent = tab * (depth + 1)
-        return "\n".join((
+        return lf.join((
             "{}:",
             "{}Request ID: {}",
             "{}Non-Repeaters: {}",
@@ -405,7 +405,7 @@ class ErrorResponse(SNMPException):
 
         if self.index == 0:
             self.oid = None
-            details = f"{os.linesep}{request}"
+            details = f"{lf}{request}"
         else:
             self.oid = self.variableBindings[self.index-1].name
             details = f" {self.oid}"

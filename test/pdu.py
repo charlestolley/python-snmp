@@ -3,6 +3,7 @@ __all__ = [
     "PDUClassesTest",
 ]
 
+from os import linesep as lf
 import re
 import unittest
 
