@@ -92,7 +92,7 @@ class UserBasedSecurityModule:
 
     def maxSecurityLevel(self, userName, namespace):
         try:
-            return self.users.defaultSecurityLevel(userName, namespace)
+            return self.users.maxSecurityLevel(userName, namespace)
         except KeyError:
             return noAuthNoPriv
 

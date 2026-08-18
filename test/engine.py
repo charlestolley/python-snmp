@@ -10,7 +10,7 @@ from snmp.message.version import *
 from snmp.security.levels import *
 from snmp.transport import TransportDomain
 
-from test.security.usm import DummyAuthProtocol
+from test.security.usm import DummyAuthProtocol, DummyPrivProtocol
 
 class FakeUdpIPv4Socket:
     def __init__(self, *args, mtu=9423116, **kwargs):
@@ -154,6 +154,21 @@ class SNMPv3ManagerAddUserTest(unittest.TestCase):
             self.addr,
             defaultUser = self.otherUser,
             defaultSecurityLevel = authNoPriv,
+        )
+
+    def test_Manager_defaultSecurityLevel_may_be_higher_than_engine(self):
+        self.engine.addUser(
+            "testuser",
+            authProtocol=DummyAuthProtocol,
+            privProtocol=DummyPrivProtocol,
+            secret=b"fdsa",
+            defaultSecurityLevel=authNoPriv,
+        )
+
+        manager = self.engine.Manager(
+            self.addr,
+            defaultUser="testuser",
+            defaultSecurityLevel=authPriv,
         )
 
 class EngineTest(unittest.TestCase):
