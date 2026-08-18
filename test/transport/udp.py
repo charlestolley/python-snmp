@@ -5,12 +5,17 @@ from threading import Event, Thread
 import time
 import unittest
 
-from snmp.transport import AddressUsage
+from snmp.transport import AddressUsage, TransportDomain
 from snmp.transport.udp import UdpIPv4Socket, UdpIPv6Socket, UdpMultiplexor
 
 from snmp.transport.generic.udp import (
     UdpMultiplexor as GenericUdpMultiplexor,
 )
+
+representations = {
+    TransportDomain.UDP_IPv4: "UdpIPv4Socket('127.0.0.1', {}, 1500)",
+    TransportDomain.UDP_IPv6: "UdpIPv6Socket('::1', {}, 1500)",
+}
 
 def declareUdpSocketTest(socketType, testAddress):
     class AbstractUdpSocketTest(unittest.TestCase):
@@ -106,6 +111,12 @@ def declareUdpSocketTest(socketType, testAddress):
 
         def testLoopback(self):
             sock = socketType(socketType.DOMAIN.loopback_address)
+            sock.close()
+
+        def testRepr(self):
+            sock = socketType(socketType.DOMAIN.loopback_address)
+            expected = representations[socketType.DOMAIN].format(sock.port)
+            self.assertEqual(repr(sock), expected)
             sock.close()
 
     return AbstractUdpSocketTest
