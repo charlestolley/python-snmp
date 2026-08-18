@@ -25,7 +25,7 @@ class UsmUnknownEngineID(IncomingMessageError):
 class UsmUnknownUserName(IncomingMessageError):
     pass
 
-class UsmWrongDigest(IncomingMessageError):
+class UsmWrongDigest(IncomingMessageErrorWithPointer):
     pass
 
 class UsmDecryptionError(IncomingMessageError):
@@ -210,7 +210,8 @@ class UserBasedSecurityModule:
         if authenticated:
             return authenticated
         elif authEnabled:
-            raise UsmWrongDigest(securityParameters.signature)
+            errmsg = "Invalid message signature"
+            raise UsmWrongDigest(errmsg, securityParameters.signature)
         else:
             raise UsmUnsupportedSecLevel(authNoPriv)
 
