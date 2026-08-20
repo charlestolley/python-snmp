@@ -2,13 +2,13 @@ __all__ = ["SNMPv3Interpreter", "SNMPv3MessageSorter"]
 
 import weakref
 
-from snmp.smi import OID
+from snmp.smi import *
 from snmp.pdu import ReportPDU
 from snmp.security import SecurityModel
 
 from .message import *
 
-snmpUnknownPDUHandlersInstance = OID.parse("1.3.6.1.6.3.11.2.1.3")
+snmpUnknownPDUHandlersInstance = OID.parse("1.3.6.1.6.3.11.2.1.3.0")
 
 class SNMPv3Interpreter:
     def __init__(self, usm):
