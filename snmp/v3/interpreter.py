@@ -2,13 +2,13 @@ __all__ = ["SNMPv3Interpreter", "SNMPv3MessageSorter"]
 
 import weakref
 
-from snmp.smi import OID
+from snmp.smi import *
 from snmp.pdu import ReportPDU
 from snmp.security import SecurityModel
 
 from .message import *
 
-snmpUnknownPDUHandlersInstance = OID.parse("1.3.6.1.6.3.11.2.1.3")
+snmpUnknownPDUHandlersInstance = OID.parse("1.3.6.1.6.3.11.2.1.3.0")
 
 class SNMPv3Interpreter:
     def __init__(self, usm):
@@ -41,8 +41,8 @@ class SNMPv3Interpreter:
             message.securityName,
         )
 
-    def pduType(self, message):
-        return type(message.scopedPDU.pdu)
+    def pdu(self, message):
+        return message.scopedPDU.pdu
 
 class SNMPv3MessageSorter:
     def __init__(self, interpreter):
@@ -56,14 +56,14 @@ class SNMPv3MessageSorter:
         return subscriber is subscribed
 
     def forward(self, message, channel):
-        pduType = self.interpreter.pduType(message)
+        pdu = self.interpreter.pdu(message)
 
         try:
-            subscriber = self.subscribers[pduType.TAG]
+            subscriber = self.subscribers[pdu.TAG]
         except KeyError:
-            if not pduType.RESPONSE_CLASS:
+            if not pdu.RESPONSE_CLASS:
                 self.unknownHandlers += 1
-                if pduType.CONFIRMED_CLASS:
+                if pdu.CONFIRMED_CLASS:
                     try:
                         reportMessage = self.interpreter.makeReport(
                             message,

@@ -8,6 +8,11 @@ from snmp.pdu import *
 from snmp.security import *
 from snmp.security.levels import *
 from snmp.security.usm.credentials import *
+from snmp.security.usm.credentials import (
+    LocalizedAuthCredentials,
+    LocalizedAuthPrivCredentials,
+)
+
 from snmp.security.usm.parameters import *
 from snmp.utils import *
 from snmp.v3.message import *
@@ -110,6 +115,11 @@ class CredentialsTest(unittest.TestCase):
         l2 = credentials.localize(b"different engineID")
         self.assertEqual(l1, l2)
 
+    def test_empty_lc_the_result_of_eval_repr_is_equal_to_the_original(self):
+        credentials = Credentials()
+        lc = credentials.localize(self.engineID)
+        self.assertEqual(eval(repr(lc)), lc)
+
     def test_auth_lc_with_different_engineIDs_are_not_equal(self):
         credentials = AuthCredentials(DummyAuthProtocol, self.authSecret)
         l1 = credentials.localize(self.engineID)
@@ -128,6 +138,11 @@ class CredentialsTest(unittest.TestCase):
         l1 = credentials.localize(self.engineID)
         l2 = credentials.localize(self.engineID)
         self.assertEqual(l1, l2)
+
+    def test_auth_lc_the_result_of_eval_repr_is_equal_to_the_original(self):
+        credentials = AuthCredentials(DummyAuthProtocol, self.authSecret)
+        lc = credentials.localize(self.engineID)
+        self.assertEqual(eval(repr(lc)), lc)
 
     def test_priv_lc_with_different_engineIDs_are_not_equal(self):
         credentials = AuthPrivCredentials(
@@ -209,6 +224,17 @@ class CredentialsTest(unittest.TestCase):
         l1 = c1.localize(self.engineID)
         l2 = c2.localize(self.engineID)
         self.assertNotEqual(l1, l2)
+
+    def test_priv_lc_the_result_of_eval_repr_is_equal_to_the_original(self):
+        c = AuthPrivCredentials(
+            DummyAuthProtocol,
+            DummyPrivProtocol,
+            self.authSecret,
+            self.privSecret,
+        )
+
+        lc = c.localize(self.engineID)
+        self.assertEqual(eval(repr(lc)), lc)
 
     def test_empty_lc_withoutPrivacy_equals_self(self):
         credentials = Credentials()

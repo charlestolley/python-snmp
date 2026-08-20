@@ -25,7 +25,7 @@ class UsmUnknownEngineID(IncomingMessageError):
 class UsmUnknownUserName(IncomingMessageError):
     pass
 
-class UsmWrongDigest(IncomingMessageError):
+class UsmWrongDigest(IncomingMessageErrorWithPointer):
     pass
 
 class UsmDecryptionError(IncomingMessageError):
@@ -92,7 +92,7 @@ class UserBasedSecurityModule:
 
     def maxSecurityLevel(self, userName, namespace):
         try:
-            return self.users.defaultSecurityLevel(userName, namespace)
+            return self.users.maxSecurityLevel(userName, namespace)
         except KeyError:
             return noAuthNoPriv
 
@@ -210,7 +210,8 @@ class UserBasedSecurityModule:
         if authenticated:
             return authenticated
         elif authEnabled:
-            raise UsmWrongDigest(securityParameters.signature)
+            errmsg = "Invalid message signature"
+            raise UsmWrongDigest(errmsg, securityParameters.signature)
         else:
             raise UsmUnsupportedSecLevel(authNoPriv)
 

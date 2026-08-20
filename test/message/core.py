@@ -2,6 +2,7 @@ __all__ = ["MessageTest"]
 
 import re
 import unittest
+from os import linesep as lf
 
 from snmp.ber import ParseError
 from snmp.smi import *
@@ -96,6 +97,18 @@ class MessageTest(unittest.TestCase):
                 Message.decodeExact(message.encode(), types=self.types),
                 message,
             )
+
+    def test_str(self):
+        expected = f"Message:{lf}" \
+            f"    Community: b'testCommunity'{lf}" \
+            f"    GetRequestPDU:{lf}" \
+            f"        Request ID: 2023406814{lf}" \
+            f"        Error Status: noError{lf}" \
+            f"        Error Index: 0{lf}" \
+            f"        Variable Bindings:{lf}" \
+            f"            1.3.6.1.2.1.1.0: NULL()"
+
+        self.assertEqual(str(self.messages[ProtocolVersion.SNMPv1]), expected)
 
 if __name__ == "__main__":
     unittest.main()

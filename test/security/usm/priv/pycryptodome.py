@@ -10,3 +10,7 @@ except ImportError as err:
 else:
     AesCfb128TestCrypto = makeAesCfb128Test(AesCfb128)
     DesCbcTestCrypto = makeDesCbcTest(DesCbc)
+
+if __name__ == "__main__":
+    import unittest
+    unittest.main()

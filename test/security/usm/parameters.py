@@ -82,6 +82,28 @@ class SignedUsmParametersTest(unittest.TestCase):
             self.salt,
         )
 
+    def test_constructor_accepts_32_character_userName(self):
+        params = SignedUsmParameters(
+            self.engineID,
+            self.engineBoots,
+            self.engineTime,
+            bytes(32),
+            self.signature,
+            self.salt,
+        )
+
+    def test_constructor_raises_ValueError_for_33_character_userName(self):
+        self.assertRaises(
+            ValueError,
+            SignedUsmParameters,
+            self.engineID,
+            self.engineBoots,
+            self.engineTime,
+            bytes(33),
+            self.signature,
+            self.salt,
+        )
+
     def test_decode_raises_ParseError_for_negative_engineBoots(self):
         encoding = bytes.fromhex(
             "30 10"
@@ -246,6 +268,28 @@ class UnsignedUsmParametersTest(unittest.TestCase):
             self.engineBoots,
             -1,
             self.userName,
+            self.padding,
+            self.salt,
+        )
+
+    def test_constructor_accepts_32_character_userName(self):
+        params = UnsignedUsmParameters(
+            self.engineID,
+            self.engineBoots,
+            self.engineTime,
+            bytes(32),
+            self.padding,
+            self.salt,
+        )
+
+    def test_constructor_raises_ValueError_for_33_character_userName(self):
+        self.assertRaises(
+            ValueError,
+            UnsignedUsmParameters,
+            self.engineID,
+            self.engineBoots,
+            self.engineTime,
+            bytes(33),
             self.padding,
             self.salt,
         )

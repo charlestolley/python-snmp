@@ -1,8 +1,9 @@
 __all__ = [
     "HeaderDataTest", "MessageFlagsTest", "ScopedPDUTest",
-    "SecurityNameTest", "SNMPv3WireMessageTest",
+    "SecurityNameTest", "SNMPv3MessageTest", "SNMPv3WireMessageTest",
 ]
 
+from os import linesep as lf
 import unittest
 
 from snmp.exception import *
@@ -193,6 +194,14 @@ class MessageFlagsTest(unittest.TestCase):
             MessageFlags(authPriv, reportable=True).encode(),
             b"\x04\x01\x07",
         )
+
+    def test_str(self):
+        flags = MessageFlags(authNoPriv, True)
+        expected = f"MessageFlags:{lf}" \
+            f"    Security Level: authNoPriv{lf}" \
+            f"    Reportable: True"
+
+        self.assertEqual(str(flags), expected)
 
 class HeaderDataTest(unittest.TestCase):
     def setUp(self):
@@ -473,6 +482,17 @@ class HeaderDataTest(unittest.TestCase):
         self.assertEqual(newHeader.flags, flags)
         self.assertEqual(newHeader.securityModel, model)
 
+    def test_str(self):
+        expected = f"HeaderData:{lf}" \
+            f"    Message ID: 389621573{lf}" \
+            f"    Sender Message Size Limit: 1500{lf}" \
+            f"    MessageFlags:{lf}" \
+            f"        Security Level: authPriv{lf}" \
+            f"        Reportable: True{lf}" \
+            f"    Security Model: USM"
+
+        self.assertEqual(str(self.header), expected)
+
 class ScopedPDUTest(unittest.TestCase):
     def setUp(self):
         self.encoding = bytes.fromhex(
@@ -584,6 +604,22 @@ class ScopedPDUTest(unittest.TestCase):
         self.assertEqual(scopedPDU.contextEngineID, b"someEngineID")
         self.assertEqual(newScopedPDU.contextEngineID, b"newEngineID")
         self.assertEqual(newScopedPDU.contextName, b"someContext")
+
+    def test_str(self):
+        sd = self.scopedPDU.pdu.variableBindings[0].value
+        expected = f"ScopedPDU:{lf}" \
+            f"    Context Engine ID: b'someEngineID'{lf}" \
+            f"    Context Name: b'someContext'{lf}" \
+            f"    ResponsePDU:{lf}" \
+            f"        Request ID: -110363965{lf}" \
+            f"        Error Status: noError{lf}" \
+            f"        Error Index: 0{lf}" \
+            f"        Variable Bindings:{lf}" \
+            f"            1.3.6.1.2.1.1.1.0: {sd}" \
+            f""
+
+        self.maxDiff = None
+        self.assertEqual(str(self.scopedPDU), expected)
 
 class SNMPv3WireMessageTest(unittest.TestCase):
     def setUp(self):
@@ -901,6 +937,45 @@ class SNMPv3WireMessageTest(unittest.TestCase):
             self.encryptedMessage,
         )
 
+    def test_str(self):
+        sp = self.plainMessage.securityParameters
+        sd = self.plainMessage.scopedPduData.pdu.variableBindings[0].value
+        expected = f"SNMPv3WireMessage:{lf}" \
+            f"    HeaderData:{lf}" \
+            f"        Message ID: 901263588{lf}" \
+            f"        Sender Message Size Limit: 1500{lf}" \
+            f"        MessageFlags:{lf}" \
+            f"            Security Level: noAuthNoPriv{lf}" \
+            f"            Reportable: False{lf}" \
+            f"        Security Model: USM{lf}" \
+            f"    Security Parameters: {sp}{lf}" \
+            f"    ScopedPDU:{lf}" \
+            f"        Context Engine ID: b'someEngineID'{lf}" \
+            f"        Context Name: b'someContext'{lf}" \
+            f"        ResponsePDU:{lf}" \
+            f"            Request ID: -110363965{lf}" \
+            f"            Error Status: noError{lf}" \
+            f"            Error Index: 0{lf}" \
+            f"            Variable Bindings:{lf}" \
+            f"                1.3.6.1.2.1.1.0: {sd}"
+
+        self.assertEqual(str(self.plainMessage), expected)
+
+        expected = f"SNMPv3WireMessage:{lf}" \
+            f"    HeaderData:{lf}" \
+            f"        Message ID: 1863358389{lf}" \
+            f"        Sender Message Size Limit: 1500{lf}" \
+            f"        MessageFlags:{lf}" \
+            f"            Security Level: authPriv{lf}" \
+            f"            Reportable: False{lf}" \
+            f"        Security Model: USM{lf}" \
+            f"    Security Parameters: {sp}{lf}" \
+            f"    Encrypted Data: OctetString(b'This data is encrypted')"
+
+        self.maxDiff = None
+        self.assertEqual(str(self.encryptedMessage), expected)
+
+class SNMPv3MessageTest(unittest.TestCase):
     def test_withMessageID_returns_identical_message_with_msgID_changed(self):
         header = HeaderData(
             0,
@@ -999,6 +1074,65 @@ class SNMPv3WireMessageTest(unittest.TestCase):
         self.assertEqual(message.securityEngineID, oldEngineID)
         self.assertEqual(newMessage.securityEngineID, b"newEngineID")
         self.assertEqual(newMessage.securityName, securityName)
+
+    def test_str(self):
+        message = SNMPv3Message(
+            HeaderData(
+                1065,
+                1066,
+                MessageFlags(authPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(
+                GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=1071),
+                b"test_engine",
+                b"eval(repr())",
+            ),
+            b"test_engine",
+            SecurityName("tester", "test"),
+        )
+
+        expected = f"SNMPv3Message:{lf}" \
+            f"    HeaderData:{lf}" \
+            f"        Message ID: 1065{lf}" \
+            f"        Sender Message Size Limit: 1066{lf}" \
+            f"        MessageFlags:{lf}" \
+            f"            Security Level: authPriv{lf}" \
+            f"            Reportable: False{lf}" \
+            f"        Security Model: USM{lf}" \
+            f"    Security Engine ID: b'test_engine'{lf}" \
+            f"    Security Name: tester{lf}" \
+            f"    ScopedPDU:{lf}" \
+            f"        Context Engine ID: b'test_engine'{lf}" \
+            f"        Context Name: b'eval(repr())'{lf}" \
+            f"        GetRequestPDU:{lf}" \
+            f"            Request ID: 1071{lf}" \
+            f"            Error Status: noError{lf}" \
+            f"            Error Index: 0{lf}" \
+            f"            Variable Bindings:{lf}" \
+            f"                1.3.6.1.2.1.1.1.0: NULL()"
+
+        self.maxDiff = None
+        self.assertEqual(str(message), expected)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        message = SNMPv3Message(
+            HeaderData(
+                1104,
+                1105,
+                MessageFlags(authPriv),
+                SecurityModel.USM,
+            ),
+            ScopedPDU(
+                GetRequestPDU("1.3.6.1.2.1.1.1.0", requestID=1110),
+                b"test_engine",
+                b"eval(repr())",
+            ),
+            b"test_engine",
+            SecurityName("tester", "test"),
+        )
+
+        self.assertEqual(eval(repr(message)), message)
 
 if __name__ == "__main__":
     unittest.main()

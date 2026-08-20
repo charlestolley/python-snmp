@@ -3,6 +3,8 @@ __all__ = [
     "SNMPv3Message", "SNMPv3WireMessage", "ReportMessage",
 ]
 
+from os import linesep as lf
+
 from snmp.exception import *
 from snmp.ber import *
 from snmp.message import InvalidMessage, ProtocolVersion
@@ -61,7 +63,7 @@ class MessageFlags(OctetString):
         indent = tab * depth
         subindent = indent + tab
 
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             f"{subindent}Security Level: {self.securityLevel}",
             f"{subindent}Reportable: {self.reportableFlag}",
@@ -162,7 +164,7 @@ class HeaderData(Sequence):
         subindent = indent + tab
         securityModel = self.securityModel
 
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             f"{subindent}Message ID: {self.id}",
             f"{subindent}Sender Message Size Limit: {self.maxSize}",
@@ -247,7 +249,7 @@ class ScopedPDU(Sequence):
     def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             f"{subindent}Context Engine ID: {self.contextEngineID!r}",
             f"{subindent}Context Name: {self.contextName!r}",
@@ -309,10 +311,10 @@ class SNMPv3Message:
         indent = tab * depth
         subindent = indent + tab
 
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             self.header.toString(depth+1, tab),
-            f"{subindent}Security EngineID: {self.securityEngineID}",
+            f"{subindent}Security Engine ID: {self.securityEngineID}",
             f"{subindent}Security Name: {self.securityName.userName}",
             self.scopedPDU.toString(depth+1, tab),
         ))
@@ -384,7 +386,7 @@ class SNMPv3WireMessage(Sequence):
         else:
             payload = self.scopedPduData.toString(depth+1, tab)
 
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             f"{self.header.toString(depth+1, tab)}",
             f"{subindent}Security Parameters: {self.securityParameters}",

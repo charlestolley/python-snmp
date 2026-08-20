@@ -5,6 +5,11 @@ import unittest
 from snmp.numbers import *
 
 class NumberGeneratorTest(unittest.TestCase):
+    def test_NumberGenerator_is_iterable(self):
+        generator = NumberGenerator(4)
+        for i in generator:
+            break
+
     def test_generate_2_to_the_n_unique_integers(self):
         generator = NumberGenerator(4)
         length = 2 ** 4

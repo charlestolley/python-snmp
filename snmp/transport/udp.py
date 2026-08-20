@@ -65,7 +65,7 @@ class UdpSocket:
         self.socket.bind((host, port))
 
     def __repr__(self):
-        host, port = self.socket.getsockname()
+        host, port = self.socket.getsockname()[:2]
         mtu = self.recvSize + self.HEADER_SIZE
         return f"{typename(self)}({host!r}, {port}, {mtu})"
 
