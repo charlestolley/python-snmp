@@ -152,6 +152,10 @@ def makeDesCbcTest(DesCbc):
             self.engineBoots = 918273645
             self.engineTime  = 546372819
 
+        def test_constructor_raises_ValueError_if_key_too_short(self):
+            key = self.authProtocol.localize(self.secret, self.engineID)
+            self.assertRaises(ValueError, self.privProtocol, key[:15])
+
         def test_two_objects_with_the_same_key_are_equal(self):
             key = self.authProtocol.localize(self.secret, self.engineID)
             a = self.privProtocol(key)
