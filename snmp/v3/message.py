@@ -314,7 +314,7 @@ class SNMPv3Message:
         return lf.join((
             f"{indent}{typename(self)}:",
             self.header.toString(depth+1, tab),
-            f"{subindent}Security EngineID: {self.securityEngineID}",
+            f"{subindent}Security Engine ID: {self.securityEngineID}",
             f"{subindent}Security Name: {self.securityName.userName}",
             self.scopedPDU.toString(depth+1, tab),
         ))
