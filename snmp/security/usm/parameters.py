@@ -1,5 +1,7 @@
 __all__ = ["SignedUsmParameters", "UnsignedUsmParameters"]
 
+from os import linesep as lf
+
 from snmp.ber import *
 from snmp.smi import *
 from snmp.utils import *
@@ -80,7 +82,7 @@ class UnsignedUsmParameters(Sequence):
     def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             f"{subindent}Authoritative Engine ID: {self.engineID!r}",
             f"{subindent}Authoritative Engine Boots: {self.engineBoots}",
@@ -212,7 +214,7 @@ class SignedUsmParameters(Sequence):
     def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             f"{subindent}Authoritative Engine ID: {self.engineID!r}",
             f"{subindent}Authoritative Engine Boots: {self.engineBoots}",

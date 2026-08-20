@@ -32,13 +32,17 @@ class Engine:
         defaultCommunity = b"public",
         autowait = True,
         verboseLogging = False,
+        multiplexor = None,
     ):
+        if multiplexor is None:
+            multiplexor = UdpMultiplexor()
+
         self.defaultVersion         = defaultVersion
         self.defaultDomain          = defaultDomain
         self.defaultCommunity       = defaultCommunity
         self.autowaitDefault        = autowait
 
-        self.multiplexor = UdpMultiplexor()
+        self.multiplexor = multiplexor
         self.scheduler = Scheduler(self.multiplexor.poll)
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
@@ -59,7 +63,11 @@ class Engine:
         self.transports = {}
 
     def __del__(self):
-        self.multiplexor.close()
+        try:
+            self.multiplexor.close()
+        except AttributeError:
+            # In case the constructor gets an invalid argument name
+            pass
 
     def addUser(self,
         user,

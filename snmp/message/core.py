@@ -1,5 +1,7 @@
 __all__ = ["Message"]
 
+from os import linesep as lf
+
 from snmp.ber import ParseError, Tag
 from snmp.smi import *
 from snmp.utils import *
@@ -36,7 +38,7 @@ class Message(Sequence):
     def toString(self, depth = 0, tab = "    "):
         indent = tab * depth
         subindent = indent + tab
-        return "\n".join((
+        return lf.join((
             f"{indent}{typename(self)}:",
             f"{subindent}Community: {self.community!r}",
             f"{self.pdu.toString(depth+1, tab)}",

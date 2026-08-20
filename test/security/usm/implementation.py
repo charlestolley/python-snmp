@@ -62,6 +62,13 @@ class UserBasedSecurityModuleTest(unittest.TestCase):
         usm = UserBasedSecurityModule()
         self.assertIsNone(usm.defaultUserName("jkfuismerkj"))
 
+    def test_namespace_is_required_if_engineID_is_not_None(self):
+        self.assertRaises(
+            TypeError,
+            UserBasedSecurityModule,
+            engineID=b"engineID",
+        )
+
 class UsmOutgoingTest(unittest.TestCase):
     def setUp(self):
         self.msgID = 0x12345678
