@@ -33,6 +33,10 @@ def makeAesCfb128Test(AesCfb128):
             self.engineBoots = 918273645
             self.engineTime  = 546372819
 
+        def test_constructor_raises_ValueError_if_key_too_short(self):
+            key = self.authProtocol.localize(self.secret, self.engineID)
+            self.assertRaises(ValueError, self.privProtocol, key[:15])
+
         def test_two_objects_with_the_same_key_are_equal(self):
             key = self.authProtocol.localize(self.secret, self.engineID)
             a = self.privProtocol(key)
@@ -58,9 +62,7 @@ def makeAesCfb128Test(AesCfb128):
                 30 b4 bd 94 88 9a 3e c3 9a 89 29 39
             """))
 
-            msgPrivParameters = bytes.fromhex(re.sub(r"\n", "", """
-                30 50 91 db cc 0c 9b 87 
-            """))
+            msgPrivParameters = bytes.fromhex("30 50 91 db cc 0c 9b 87")
 
             plaintext = priv.decrypt(
                 ciphertext,
@@ -71,6 +73,38 @@ def makeAesCfb128Test(AesCfb128):
 
             tag, contents, _ = decode(plaintext)
             self.assertEqual(contents, self.data)
+
+        def test_decrypt_raises_ValueError_if_salt_is_not_the_right_len(self):
+            privKey = self.authProtocol.localize(self.secret, self.engineID)
+            priv = self.privProtocol(privKey)
+
+            ciphertext = bytes.fromhex(re.sub(r"\n", "", """
+                45 80 ec 9b b4 8c 56 e2 02 68 cc d9 70 98 55 bd
+                77 6f 73 75 26 1f 06 4b 62 62 9a 3b c6 e4 5d 65
+                0b a7 58 49 cc 28 ea db 4b 64 c2 c2 2b 6e 04 30
+                41 15 08 9b ca 45 c9 4a 58 f6 5c 5a e5 50 bb eb
+                30 b4 bd 94 88 9a 3e c3 9a 89 29 39
+            """))
+
+            msgPrivParameters = bytes.fromhex("30 50 91 db cc 0c 9b 87")
+
+            self.assertRaises(
+                ValueError,
+                priv.decrypt,
+                ciphertext,
+                self.engineBoots,
+                self.engineTime,
+                msgPrivParameters[:-1],
+            )
+
+            self.assertRaises(
+                ValueError,
+                priv.decrypt,
+                ciphertext,
+                self.engineBoots,
+                self.engineTime,
+                msgPrivParameters + bytes(1),
+            )
 
         def test_encrypt_successfully_encrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)
@@ -118,6 +152,10 @@ def makeDesCbcTest(DesCbc):
             self.engineBoots = 918273645
             self.engineTime  = 546372819
 
+        def test_constructor_raises_ValueError_if_key_too_short(self):
+            key = self.authProtocol.localize(self.secret, self.engineID)
+            self.assertRaises(ValueError, self.privProtocol, key[:15])
+
         def test_two_objects_with_the_same_key_are_equal(self):
             key = self.authProtocol.localize(self.secret, self.engineID)
             a = self.privProtocol(key)
@@ -143,9 +181,7 @@ def makeDesCbcTest(DesCbc):
                 2d b6 59 7d 00 c4 93 05 18 41 da 11 08 85 a8 4a 
             """))
 
-            msgPrivParameters = bytes.fromhex(re.sub(r"\n", "", """
-                36 bb be 6d f8 89 34 b6 
-            """))
+            msgPrivParameters = bytes.fromhex("36 bb be 6d f8 89 34 b6")
 
             plaintext = priv.decrypt(
                 ciphertext,
@@ -156,6 +192,30 @@ def makeDesCbcTest(DesCbc):
 
             tag, contents, _ = decode(plaintext)
             self.assertEqual(contents, self.data)
+
+        def test_decrypt_ValueError_if_data_not_a_multiple_of_blocklen(self):
+            privKey = self.authProtocol.localize(self.secret, self.engineID)
+            priv = self.privProtocol(privKey)
+
+            ciphertext = bytes.fromhex(re.sub(r"\n", "", """
+                14 4e f2 86 ad 12 47 ba 23 d6 41 51 67 17 1d 15
+                aa 91 c7 fb ed 3e f2 1f 59 7f 96 ac a3 11 8d cb
+                37 26 62 15 cc 32 0b 85 4a 70 91 39 82 a6 15 90
+                aa 9d 0d a1 55 d2 9c 74 4f 32 2c a9 17 d9 7b 72
+                2d b6 59 7d 00 c4 93 05 18 41 da 11 08 85 a8 4a
+                00
+            """))
+
+            msgPrivParameters = bytes.fromhex("36 bb be 6d f8 89 34 b6")
+
+            self.assertRaises(
+                ValueError,
+                priv.decrypt,
+                ciphertext,
+                self.engineBoots,
+                self.engineTime,
+                msgPrivParameters,
+            )
 
         def test_encrypt_successfully_encrypts_an_example(self):
             privKey = self.authProtocol.localize(self.secret, self.engineID)

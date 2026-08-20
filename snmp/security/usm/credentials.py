@@ -17,7 +17,7 @@ class AuthenticationNotEnabled(SNMPException):
 class PrivacyNotEnabled(SNMPException):
     pass
 
-class InvalidSignature(IncomingMessageError):
+class InvalidSignature(SNMPException):
     pass
 
 class WrongSignatureLength(InvalidSignature):

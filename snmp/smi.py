@@ -7,6 +7,7 @@ __all__ = [
     "NoSuchObject", "NoSuchInstance", "EndOfMibView",
 ]
 
+from os import linesep as lf
 from socket import inet_aton, inet_ntoa
 
 from snmp.asn1 import *
@@ -249,7 +250,7 @@ class VarBindList(Sequence):
         return self.toString()
 
     def toString(self, indent = ""):
-        return "\n".join(f"{indent}{var}" for var in self.variables)
+        return lf.join(f"{indent}{var}" for var in self.variables)
 
     @classmethod
     def deserialize(cls, data):

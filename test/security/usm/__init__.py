@@ -1,4 +1,5 @@
 from snmp.security.usm import AuthProtocol, PrivProtocol
+from snmp.utils import typename
 
 class DummyAuthProtocol(AuthProtocol):
     def __init__(self, key):
@@ -9,6 +10,9 @@ class DummyAuthProtocol(AuthProtocol):
             return NotImplemented
 
         return self.key == other.key
+
+    def __repr__(self):
+        return f"{typename(self)}({self.key!r})"
 
     @classmethod
     def computeKey(cls, secret):
@@ -34,6 +38,9 @@ class DummyPrivProtocol(PrivProtocol):
             return NotImplemented
 
         return self.key == other.key
+
+    def __repr__(self):
+        return f"{typename(self)}({self.key!r})"
 
     def decrypt(self, data, engineBoots, engineTime, salt):
         return data

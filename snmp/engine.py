@@ -263,7 +263,11 @@ class GenericEngine:
 
 class Engine(GenericEngine):
     def __init__(self, *args, **kwargs):
-        multiplexor = UdpMultiplexor()
+        try:
+            multiplexor = kwargs.pop("multiplexor")
+        except KeyError:
+            multiplexor = UdpMultiplexor()
+
         scheduler = Scheduler(multiplexor.poll)
         super().__init__(multiplexor, scheduler, *args, **kwargs)
 

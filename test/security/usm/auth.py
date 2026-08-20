@@ -51,6 +51,10 @@ class HmacMd5Test(unittest.TestCase):
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        auth = HmacMd5(self.authKey)
+        self.assertEqual(eval(repr(auth)), auth)
+
 class HmacShaTest(unittest.TestCase):
     def setUp(self):
         self.engineID = bytes(11) + b"\x02"
@@ -95,6 +99,10 @@ class HmacShaTest(unittest.TestCase):
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        auth = HmacSha(self.authKey)
+        self.assertEqual(eval(repr(auth)), auth)
+
 class HmacSha224Test(unittest.TestCase):
     def setUp(self):
         self.engineID = bytes(11) + b"\x02"
@@ -124,6 +132,10 @@ class HmacSha224Test(unittest.TestCase):
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        auth = HmacSha224(self.authKey)
+        self.assertEqual(eval(repr(auth)), auth)
 
 class HmacSha256Test(unittest.TestCase):
     def setUp(self):
@@ -156,6 +168,10 @@ class HmacSha256Test(unittest.TestCase):
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
 
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        auth = HmacSha256(self.authKey)
+        self.assertEqual(eval(repr(auth)), auth)
+
 class HmacSha384Test(unittest.TestCase):
     def setUp(self):
         self.engineID = bytes(11) + b"\x02"
@@ -187,6 +203,10 @@ class HmacSha384Test(unittest.TestCase):
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        auth = HmacSha384(self.authKey)
+        self.assertEqual(eval(repr(auth)), auth)
 
 class HmacSha512Test(unittest.TestCase):
     def setUp(self):
@@ -221,6 +241,10 @@ class HmacSha512Test(unittest.TestCase):
         digest = auth.sign(auth.msgAuthenticationParameters)
         self.assertEqual(auth.msgAuthenticationParameters, bytes(len(digest)))
         self.assertEqual(digest, self.digest)
+
+    def test_the_result_of_eval_repr_is_equal_to_the_original(self):
+        auth = HmacSha512(self.authKey)
+        self.assertEqual(eval(repr(auth)), auth)
 
 if __name__ == '__main__':
     unittest.main()

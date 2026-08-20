@@ -1731,6 +1731,63 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.assertEqual(self.time(), 1/4)
 
+    def test_IncomingMessageError_if_report_pdu_is_empty(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(SecurityLevel(False)),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ReportPDU(requestID=message.scopedPDU.pdu.requestID),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            b"wrongEngineID",
+            message.securityName,
+        )
+
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
+    def test_IncomingMessageError_if_report_has_the_wrong_engineID(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(engineID=b"remote")
+
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.notInTimeWindows += 1
+        oid = usmStatsNotInTimeWindowsInstance
+        value = Counter32(self.notInTimeWindows)
+        varbind = VarBind(oid, value)
+
+        reply = SNMPv3Message(
+            HeaderData(
+                message.header.msgID,
+                message.header.maxSize,
+                MessageFlags(SecurityLevel(False)),
+                message.header.securityModel,
+            ),
+            ScopedPDU(
+                ReportPDU(varbind, requestID=message.scopedPDU.pdu.requestID),
+                message.scopedPDU.contextEngineID,
+                message.scopedPDU.contextName,
+            ),
+            b"wrongEngineID",
+            message.securityName,
+        )
+
+        self.assertRaises(IncomingMessageError, self.incoming.send, reply)
+
     def test_IncomingMessageError_if_request_handle_has_been_deactivated(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(engineID=b"remote")

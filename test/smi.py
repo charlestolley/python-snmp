@@ -6,6 +6,7 @@ __all__ = [
     "VarBindTest", "VarBindListTest",
 ]
 
+from os import linesep as lf
 import unittest
 
 from snmp.exception import *
@@ -610,6 +611,16 @@ class VarBindListTest(unittest.TestCase):
     def test_the_result_of_decode_encode_equals_the_original_object(self):
         vblist = VarBindList(*self.varbinds)
         self.assertEqual(VarBindList.decodeExact(vblist.encode()), vblist)
+
+    def test_str(self):
+        vblist = VarBindList(*self.varbinds)
+        expected = \
+            f"1.3.6.1.2.1.2.2.1.2.1: OctetString(b'lo'){lf}" \
+            f"1.3.6.1.2.1.2.2.1.4.1: Integer32(1500){lf}" \
+            f"1.3.6.1.2.1.2.2.1.6.1: OctetString(b'macadr'){lf}" \
+            f"1.3.6.1.2.1.2.2.1.22.1: 0.0"
+
+        self.assertEqual(expected, str(vblist))
 
 if __name__ == '__main__':
     unittest.main()
