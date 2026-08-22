@@ -73,20 +73,6 @@ authentication algorithm that produces sufficiently long output (such as
 :mod:`eso<snmp.security.usm.eso.priv>` and
 :mod:`cisco<snmp.security.usm.cisco.priv>` classes are interchangeable.
 
-.. module:: snmp.security.usm.eso.priv
-
-.. py:class:: EsoAesCfb192
-
-   *New in version 1.3.*
-
-   An implementation of the ``CFB128-AES-192`` algorithm using the key extension algorithm proposed in `draft-blumenthal-aes-usm-04, Section 3.1.2.1`_\ .
-
-.. py:class:: EsoAesCfb256
-
-   *New in version 1.3.*
-
-   An implementation of the ``CFB128-AES-256`` algorithm using the key extension algorithm proposed in `draft-blumenthal-aes-usm-04, Section 3.1.2.1`_\ .
-
 .. module:: snmp.security.usm.cisco.priv
 
 .. py:class:: CiscoAesCfb192
@@ -100,6 +86,20 @@ authentication algorithm that produces sufficiently long output (such as
    *New in version 1.3.*
 
    An implementation of the ``CFB128-AES-256`` algorithm using the key extension algorithm proposed in `draft-reeder-snmpv3-usm-3desede-00, Section 2.1`_\ .
+
+.. module:: snmp.security.usm.eso.priv
+
+.. py:class:: EsoAesCfb192
+
+   *New in version 1.3.*
+
+   An implementation of the ``CFB128-AES-192`` algorithm using the key extension algorithm proposed in `draft-blumenthal-aes-usm-04, Section 3.1.2.1`_\ .
+
+.. py:class:: EsoAesCfb256
+
+   *New in version 1.3.*
+
+   An implementation of the ``CFB128-AES-256`` algorithm using the key extension algorithm proposed in `draft-blumenthal-aes-usm-04, Section 3.1.2.1`_\ .
 
 .. _RFC 3414, Section 6: https://datatracker.ietf.org/doc/html/rfc3414.html#section-6
 .. _RFC 3414, Section 7: https://datatracker.ietf.org/doc/html/rfc3414.html#section-7
