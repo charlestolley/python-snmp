@@ -60,10 +60,10 @@ bits and 160 bits, respectively, a privacy algorithm that uses a 192 bit or 256
 bit key would require a standard mechanism for key extension. In lieu of this
 standard mechanism, SNMP implementors have adopted the mechanisms from some of
 the rejected drafts that preceded the standard. The
-:class:`EsoAesCfb192<snmp.security.usm.eso.priv.EsoAesCfb192>` and
-:class:`CiscoAesCfb192<snmp.security.usm.cisco.priv.CiscoAesCfb192>` algorithms
-and the :class:`EsoAesCfb256<snmp.security.usm.eso.priv.EsoAesCfb256>` and
-:class:`CiscoAesCfb256<snmp.security.usm.cisco.priv.CiscoAesCfb256>` algorithms
+:class:`CiscoAesCfb192<snmp.security.usm.cisco.priv.CiscoAesCfb192>` and
+:class:`EsoAesCfb192<snmp.security.usm.eso.priv.EsoAesCfb192>` algorithms
+and the :class:`CiscoAesCfb256<snmp.security.usm.cisco.priv.CiscoAesCfb256>` and
+:class:`EsoAesCfb256<snmp.security.usm.eso.priv.EsoAesCfb256>` algorithms
 are incompatible when paired with one of these algorithsm
 (:class:`HmacMd5<snmp.security.usm.auth.HmacMd5>` or
 :class:`HmacSha<snmp.security.usm.auth.HmacSha>`). However, when paired with an
