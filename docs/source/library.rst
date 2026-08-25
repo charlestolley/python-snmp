@@ -224,3 +224,7 @@ Privacy Protocols
 
 - :class:`AesCfb128<snmp.security.usm.priv.AesCfb128>`
 - :class:`DesCbc<snmp.security.usm.priv.DesCbc>`
+- :class:`CiscoAesCfb192<snmp.security.usm.cisco.priv.CiscoAesCfb192>`
+- :class:`CiscoAesCfb256<snmp.security.usm.cisco.priv.CiscoAesCfb256>`
+- :class:`EsoAesCfb192<snmp.security.usm.eso.priv.EsoAesCfb192>`
+- :class:`EsoAesCfb256<snmp.security.usm.eso.priv.EsoAesCfb256>`
