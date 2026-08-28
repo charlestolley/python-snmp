@@ -131,7 +131,7 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
       The `default` parameter sets the `user` as the default user name for new SNMPv3 Managers. The first user added to a new :class:`Engine` automatically becomes the default, but you can override this in any future :meth:`addUser` call by setting `default` to ``True``.
 
-      The :class:`Engine` also keeps track of the default security level for each user. By default, it select the highest available security level (e.g. if `authProtocol` is `HmacSha512`, but `privProtocol` is ``None``, the default security level will be ``authNoPriv``), but you can override this (with a lower security level only) using the `defaultSecurityLevel` parameter.
+      The :class:`Engine` also keeps track of the default security level for each user. By default, it selects the highest available security level (e.g. if `authProtocol` is `HmacSha512`, but `privProtocol` is ``None``, the default security level will be ``authNoPriv``), but you can override this (with a lower security level only) using the `defaultSecurityLevel` parameter.
 
       Namespaces
       ----------
