@@ -61,17 +61,17 @@ bit key would require a standard mechanism for key extension. In lieu of this
 standard mechanism, SNMP implementors have adopted the mechanisms from some of
 the rejected drafts that preceded the standard. The
 :class:`CiscoAesCfb192<snmp.security.usm.cisco.priv.CiscoAesCfb192>` and
-:class:`EsoAesCfb192<snmp.security.usm.eso.priv.EsoAesCfb192>` algorithms
-and the :class:`CiscoAesCfb256<snmp.security.usm.cisco.priv.CiscoAesCfb256>` and
-:class:`EsoAesCfb256<snmp.security.usm.eso.priv.EsoAesCfb256>` algorithms
-are incompatible when paired with one of these algorithsm
-(:class:`HmacMd5<snmp.security.usm.auth.HmacMd5>` or
-:class:`HmacSha<snmp.security.usm.auth.HmacSha>`). However, when paired with an
-authentication algorithm that produces sufficiently long output (such as
-:class:`HmacSha224<snmp.security.usm.auth.HmacSha224>` for AES-192, and
-:class:`HmacSha256<snmp.security.usm.auth.HmacSha256>` for AES-256), the
-:mod:`eso<snmp.security.usm.eso.priv>` and
-:mod:`cisco<snmp.security.usm.cisco.priv>` classes are interchangeable.
+:class:`CiscoAesCfb256<snmp.security.usm.cisco.priv.CiscoAesCfb256>` classes
+use a key extension algorithm proposed by David Reeder and Olafur Gudmundsson,
+while the :class:`EsoAesCfb192<snmp.security.usm.eso.priv.EsoAesCfb192>` and
+:class:`EsoAesCfb256<snmp.security.usm.eso.priv.EsoAesCfb256>` classes use a
+different key extension algorithm, proposed by U. Blumenthal, F. Maino, and K.
+McCloghrie.
+
+When paired with an authentication algorithm that produces sufficiently long
+output (i.e. at least :class:`HmacSha224<snmp.security.usm.auth.HmacSha224>`
+for AES-192, and :class:`HmacSha256<snmp.security.usm.auth.HmacSha256>` for
+AES-256), the ``Cisco*`` and ``Eso*`` classes are interchangeable.
 
 .. module:: snmp.security.usm.cisco.priv
 
