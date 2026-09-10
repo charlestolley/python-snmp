@@ -127,9 +127,7 @@ class SNMPv2cRequestAdmin:
 
         return handle
 
-    def hear(self, data, channel):
-        message = Message.decodeExact(data, types=pduTypes)
-
+    def hear(self, message, channel):
         try:
             reference, community = self.outstanding[message.pdu.requestID]
         except KeyError as err:

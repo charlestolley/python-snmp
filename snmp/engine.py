@@ -12,6 +12,7 @@ from snmp.v1.manager import *
 from snmp.v1.requests import *
 from snmp.v2c.manager import *
 from snmp.v2c.requests import *
+from snmp.v2c.sorter import *
 from snmp.v3.interpreter import *
 from snmp.v3.manager import *
 
@@ -44,7 +45,10 @@ class GenericEngine:
         self.scheduler = scheduler
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
+
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
+        self.v2c_sorter = SNMPv2cMessageSorter()
+        self.v2c_sorter.register(ResponsePDU, self.v2c_admin)
 
         self.usm = UserBasedSecurityModule()
         self.v3_sorter = SNMPv3MessageSorter(SNMPv3Interpreter(self.usm))
@@ -55,7 +59,7 @@ class GenericEngine:
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder, verbose=verboseLogging)
         self.decoder.register(ProtocolVersion.SNMPv1, self.v1_admin)
-        self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
+        self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_sorter)
         self.decoder.register(ProtocolVersion.SNMPv3, self.v3_sorter)
 
         self.transports = {}
