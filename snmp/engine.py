@@ -1,6 +1,6 @@
 from snmp.exception import *
 from snmp.message import ProtocolVersion
-from snmp.pdu import ReportPDU, ResponsePDU
+from snmp.pdu import ReportPDU, ResponsePDU, SNMPv2TrapPDU
 from snmp.pipeline import *
 from snmp.requests import RequestPoller
 from snmp.scheduler import Scheduler
@@ -13,8 +13,10 @@ from snmp.v1.requests import *
 from snmp.v2c.manager import *
 from snmp.v2c.requests import *
 from snmp.v2c.sorter import *
+from snmp.v2c.traps import *
 from snmp.v3.interpreter import *
 from snmp.v3.manager import *
+from snmp.v3.traps import *
 
 class NoDefaultUser(SNMPException):
     pass
@@ -49,18 +51,28 @@ class GenericEngine:
             ReceiveAddressFilter(self.v1_admin, verbose=verboseLogging)
 
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
+        self.v2c_trap_decoder = SNMPv2cTrapDecoder()
         self.v2c_response_filter = \
             ReceiveAddressFilter(self.v2c_admin, verbose=verboseLogging)
+        self.v2c_trap_filter = \
+            ReceiveAddressFilter(self.v2c_trap_decoder, verbose=verboseLogging)
+
         self.v2c_sorter = SNMPv2cMessageSorter()
         self.v2c_sorter.register(ResponsePDU, self.v2c_response_filter)
+        self.v2c_sorter.register(SNMPv2TrapPDU, self.v2c_trap_filter)
+
+        self.v3_table = SNMPv3MessageTable()
+        self.v3_trap_decoder = SNMPv3TrapDecoder()
+        self.v3_response_filter = \
+            ReceiveAddressFilter(self.v3_table, verbose=verboseLogging)
+        self.v3_trap_filter = \
+            ReceiveAddressFilter(self.v3_trap_decoder, verbose=verboseLogging)
 
         self.usm = UserBasedSecurityModule()
         self.v3_sorter = SNMPv3MessageSorter(SNMPv3Interpreter(self.usm))
-        self.v3_table = SNMPv3MessageTable()
-        self.v3_response_filter = \
-            ReceiveAddressFilter(self.v3_table, verbose=verboseLogging)
         self.v3_sorter.register(ReportPDU, self.v3_response_filter)
         self.v3_sorter.register(ResponsePDU, self.v3_response_filter)
+        self.v3_sorter.register(SNMPv2TrapPDU, self.v3_trap_filter)
 
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder, verbose=verboseLogging)
@@ -237,6 +249,14 @@ class GenericEngine:
             autowait=autowait,
         )
 
+    def resolveVersion(self, version):
+        if version is None:
+            version = self.defaultVersion
+        elif not isinstance(version, ProtocolVersion):
+            version = ProtocolVersion(version)
+
+        return version
+
     def Manager(self,
         address,
         version = None,
@@ -246,11 +266,7 @@ class GenericEngine:
         autowait = None,
         **kwargs,
     ):
-        if version is None:
-            version = self.defaultVersion
-        elif not isinstance(version, ProtocolVersion):
-            version = ProtocolVersion(version)
-
+        version = self.resolveVersion(version)
         tc = self.selectTransportClass(domain)
         address = tc.normalizeAddress(address, AddressUsage.LISTENER)
         localAddress = tc.normalizeAddress(localAddress)
@@ -268,6 +284,31 @@ class GenericEngine:
             return self.v1Manager(channel, autowait, **kwargs)
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")
+
+    def setTrapHandler(self,
+        handler,
+        version=None,
+        domain=None,
+        address=None,
+        mtu=None,
+    ):
+        version = self.resolveVersion(version)
+        if version == ProtocolVersion.SNMPv3:
+            trap_decoder = self.v3_trap_decoder
+            trap_filter = self.v3_trap_filter
+        elif version == ProtocolVersion.SNMPv2c:
+            trap_decoder = self.v2c_trap_decoder
+            trap_filter = self.v2c_trap_filter
+        elif version == ProtocolVersion.SNMPv1:
+            raise ValueError(f"{typename(self)} does not support SNMPv1 traps")
+        else:
+            raise ValueError(f"Unsupported protocol version: {str(version)}")
+
+        tc = self.selectTransportClass(domain)
+        address = tc.normalizeAddress(address, AddressUsage.TRAP_LISTENER)
+        transport = self.findOrCreateTransport(tc, address, mtu=mtu)
+        trap_decoder.setHandler(handler)
+        trap_filter.allow(transport)
 
 class Engine(GenericEngine):
     def __init__(self, *args, **kwargs):
