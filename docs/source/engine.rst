@@ -133,6 +133,8 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
       The :class:`Engine` also keeps track of the default security level for each user. By default, it selects the highest available security level (e.g. if `authProtocol` is `HmacSha512`, but `privProtocol` is ``None``, the default security level will be ``authNoPriv``), but you can override this (with a lower security level only) using the `defaultSecurityLevel` parameter.
 
+      .. _namespaces:
+
       Namespaces
       ----------
 
@@ -222,6 +224,97 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
 
       The `community` parameter sets the default community name for all request methods. The default for this parameter is to use the `defaultCommunity` from the :class:`Engine` constructor.
 
+   .. py:method:: TrapListener( \
+        version=None, \
+        domain=None, \
+        localAddress=None, \
+        mtu=None, \
+      ) -> TrapListener
+
+      .. warning::
+
+         This method does not allow positional arguments except for the
+         `version` parameter; all other arguments must be passed by keyword.
+         Any future changes to the ordering of these keyword-only parameters
+         will be considered non-breaking.
+
+      *New in version 1.4.*
+
+      Create a :class:`TrapListener` to :meth:`listen()<TrapListener.listen>`
+      for incoming SNMP Traps.
+
+      This method calls :meth:`setTrapHandler` internally to register the
+      TrapListener to receive traps for the selected SNMP `version` (or the
+      :class:`Engine`'s `defaultVersion`, if `version` is ``None``). If you
+      would like to receive both :data:`SNMPv2c` and :data:`SNMPv3` trap
+      messages, you can use :meth:`setTrapHandler` to enable the missing
+      version.
+
+      .. code-block:: python
+
+         traps = engine.TrapListener(SNMPv3)
+         engine.setTrapHandler(traps, SNMPv2c)
+
+      See :meth:`setTrapHandler` for an explanation of the `domain`,
+      `localAddress`, and `mtu` parameters.
+
+   .. py:method:: idle()
+
+      *New in version 1.4.*
+
+      This method simply waits for an I/O event, and then returns after the
+      event has been processed. Manager and TrapListener objects have their own
+      methods to wait for messages, so this is meant for applications that use
+      only :meth:`setTrapHandler`. Here's an example of how to use it:
+
+      .. code-block:: python
+
+         from pprint import pprint
+
+         from snmp import *
+         from snmp.security.usm.auth import *
+         from snmp.security.usm.priv import *
+
+         class TrapHandler:
+             def trap(self, vblist, **kwargs):
+                 print(vblist)
+                 pprint(kwargs)
+
+         engine = Engine()
+         engine.addUser(
+             "authPrivUser",
+             authProtocol=HmacSha,
+             privProtocol=DesCbc,
+             secret=b"mypassphrase",
+         )
+
+         handler = TrapHandler()
+         engine.setTrapHandler(handler)
+
+         while True:
+             print("Calling engine.idle()")
+             engine.idle()
+
+      Here's a sample of this program's output:
+
+      .. code-block:: console
+
+         Calling engine.idle()
+         1.3.6.1.2.1.1.3.0: TimeTicks(3859314)
+         1.3.6.1.6.3.1.1.4.1.0: 1.3.6.1.4.1.9.9.43.2.0.1
+         1.3.6.1.4.1.9.9.43.1.1.6.1.3.12: Integer32(1)
+         1.3.6.1.4.1.9.9.43.1.1.6.1.4.12: Integer32(2)
+         1.3.6.1.4.1.9.9.43.1.1.6.1.5.12: Integer32(3)
+         {'address': ('192.168.0.65', 58164),
+          'context': b'',
+          'domain': <TransportDomain.UDP_IPv4: (<AddressFamily.AF_INET: 2>, '127.0.0.1', '0.0.0.0')>,
+          'engineID': b'\x80\x00\x00\t\x03\x00\x00$\x13p\xb2\xc1',
+          'namespaces': {''},
+          'securityLevel': SecurityLevel(auth=True, priv=True),
+          'user': 'authPrivUser',
+          'version': <ProtocolVersion.SNMPv3: 3>}
+         Calling engine.idle()
+
    .. py:method:: poll(*handles: RequestHandle) -> RequestPoller
 
       *New in version 1.1.*
@@ -229,6 +322,53 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       Create a poller object to :meth:`wait()<RequestPoller.wait>` on multiple :class:`RequestHandle`\ s at once.
 
       If you provide one or more `handles` in the argument list, the call will :meth:`register()<RequestPoller.register>` them for you before returning the :class:`RequestPoller` object.
+
+   .. py:method:: setTrapHandler( \
+         handler: SNMPv3TrapHandler, \
+         version=SNMPv3, \
+         domain=None, \
+         localAddress=None, \
+         mtu=None, \
+      )
+      setTrapHandler( \
+         handler: SNMPv2cTrapHandler, \
+         version=SNMPv2c, \
+         domain=None, \
+         localAddress=None, \
+         mtu=None, \
+      )
+
+      *New in version 1.4.*
+
+      Register a custom handler to accept incoming SNMP Traps. This handler
+      must implement the :class:`SnmpTrapHandler` interface.
+
+      Each call to :meth:`setTrapHandler` applies only to the specified
+      `version` (or the :class:`Engine`'s `defaultVersion`, if `version` is
+      ``None``), and only for the socket corresponding to the combination of
+      `domain` and `localAddress`. You may register the same handler under
+      multiple combinations of `version`, domain`, and `localAddress`, but if
+      you call :meth:`setTrapHandler` multiple times with the same `version`,
+      `domain`, and `localAddress`, each call will replace the previously
+      registered handler for that combination.
+
+      The possible values for `domain` are :data:`UDP_IPv4` and
+      :data:`UDP_IPv6`. The `localAddress` parameter accepts either a
+      :class:`str`, or a :class:`tuple[str, int]`, containing the network
+      address and port number. The default `localAddress` is
+      ``("0.0.0.0", 162)`` for :data:`UDP_IPv4`, and ``("::", 162)`` for
+      :data:`UDP_IPv6`.
+
+      The `mtu` parameter allows you to tell the :class:`Engine` about the
+      Maximum Transmission Unit size of the network interface that corresponds
+      to your selected `localAddress`, and is used by the underlying socket to
+      select the receive buffer size. The default value is ``1500``, which is
+      the maximum payload size of a standard Ethernet frame, and should be
+      suitable for nearly all use-cases. If you make multiple calls to
+      :meth:`TrapListener` or :meth:`setTrapHandler` using the same combination
+      of `domain` and `localAddress`, the `mtu` will be ignored after the first
+      call.
+
 
 .. module:: snmp.async_engine
 
@@ -292,5 +432,28 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       ) -> AsyncSNMPv1Manager
 
       See :meth:`Engine.Manager()<snmp.Engine.Manager>`. Note that this method does not support the `autowait` parameter.
+
+   .. py:method:: TrapListener( \
+        version=None, \
+        domain=None, \
+        localAddress=None, \
+        mtu=None, \
+      ) -> AsyncTrapListener
+
+      *New in version 1.4.*
+
+      See :meth:`Engine.TrapListener()<snmp.Engine.TrapListener>`.
+
+   .. py:method:: setTrapHandler( \
+        handler, \
+        version=None, \
+        domain=None, \
+        localAddress=None, \
+        mtu=None, \
+      )
+
+      *New in version 1.4.*
+
+      See :meth:`Engine.setTrapHandler()<snmp.Engine.setTrapHandler>`.
 
 .. _Factory Method: https://en.wikipedia.org/wiki/Factory_method_pattern

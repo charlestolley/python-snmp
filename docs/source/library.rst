@@ -6,6 +6,7 @@
 
    engine
    manager
+   traps
    exceptions
    smi
    security

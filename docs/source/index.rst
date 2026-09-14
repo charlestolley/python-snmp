@@ -23,8 +23,8 @@ See the :doc:`installation` section for advanced options.
 Examples
 --------
 
-SNMPv3 Example
-**************
+SNMPv3 Manager Example
+**********************
 
 .. note::
 
@@ -91,8 +91,87 @@ This example can also be written in the async/await style, using an
    loop = asyncio.get_event_loop()
    loop.run_until_complete(main(localhost))
 
-SNMPv1/SNMPv2c Example
-**********************
+SNMPv3 Trap Example
+*******************
+
+.. code-block:: python
+
+   from snmp import *
+   from snmp.security.usm.auth import *
+   from snmp.security.usm.priv import *
+
+   engine = Engine()
+   engine.addUser(
+       "authPrivUser",
+       authProtocol=HmacSha,
+       privProtocol=DesCbc,
+       secret=b"mypassphrase",
+   )
+
+   traps = engine.TrapListener()
+
+   while True:
+       vblist, kwargs = traps.listen()
+
+       print("\"{}\" received {} {} trap from {}".format(
+           kwargs["user"],
+           "an" if kwargs["securityLevel"].auth else "a",
+           kwargs["securityLevel"],
+           kwargs["address"][0],
+       ))
+
+       print(vblist)
+
+When this program receives an SNMP Trap, it prints it out like this:
+
+.. code-block:: console
+
+   "authPrivUser" received an authPriv trap from 192.168.0.65
+   1.3.6.1.2.1.1.3.0: TimeTicks(2413641)
+   1.3.6.1.6.3.1.1.4.1.0: 1.3.6.1.4.1.9.9.43.2.0.1
+   1.3.6.1.4.1.9.9.43.1.1.6.1.3.10: Integer32(1)
+   1.3.6.1.4.1.9.9.43.1.1.6.1.4.10: Integer32(2)
+   1.3.6.1.4.1.9.9.43.1.1.6.1.5.10: Integer32(3)
+
+Here's an equivalent program using the
+:class:`AsyncEngine<snmp.async_engine.AsyncEngine>`:
+
+.. code-block:: python
+
+   import asyncio
+
+   from snmp.async_engine import AsyncEngine
+   from snmp.security.usm.auth import *
+   from snmp.security.usm.priv import *
+
+   async def main(engine):
+       traps = engine.TrapListener()
+
+       while True:
+           vblist, kwargs = await traps.listen()
+
+           print("\"{}\" received {} {} trap from {}".format(
+               kwargs["user"],
+               "an" if kwargs["securityLevel"].auth else "a",
+               kwargs["securityLevel"],
+               kwargs["address"][0],
+           ))
+
+           print(vblist)
+
+   engine = AsyncEngine()
+   engine.addUser(
+       "authPrivUser",
+       authProtocol=HmacSha,
+       privProtocol=DesCbc,
+       secret=b"mypassphrase",
+   )
+
+   loop = asyncio.get_event_loop()
+   loop.run_until_complete(main(engine))
+
+SNMPv1/SNMPv2c Manager Example
+******************************
 
 .. note::
 
@@ -134,6 +213,65 @@ This example can also be written in the async/await style, using an
 
    loop = asyncio.get_event_loop()
    loop.run_until_complete(main(localhost))
+
+SNMPv2c Trap Example
+********************
+
+.. code-block:: python
+
+   from snmp import *
+
+   engine = Engine(SNMPv2c)
+   traps = engine.TrapListener()
+
+   while True:
+       vblist, kwargs = traps.listen()
+
+       print("Received a trap from {} for {}".format(
+           kwargs["address"][0],
+           kwargs["community"],
+       ))
+
+       print(vblist)
+
+When this program receives an SNMP Trap, it prints it out like this:
+
+.. code-block:: console
+
+   Received a trap from 192.168.0.65 for b'public'
+   1.3.6.1.2.1.1.3.0: TimeTicks(2413641)
+   1.3.6.1.6.3.1.1.4.1.0: 1.3.6.1.4.1.9.9.43.2.0.1
+   1.3.6.1.4.1.9.9.43.1.1.6.1.3.10: Integer32(1)
+   1.3.6.1.4.1.9.9.43.1.1.6.1.4.10: Integer32(2)
+   1.3.6.1.4.1.9.9.43.1.1.6.1.5.10: Integer32(3)
+
+Here's an equivalent program using the
+:class:`AsyncEngine<snmp.async_engine.AsyncEngine>`:
+
+.. code-block:: python
+
+   import asyncio
+
+   from snmp import *
+   from snmp.async_engine import AsyncEngine
+
+   async def main(engine):
+       traps = engine.TrapListener()
+
+       while True:
+           vblist, kwargs = await traps.listen()
+
+           print("Received a trap from {} for {}".format(
+               kwargs["address"][0],
+               kwargs["community"],
+           ))
+
+           print(vblist)
+
+   engine = AsyncEngine(SNMPv2c)
+
+   loop = asyncio.get_event_loop()
+   loop.run_until_complete(main(engine))
 
 .. toctree::
    :hidden:
