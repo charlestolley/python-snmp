@@ -240,6 +240,10 @@ It's difficult to give a good definition for the term "SNMP Engine." The importa
       loop = None, \
    )
 
+   .. warning::
+
+      This constructor does not allow positional arguments except for the `defaultVersion` parameter; all other arguments must be passed by keyword. Any future changes to the ordering of these keyword-only parameters will be considered non-breaking.
+
    *New in version 1.2.*
 
    This is an alternative implementation of the :class:`Engine<snmp.Engine>` class, supporting the the async/await style of programming. The API is nearly identical. The only differences are the addition of the `loop` parameter in the constructor, the absence of the `autowait` parameter in the constructor and in the :meth:`Manager` method, and the return type of the :meth:`Manager` method.
