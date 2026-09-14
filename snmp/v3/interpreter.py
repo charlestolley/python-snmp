@@ -21,6 +21,15 @@ class SNMPv3Interpreter:
     def encode(self, message):
         return self.usm.prepareOutgoing(message)
 
+    def flatten(self, message):
+        return {
+            "engineID": message.scopedPDU.contextEngineID,
+            "namespaces": message.securityName.namespaces,
+            "user": message.securityName.userName.decode(),
+            "securityLevel": message.header.flags.securityLevel,
+            "context": message.scopedPDU.contextName,
+        }
+
     def makeReport(self, message, *varbinds):
         return SNMPv3Message(
             HeaderData(

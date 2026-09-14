@@ -1,4 +1,4 @@
-__all__ = ["Catcher", "VersionDecoder", "ReceiveAddressFilter"]
+__all__ = ["Catcher", "VersionDecoder", "ReceiveAddressFilter", "TrapDecoder"]
 
 import logging
 import os
@@ -78,3 +78,39 @@ class ReceiveAddressFilter:
                 f"Ignoring message received on {address[0]}:{address[1]}:"
                 + os.linesep + str(message)
             )
+
+class TrapDecoder:
+    def __init__(self, interpreter, verbose=False):
+        self.handlers = {}
+        self.interpreter = interpreter
+        self.logger = logging.getLogger(__name__.split(".")[0])
+        self.verbose = verbose
+
+    def hear(self, message, channel):
+        transport = channel.transport
+
+        try:
+            handler = self.handlers[transport.DOMAIN][transport.address]
+        except KeyError:
+            if self.verbose:
+                address = transport.address
+                self.logger.info(
+                    f"Ignoring message received on {address[0]}:{address[1]}:"
+                    + os.linesep + str(message)
+                )
+        else:
+            vblist = self.interpreter.pdu(message).variableBindings
+            kwargs = self.interpreter.flatten(message)
+            kwargs["address"] = channel.address
+            kwargs["domain"] = transport.DOMAIN
+            kwargs["version"] = message.version
+
+            try:
+                handler.trap(vblist, **kwargs)
+            except Exception as exc:
+                self.logger.exception(exc)
+
+    def register(self, transport, handler):
+        domain = transport.DOMAIN
+        address = transport.address
+        self.handlers.setdefault(domain, dict())[address] = handler

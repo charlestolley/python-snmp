@@ -284,6 +284,10 @@ class SNMPv3Message:
         self.securityEngineID = securityEngineID
         self.securityName = securityName
 
+    @property
+    def version(self):
+        return ProtocolVersion.SNMPv3
+
     def __eq__(self, other):
         try:
             return (self.header == other.header
