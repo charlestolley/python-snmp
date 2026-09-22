@@ -1,6 +1,8 @@
+from collections import deque
+
 from snmp.exception import *
 from snmp.message import ProtocolVersion
-from snmp.pdu import ReportPDU, ResponsePDU
+from snmp.pdu import ReportPDU, ResponsePDU, SNMPv2TrapPDU
 from snmp.pipeline import *
 from snmp.requests import RequestPoller
 from snmp.scheduler import Scheduler
@@ -8,8 +10,10 @@ from snmp.security.levels import noAuthNoPriv
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
+from snmp.utils import typename
 from snmp.v1.manager import *
 from snmp.v1.requests import *
+from snmp.v2c.interpreter import *
 from snmp.v2c.manager import *
 from snmp.v2c.requests import *
 from snmp.v3.interpreter import *
@@ -44,18 +48,37 @@ class GenericEngine:
         self.scheduler = scheduler
 
         self.v1_admin = SNMPv1RequestAdmin(self.scheduler)
+        self.v1_filter = \
+            ReceiveAddressFilter(self.v1_admin, verbose=verboseLogging)
+
         self.v2c_admin = SNMPv2cRequestAdmin(self.scheduler)
+        self.v2c_response_filter = \
+            ReceiveAddressFilter(self.v2c_admin, verbose=verboseLogging)
+
+        self.v2c_interpreter = SNMPv2cInterpreter()
+        self.v2c_trap_decoder = \
+            TrapDecoder(self.v2c_interpreter, verbose=verboseLogging)
+        self.v2c_sorter = SNMPv2cMessageSorter(self.v2c_interpreter)
+        self.v2c_sorter.register(ResponsePDU, self.v2c_response_filter)
+        self.v2c_sorter.register(SNMPv2TrapPDU, self.v2c_trap_decoder)
+
+        self.v3_table = SNMPv3MessageTable()
+        self.v3_response_filter = \
+            ReceiveAddressFilter(self.v3_table, verbose=verboseLogging)
 
         self.usm = UserBasedSecurityModule()
-        self.v3_sorter = SNMPv3MessageSorter(SNMPv3Interpreter(self.usm))
-        self.v3_table = SNMPv3MessageTable()
-        self.v3_sorter.register(ReportPDU, self.v3_table)
-        self.v3_sorter.register(ResponsePDU, self.v3_table)
+        self.v3_interpreter = SNMPv3Interpreter(self.usm)
+        self.v3_trap_decoder = \
+            TrapDecoder(self.v3_interpreter, verbose=verboseLogging)
+        self.v3_sorter = SNMPv3MessageSorter(self.v3_interpreter)
+        self.v3_sorter.register(ReportPDU, self.v3_response_filter)
+        self.v3_sorter.register(ResponsePDU, self.v3_response_filter)
+        self.v3_sorter.register(SNMPv2TrapPDU, self.v3_trap_decoder)
 
         self.decoder = VersionDecoder()
         self.pipeline = Catcher(self.decoder, verbose=verboseLogging)
-        self.decoder.register(ProtocolVersion.SNMPv1, self.v1_admin)
-        self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_admin)
+        self.decoder.register(ProtocolVersion.SNMPv1, self.v1_filter)
+        self.decoder.register(ProtocolVersion.SNMPv2c, self.v2c_sorter)
         self.decoder.register(ProtocolVersion.SNMPv3, self.v3_sorter)
 
         self.transports = {}
@@ -90,42 +113,36 @@ class GenericEngine:
             defaultSecurityLevel,
         )
 
-    def createChannel(self, domain, address, localAddress, mtu):
+    def selectTransportClass(self, domain):
+        if domain is None:
+            domain = self.defaultDomain
+
         try:
-            transportClass = self.TRANSPORTS[domain]
+            return self.TRANSPORTS[domain]
         except KeyError as err:
             errmsg = f"Unsupported transport domain: {domain}"
             raise ValueError(errmsg) from err
 
-        address = transportClass.normalizeAddress(
-            address,
-            AddressUsage.LISTENER,
-        )
-
-        localAddress = transportClass.normalizeAddress(localAddress)
-
+    def findOrCreateTransport(self, cls, address, mtu=None):
         try:
-            transports = self.transports[domain]
+            return self.transports[cls.DOMAIN][address]
         except KeyError:
-            transports = {}
-            self.transports[domain] = transports
+            pass
 
-        try:
-            transport = transports[localAddress]
-        except KeyError:
-            if mtu is None:
-                transport = transportClass(*localAddress)
-            else:
-                transport = transportClass(*localAddress, mtu=mtu)
+        if mtu is None:
+            transport = cls(*address)
+        else:
+            transport = cls(*address, mtu=mtu)
 
-            self.multiplexor.register(transport, self.pipeline)
-            transports[localAddress] = transport
-
-        return TransportChannel(transport, address)
+        self.multiplexor.register(transport, self.pipeline)
+        self.transports.setdefault(cls.DOMAIN, dict())[address] = transport
+        return transport
 
     def v1Manager(self, channel, autowait, community = None):
         if community is None:
             community = self.defaultCommunity
+
+        self.v1_filter.allow(channel.transport)
 
         return SNMPv1Manager(
             self.v1_admin,
@@ -137,6 +154,8 @@ class GenericEngine:
     def v2cManager(self, channel, autowait, community = None):
         if community is None:
             community = self.defaultCommunity
+
+        self.v2c_response_filter.allow(channel.transport)
 
         return SNMPv2cManager(
             self.v2c_admin,
@@ -217,6 +236,7 @@ class GenericEngine:
 
                 raise ValueError(errmsg)
 
+        self.v3_response_filter.allow(channel.transport)
 
         return SNMPv3Manager(
             self.scheduler,
@@ -230,6 +250,14 @@ class GenericEngine:
             autowait=autowait,
         )
 
+    def resolveVersion(self, version):
+        if version is None:
+            version = self.defaultVersion
+        elif not isinstance(version, ProtocolVersion):
+            version = ProtocolVersion(version)
+
+        return version
+
     def Manager(self,
         address,
         version = None,
@@ -239,15 +267,12 @@ class GenericEngine:
         autowait = None,
         **kwargs,
     ):
-        if version is None:
-            version = self.defaultVersion
-        elif not isinstance(version, ProtocolVersion):
-            version = ProtocolVersion(version)
-
-        if domain is None:
-            domain = self.defaultDomain
-
-        channel = self.createChannel(domain, address, localAddress, mtu)
+        version = self.resolveVersion(version)
+        tc = self.selectTransportClass(domain)
+        address = tc.normalizeAddress(address, AddressUsage.LISTENER)
+        localAddress = tc.normalizeAddress(localAddress)
+        transport = self.findOrCreateTransport(tc, localAddress, mtu=mtu)
+        channel = TransportChannel(transport, address)
 
         if autowait is None:
             autowait = self.autowaitDefault
@@ -261,6 +286,52 @@ class GenericEngine:
         else:
             raise ValueError(f"Unsupported protocol version: {str(version)}")
 
+    def setTrapHandler(self,
+        handler,
+        version=None,
+        domain=None,
+        localAddress=None,
+        mtu=None,
+    ):
+        version = self.resolveVersion(version)
+        if version == ProtocolVersion.SNMPv3:
+            trap_decoder = self.v3_trap_decoder
+        elif version == ProtocolVersion.SNMPv2c:
+            trap_decoder = self.v2c_trap_decoder
+        elif version == ProtocolVersion.SNMPv1:
+            raise ValueError(f"{typename(self)} does not support SNMPv1 traps")
+        else:
+            raise ValueError(f"Unsupported protocol version: {str(version)}")
+
+        tc = self.selectTransportClass(domain)
+        address = tc.normalizeAddress(localAddress, AddressUsage.TRAP_LISTENER)
+        transport = self.findOrCreateTransport(tc, address, mtu=mtu)
+        trap_decoder.register(transport, handler)
+
+    def TrapListener(self,
+        version=None,
+        domain=None,
+        localAddress=None,
+        mtu=None,
+    ):
+        listener = self.newTrapListener()
+        self.setTrapHandler(listener, version, domain, localAddress, mtu)
+        return listener
+
+class TrapListener:
+    def __init__(self, sleep_function):
+        self.queue = deque()
+        self.sleep = sleep_function
+
+    def trap(self, vblist, **kwargs):
+        self.queue.append((vblist, kwargs))
+
+    def listen(self):
+        while len(self.queue) == 0:
+            self.sleep()
+
+        return self.queue.popleft()
+
 class Engine(GenericEngine):
     def __init__(self, *args, **kwargs):
         try:
@@ -270,6 +341,15 @@ class Engine(GenericEngine):
 
         scheduler = Scheduler(multiplexor.poll)
         super().__init__(multiplexor, scheduler, *args, **kwargs)
+
+    def newTrapListener(self):
+        return TrapListener(self.idle)
+
+    def idle(self):
+        if self.scheduler:
+            self.scheduler.wait()
+        else:
+            self.multiplexor.poll()
 
     def poll(self, *handles):
         poller = RequestPoller(self.scheduler)

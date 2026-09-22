@@ -69,6 +69,17 @@ class AsyncManager:
         handle = self.manager.set(*args, **kwargs)
         return await handle
 
+class AsyncTrapListener:
+    def __init__(self):
+        asyncio = importlib.import_module("asyncio")
+        self.queue = asyncio.Queue()
+
+    def trap(self, vblist, **kwargs):
+        self.queue.put_nowait((vblist, kwargs))
+
+    async def listen(self):
+        return await self.queue.get()
+
 class AsyncEngine(GenericEngine):
     def __init__(self, *args, loop=None, **kwargs):
         forbidKeywordArgument("__init__", "autowait", kwargs)
@@ -89,3 +100,6 @@ class AsyncEngine(GenericEngine):
         forbidKeywordArgument("Manager", "autowait", kwargs)
         manager = super().Manager(*args, **kwargs)
         return AsyncManager(manager)
+
+    def newTrapListener(self):
+        return AsyncTrapListener()

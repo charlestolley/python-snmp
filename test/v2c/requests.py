@@ -139,7 +139,7 @@ class SNMPv2cRequestAdminTest(unittest.TestCase):
             IncomingMessageError,
             "[Rr]equest\s*ID",
             self.admin.hear,
-            message.encode(),
+            message,
             None,
         )
 
@@ -165,7 +165,7 @@ class SNMPv2cRequestAdminTest(unittest.TestCase):
             IncomingMessageError,
             "[Cc]ommunity",
             self.admin.hear,
-            message.encode(),
+            message,
             None,
         )
 

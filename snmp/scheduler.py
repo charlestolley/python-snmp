@@ -80,6 +80,9 @@ class Scheduler:
         self.time = time_function
         self.upcoming = []
 
+    def __bool__(self):
+        return bool(self.upcoming)
+
     def createFuture(self):
         return Future(self)
 

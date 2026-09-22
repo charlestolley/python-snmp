@@ -13,6 +13,8 @@ from snmp.transport import TransportDomain
 from test.security.usm import DummyAuthProtocol, DummyPrivProtocol
 
 class FakeUdpIPv4Socket:
+    DOMAIN = TransportDomain.UDP_IPv4
+
     def __init__(self, *args, mtu=9423116, **kwargs):
         self.address = None
         self.data = None
@@ -27,6 +29,8 @@ class FakeUdpIPv4Socket:
         self.data = data
 
 class FakeUdpIPv6Socket:
+    DOMAIN = TransportDomain.UDP_IPv6
+
     def __init__(self, *args, **kwargs):
         pass
 

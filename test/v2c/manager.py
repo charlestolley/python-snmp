@@ -72,7 +72,7 @@ class SNMPv2cManagerTest(unittest.TestCase):
                     message = Message(msg.version, msg.community, response)
 
                     if self.listener is not None:
-                        self.listener.hear(message.encode(), None)
+                        self.listener.hear(message, None)
 
                     self.response = None
                     self.msgCount = 0

@@ -1,4 +1,4 @@
-__all__ = ["Catcher", "VersionDecoder"]
+__all__ = ["Catcher", "VersionDecoder", "ReceiveAddressFilter", "TrapDecoder"]
 
 import logging
 import os
@@ -52,3 +52,65 @@ class VersionDecoder:
     def register(self, version, listener):
         registered = self.listeners.setdefault(version, listener)
         return registered is listener
+
+class ReceiveAddressFilter:
+    def __init__(self, listener, verbose=False):
+        self.allowed = {}
+        self.listener = listener
+        self.logger = logging.getLogger(__name__.split(".")[0])
+        self.verbose = verbose
+
+    def allow(self, transport):
+        self.allowed.setdefault(transport.DOMAIN, set()).add(transport.address)
+
+    def hear(self, message, channel):
+        try:
+            allowed = self.allowed[channel.transport.DOMAIN]
+        except KeyError:
+            pass
+        else:
+            if channel.transport.address in allowed:
+                return self.listener.hear(message, channel)
+
+        if self.verbose:
+            address = channel.transport.address
+            self.logger.info(
+                f"Ignoring message received on {address[0]}:{address[1]}:"
+                + os.linesep + str(message)
+            )
+
+class TrapDecoder:
+    def __init__(self, interpreter, verbose=False):
+        self.handlers = {}
+        self.interpreter = interpreter
+        self.logger = logging.getLogger(__name__.split(".")[0])
+        self.verbose = verbose
+
+    def hear(self, message, channel):
+        transport = channel.transport
+
+        try:
+            handler = self.handlers[transport.DOMAIN][transport.address]
+        except KeyError:
+            if self.verbose:
+                address = transport.address
+                self.logger.info(
+                    f"Ignoring message received on {address[0]}:{address[1]}:"
+                    + os.linesep + str(message)
+                )
+        else:
+            vblist = self.interpreter.pdu(message).variableBindings
+            kwargs = self.interpreter.flatten(message)
+            kwargs["address"] = channel.address
+            kwargs["domain"] = transport.DOMAIN
+            kwargs["version"] = message.version
+
+            try:
+                handler.trap(vblist, **kwargs)
+            except Exception as exc:
+                self.logger.exception(exc)
+
+    def register(self, transport, handler):
+        domain = transport.DOMAIN
+        address = transport.address
+        self.handlers.setdefault(domain, dict())[address] = handler
