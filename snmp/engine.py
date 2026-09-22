@@ -10,6 +10,7 @@ from snmp.security.levels import noAuthNoPriv
 from snmp.security.usm import *
 from snmp.transport import *
 from snmp.transport.udp import *
+from snmp.utils import typename
 from snmp.v1.manager import *
 from snmp.v1.requests import *
 from snmp.v2c.interpreter import *
