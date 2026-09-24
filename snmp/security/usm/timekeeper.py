@@ -28,6 +28,7 @@ class EngineTime:
         self.authenticated = False
         self.authoritative = authoritative
         self.latestBootTime = timestamp
+        self.latestReceived = 0
         self.snmpEngineBoots = snmpEngineBoots
 
     @property
@@ -62,14 +63,17 @@ class EngineTime:
     def update(self, timestamp, engineBoots, engineTime):
         if self.authenticated:
             if engineBoots == self.snmpEngineBoots:
-                if engineTime > self.snmpEngineTime(timestamp):
+                if engineTime > self.latestReceived:
                     self.setEngineTime(timestamp, engineTime)
+                    self.latestReceived = engineTime
             elif engineBoots > self.snmpEngineBoots:
                 self.snmpEngineBoots = engineBoots
                 self.setEngineTime(timestamp, engineTime)
+                self.latestReceived = engineTime
         else:
             self.snmpEngineBoots = engineBoots
             self.setEngineTime(timestamp, engineTime)
+            self.latestReceived = engineTime
             self.authenticated = True
 
     def verifyTimeliness(self, timestamp, msgBoots, msgTime):
