@@ -126,13 +126,23 @@ class RemoteEngineTimeTest(unittest.TestCase):
 
     def test_update_with_lesser_engineTime_does_not_change_calculation(self):
         self.et.update(
-            self.timestamp + 3.0,
+            self.timestamp + 1.0,
             self.engineBoots,
-            self.engineTime + 1,
+            self.engineTime - 1,
         )
 
         engineTime = self.et.snmpEngineTime(self.timestamp + 5.0)
         self.assertEqual(engineTime, self.engineTime + 5)
+
+    def test_update_with_slower_clock_updates_local_notion_of_time(self):
+        self.et.update(
+            self.timestamp + 4.0,
+            self.engineBoots,
+            self.engineTime + 3,
+        )
+
+        engineTime = self.et.snmpEngineTime(self.timestamp + 5.0)
+        self.assertEqual(engineTime, self.engineTime + 4)
 
     def test_update_picks_up_fractional_changes(self):
         self.et.update(
