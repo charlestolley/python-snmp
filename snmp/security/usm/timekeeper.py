@@ -64,7 +64,8 @@ class EngineTime:
         if self.authenticated:
             if engineBoots == self.snmpEngineBoots:
                 if engineTime > self.latestReceived:
-                    self.setEngineTime(timestamp, engineTime)
+                    if engineTime != self.snmpEngineTime(timestamp):
+                        self.setEngineTime(timestamp, engineTime)
                     self.latestReceived = engineTime
             elif engineBoots > self.snmpEngineBoots:
                 self.snmpEngineBoots = engineBoots
