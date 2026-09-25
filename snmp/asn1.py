@@ -252,8 +252,17 @@ class OBJECT_IDENTIFIER(Primitive):
 
         return self.subidentifiers == other.subidentifiers
 
+    def __le__(self, other):
+        return self.subidentifiers <= other.subidentifiers
+
     def __lt__(self, other):
         return self.subidentifiers < other.subidentifiers
+
+    def __ge__(self, other):
+        return self.subidentifiers >= other.subidentifiers
+
+    def __gt__(self, other):
+        return self.subidentifiers > other.subidentifiers
 
     def __getitem__(self, index):
         return self.subidentifiers.__getitem__(index)
