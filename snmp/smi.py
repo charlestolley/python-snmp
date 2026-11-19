@@ -29,9 +29,9 @@ class BoundedInteger(INTEGER):
             raise cls.DeserializeError(err.args[0])
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, data, **kwargs):
         value = int.from_bytes(data, cls.BYTEORDER, signed=cls.SIGNED)
-        return cls.construct(value)
+        return cls.construct(value, **kwargs)
 
     @classmethod
     def inRange(cls, value):
@@ -45,6 +45,16 @@ class BoundedInteger(INTEGER):
 class Integer32(BoundedInteger):
     BITS = 32
     SIGNED  = True
+
+    @classmethod
+    def construct(cls, value, strict=True):
+        try:
+            return super().construct(value)
+        except cls.DeserializeError:
+            if strict:
+                raise
+            else:
+                return INTEGER(value)
 
 class Unsigned32(BoundedInteger):
     BITS = 32
@@ -220,7 +230,11 @@ class VarBind(Sequence):
             errmsg = f"Invalid variable value type: {tag}"
             raise ParseError(errmsg, data) from err
 
-        return cls(name, valueType.decodeExact(data))
+        kwargs = {}
+        if valueType is Integer:
+            kwargs["strict"] = False
+
+        return cls(name, valueType.decodeExact(data, **kwargs))
 
 class VarBindList(Sequence):
     def __init__(self, *args, unpack=False):
