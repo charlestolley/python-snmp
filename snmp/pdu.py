@@ -43,6 +43,7 @@ class PDU(Constructed):
     NOTIFICATION_CLASS = False
     INTERNAL_CLASS = False
     CONFIRMED_CLASS = False
+    STRICT = True
 
     def __init__(self,
         *args,
@@ -90,7 +91,8 @@ class PDU(Constructed):
         return self.toString()
 
     def checkResponse(self, response):
-        if not self.validResponse(response.variableBindings):
+        if (not self.validResponse(response.variableBindings)
+        or not response.variableBindings.strict):
             raise ImproperResponse(response.variableBindings)
 
     def toString(self, depth = 0, tab = "    "):
@@ -120,11 +122,15 @@ class PDU(Constructed):
         )
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, data, strict = None):
+        if strict is None:
+            strict = cls.STRICT
+
         _requestID, errorStatusData     = Integer.decode(data)
         _errorStatus, errorIndexData    = Integer.decode(errorStatusData)
         _errorIndex, data               = Integer.decode(errorIndexData)
-        variableBindings                = VarBindList.decodeExact(data)
+
+        variableBindings = VarBindList.decodeExact(data, strict=strict)
 
         requestID = _requestID.value
         errorStatus = _errorStatus.value
@@ -216,7 +222,8 @@ class BulkPDU(Constructed):
         return self.toString()
 
     def checkResponse(self, response):
-        if not self.validResponse(response.variableBindings):
+        if (not self.validResponse(response.variableBindings)
+        or not response.variableBindings.strict):
             raise ImproperResponse(response.variableBindings)
 
     def toString(self, depth = 0, tab = "    "):
@@ -305,6 +312,7 @@ class GetNextRequestPDU(QueryPDU):
 
 class ResponsePDU(PDU):
     RESPONSE_CLASS = True
+    STRICT = False
     TAG = Tag(2, True, Tag.Class.CONTEXT_SPECIFIC)
 
     def checkErrorStatus(self, request):

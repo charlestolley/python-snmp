@@ -196,7 +196,7 @@ class VarBind(Sequence):
         )
     }
 
-    def __init__(self, name, value = None):
+    def __init__(self, name, value = None, strict = True):
         if not isinstance(name, OID):
             name = OID.parse(name)
 
@@ -205,6 +205,7 @@ class VarBind(Sequence):
 
         self.name = name
         self.value = value
+        self.strict = strict
 
     def __iter__(self):
         yield self.name
@@ -220,7 +221,7 @@ class VarBind(Sequence):
         return f"{self.name}: {self.value}"
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, data, strict = True):
         name, data = OID.decode(data)
         tag, _ = Tag.decode(data)
 
@@ -231,10 +232,12 @@ class VarBind(Sequence):
             raise ParseError(errmsg, data) from err
 
         kwargs = {}
-        if valueType is Integer:
-            kwargs["strict"] = False
+        if tag == Integer.TAG:
+            kwargs["strict"] = strict
+        else:
+            strict = True
 
-        return cls(name, valueType.decodeExact(data, **kwargs))
+        return cls(name, valueType.decodeExact(data, **kwargs), strict=strict)
 
 class VarBindList(Sequence):
     def __init__(self, *args, unpack=False):
@@ -243,6 +246,10 @@ class VarBindList(Sequence):
             VarBind(*vb) if unpack else VarBind(vb)
             for vb in args
         )
+
+    @property
+    def strict(self):
+        return all((vb.strict for vb in self.variables))
 
     def __bool__(self):
         return bool(self.variables)
@@ -267,11 +274,27 @@ class VarBindList(Sequence):
         return lf.join(f"{indent}{var}" for var in self.variables)
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, data, strict = True):
         objects = []
 
         while data:
-            var, data = VarBind.decode(data)
+            try:
+                var, data = VarBind.decode(data)
+            except ParseError:
+                if strict:
+                    raise
+
+                try:
+                    var, data = VarBind.decode(data, strict=False)
+                except ParseError:
+                    # Exit this block and raise the original exception
+                    failed = True
+                else:
+                    failed = False
+
+                if failed:
+                    raise
+
             objects.append(var)
 
         return cls(*objects)
