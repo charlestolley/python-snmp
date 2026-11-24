@@ -165,6 +165,10 @@ class IntegerTypesTest(unittest.TestCase):
             b"\x46\x09\x01\x00\x00\x00\x00\x00\x00\x00\x00",
         )
 
+    def test_Unsigned32_tolerates_negative_twos_complement(self):
+        u = Unsigned32.decodeExact(b"\x42\x04\xff\xff\xff\xff")
+        self.assertEqual(u.value, 0xffffffff)
+
     def test_eval_repr_Integer32_is_the_same_type(self):
         self.assertIsInstance(eval(repr(Integer32(0))), Integer32)
 
