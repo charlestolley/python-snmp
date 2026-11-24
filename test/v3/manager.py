@@ -5,6 +5,7 @@ import unittest
 import weakref
 
 from snmp.exception import *
+from snmp.asn1 import INTEGER
 from snmp.smi import *
 from snmp.pdu import *
 from snmp.requests import *
@@ -195,6 +196,9 @@ class SNMPv3Manager3Test(unittest.TestCase):
             securityLevel = message.header.flags.securityLevel
 
         kwargs.setdefault("requestID", message.scopedPDU.pdu.requestID)
+        pdu = ResponsePDU.decodeExact(
+            ResponsePDU(*varbinds, **kwargs).encode()
+        )
 
         reply = SNMPv3Message(
             HeaderData(
@@ -204,7 +208,7 @@ class SNMPv3Manager3Test(unittest.TestCase):
                 message.header.securityModel,
             ),
             ScopedPDU(
-                ResponsePDU(*varbinds, **kwargs),
+                pdu,
                 message.scopedPDU.contextEngineID,
                 message.scopedPDU.contextName,
             ),
@@ -2278,6 +2282,20 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.assertRaises(ImproperResponse, handle.wait)
 
+    def test_get_handle_raises_ImproperResponse_for_out_of_range_INTEGER(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.get("1.2.3.4.5.6")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.2.3.4.5.6", INTEGER(1 << 31)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
     def test_get_request_ImproperResponse_contains_variableBindings(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
@@ -2359,6 +2377,20 @@ class SNMPv3Manager3Test(unittest.TestCase):
             message,
             VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
             VarBind("1.2.3.4.5.6", Integer(123456)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getNext_handle_ImproperResponse_for_out_of_range_INTEGER(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getNext("1.2.3.4.5.5")
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.2.3.4.5.6", INTEGER(1 << 31)),
         )
 
         self.assertRaises(ImproperResponse, handle.wait)
@@ -2484,6 +2516,23 @@ class SNMPv3Manager3Test(unittest.TestCase):
 
         self.assertRaises(ImproperResponse, handle.wait)
 
+    def test_set_handle_raises_ImproperResponse_for_out_of_range_INTEGER(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.set(
+            VarBind("1.2.3.4.5.6", INTEGER(1 << 31)),
+        )
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.2.3.4.5.6", INTEGER(1 << 31)),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
     def test_set_request_ImproperResponse_contains_variableBindings(self):
         pcap = self.connect(PacketCapture())
         manager = self.makeManager(authNoPriv, engineID=b"remote")
@@ -2581,6 +2630,21 @@ class SNMPv3Manager3Test(unittest.TestCase):
         self.respond(
             message,
             VarBind("1.3.6.1.2.1.1.1.0", OctetString(b"Test case")),
+        )
+
+        self.assertRaises(ImproperResponse, handle.wait)
+
+    def test_getBulk_handle_ImproperResponse_for_out_of_range_INTEGER(self):
+        pcap = self.connect(PacketCapture())
+        manager = self.makeManager(authNoPriv, engineID=b"remote")
+        handle = manager.getBulk("1.2.3.4.5.5")
+
+        self.assertEqual(len(pcap.messages), 1)
+        message = pcap.messages.pop()
+
+        self.respond(
+            message,
+            VarBind("1.2.3.4.5.6", INTEGER(1 << 31)),
         )
 
         self.assertRaises(ImproperResponse, handle.wait)
